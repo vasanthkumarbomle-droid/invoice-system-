@@ -116,9 +116,21 @@ export default function AuthGate({ children }) {
   const [org, setOrg] = useState(undefined)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data } = supabase.auth.onAuthStateChange((_event, s) => setSession(s))
-    return () => data.subscription.unsubscribe()
+    if (!supabase) {
+      setSession(null)
+      return undefined
+    }
+    let active = true
+    supabase.auth.getSession()
+      .then(({ data }) => { if (active) setSession(data.session) })
+      .catch(() => { if (active) setSession(null) })
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (active) setSession(nextSession)
+    })
+    return () => {
+      active = false
+      data.subscription.unsubscribe()
+    }
   }, [])
 
   useEffect(() => {
@@ -128,6 +140,16 @@ export default function AuthGate({ children }) {
     }
     getMyOrg().then(setOrg).catch(() => setOrg(null))
   }, [session])
+
+  if (!supabase) {
+    return (
+      <Layout title="Connect LedgerFlow" subtitle="Supabase configuration is required before sign-in or cloud data can be used.">
+        <div className="auth-error" role="status">
+          Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY (or VITE_SUPABASE_ANON_KEY) to your local .env file, then restart the development server.
+        </div>
+      </Layout>
+    )
+  }
 
   if (session === undefined) return <div className="auth-loading">Loading...</div>
   if (!session) return <Login />
