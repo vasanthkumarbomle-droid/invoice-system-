@@ -1,9 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
-
-export const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-)
+import { supabase } from '../supabase.js'
+export { supabase }
 
 const must = ({ data, error }) => {
   if (error) throw new Error(error.message)
@@ -28,23 +24,23 @@ export const updateOrg = (id, patch) => supabase.from('organizations').update(pa
 export const listClients = (orgId) =>
   supabase.from('clients').select('*').eq('org_id', orgId).is('deleted_at', null).order('created_at', { ascending: false }).then(must)
 export const addClient = (orgId, c) => supabase.from('clients').insert({ ...c, org_id: orgId }).select().single().then(must)
-export const updateClient = (id, patch) => supabase.from('clients').update(patch).eq('id', id).select().single().then(must)
-export const deleteClient = (id) => supabase.from('clients').update({ deleted_at: new Date().toISOString() }).eq('id', id).then(must)
+export const updateClient = (orgId, id, patch) => supabase.from('clients').update(patch).eq('org_id', orgId).eq('id', id).select().single().then(must)
+export const deleteClient = (orgId, id) => supabase.from('clients').update({ deleted_at: new Date().toISOString() }).eq('org_id', orgId).eq('id', id).select('id').single().then(must)
 
 // ---------- Products ----------
 export const listProducts = (orgId) =>
   supabase.from('products').select('*').eq('org_id', orgId).is('deleted_at', null).order('created_at', { ascending: false }).then(must)
 export const addProduct = (orgId, p) => supabase.from('products').insert({ ...p, org_id: orgId }).select().single().then(must)
-export const updateProduct = (id, patch) => supabase.from('products').update(patch).eq('id', id).select().single().then(must)
-export const deleteProduct = (id) => supabase.from('products').update({ deleted_at: new Date().toISOString() }).eq('id', id).then(must)
+export const updateProduct = (orgId, id, patch) => supabase.from('products').update(patch).eq('org_id', orgId).eq('id', id).select().single().then(must)
+export const deleteProduct = (orgId, id) => supabase.from('products').update({ deleted_at: new Date().toISOString() }).eq('org_id', orgId).eq('id', id).select('id').single().then(must)
 export const findProductByBarcode = (orgId, barcode) =>
   supabase.from('products').select('*').eq('org_id', orgId).eq('barcode', barcode).is('deleted_at', null).maybeSingle().then(must)
 
 // ---------- Invoices ----------
 export const listInvoices = (orgId) =>
   supabase.from('invoices').select('*, clients(name, email)').eq('org_id', orgId).order('created_at', { ascending: false }).then(must)
-export const getInvoice = (id) =>
-  supabase.from('invoices').select('*, clients(*), invoice_items(*), payments(*)').eq('id', id).single().then(must)
+export const getInvoice = (orgId, id) =>
+  supabase.from('invoices').select('*, clients(*), invoice_items(*), payments(*)').eq('org_id', orgId).eq('id', id).single().then(must)
 
 // items: [{ product_id, description, hsn_sac, unit, quantity, unit_price, discount_pct, gst_rate }]
 // Totals, GST split, number and status are all calculated by the database.
@@ -54,9 +50,9 @@ export const createInvoice = async (orgId, clientId, dueDate, items, notes = nul
     .select().single().then(must)
   const rows = items.map((it, i) => ({ ...it, invoice_id: inv.id, org_id: orgId, position: i }))
   await supabase.from('invoice_items').insert(rows).then(must)
-  return getInvoice(inv.id)
+  return getInvoice(orgId, inv.id)
 }
-export const cancelInvoice = (id) => supabase.from('invoices').update({ status: 'cancelled' }).eq('id', id).then(must)
+export const cancelInvoice = (orgId, id) => supabase.from('invoices').update({ status: 'cancelled' }).eq('org_id', orgId).eq('id', id).select('id').single().then(must)
 
 // ---------- Payments ----------
 export const listPayments = (orgId) =>
@@ -67,17 +63,17 @@ export const recordPayment = (invoiceId, amount, method = 'upi', reference = nul
 // ---------- Quotations ----------
 export const listQuotations = (orgId) =>
   supabase.from('quotations').select('*, clients(name, email)').eq('org_id', orgId).order('created_at', { ascending: false }).then(must)
-export const getQuotation = (id) =>
-  supabase.from('quotations').select('*, clients(*), quotation_items(*)').eq('id', id).single().then(must)
+export const getQuotation = (orgId, id) =>
+  supabase.from('quotations').select('*, clients(*), quotation_items(*)').eq('org_id', orgId).eq('id', id).single().then(must)
 export const createQuotation = async (orgId, clientId, validUntil, items, notes = null) => {
   const q = await supabase.from('quotations')
     .insert({ org_id: orgId, client_id: clientId, valid_until: validUntil, notes })
     .select().single().then(must)
   const rows = items.map((it, i) => ({ ...it, quotation_id: q.id, org_id: orgId, position: i }))
   await supabase.from('quotation_items').insert(rows).then(must)
-  return getQuotation(q.id)
+  return getQuotation(orgId, q.id)
 }
-export const setQuotationStatus = (id, status) => supabase.from('quotations').update({ status }).eq('id', id).then(must)
+export const setQuotationStatus = (orgId, id, status) => supabase.from('quotations').update({ status }).eq('org_id', orgId).eq('id', id).select('id').single().then(must)
 export const convertQuotation = (id, dueDate = null) =>
   supabase.rpc('convert_quotation_to_invoice', { p_quote_id: id, p_due_date: dueDate }).then(must)
 
@@ -99,8 +95,8 @@ export const saveInvoice = async (orgId, inv, items) => {
   let id = inv.id
   const fields = { client_id: inv.client_id, issue_date: inv.issue_date, due_date: inv.due_date, status: inv.status, notes: inv.notes }
   if (id) {
-    await supabase.from('invoices').update(fields).eq('id', id).then(must)
-    await supabase.from('invoice_items').delete().eq('invoice_id', id).then(must)
+    await supabase.from('invoices').update(fields).eq('org_id', orgId).eq('id', id).select('id').single().then(must)
+    await supabase.from('invoice_items').delete().eq('org_id', orgId).eq('invoice_id', id).then(must)
   } else {
     const row = await supabase.from('invoices').insert({ ...fields, org_id: orgId }).select().single().then(must)
     id = row.id
@@ -111,10 +107,10 @@ export const saveInvoice = async (orgId, inv, items) => {
   return id
 }
 
-export const deleteInvoice = (id) => supabase.from('invoices').delete().eq('id', id).then(must)
+export const deleteInvoice = (orgId, id) => supabase.from('invoices').delete().eq('org_id', orgId).eq('id', id).select('id').single().then(must)
 
-export const recordPaymentFull = (invoiceId, amount, method, reference, paidAt) =>
-  supabase.from('payments').insert({ invoice_id: invoiceId, amount, method, reference, ...(paidAt ? { paid_at: paidAt } : {}) }).select().single().then(must)
+export const recordPaymentFull = (orgId, invoiceId, amount, method, reference, paidAt) =>
+  supabase.from('payments').insert({ org_id: orgId, invoice_id: invoiceId, amount, method, reference, ...(paidAt ? { paid_at: paidAt } : {}) }).select().single().then(must)
 
 export const listQuotationsFull = (orgId) =>
   supabase

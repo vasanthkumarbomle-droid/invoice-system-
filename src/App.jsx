@@ -30,7 +30,6 @@ import {
   Clock,
   Menu,
   HelpCircle,
-  RefreshCw,
   Eye,
   Receipt,
   FileDown
@@ -46,500 +45,10 @@ import {
   Legend
 } from 'recharts'
 import { Html5Qrcode } from 'html5-qrcode'
-import { isSupabaseConfigured, getSupabaseConfigStatus } from './supabase'
+import { isSupabaseConfigured } from './supabase'
 import './App.css'
 
 // ============================================================================
-// DEFAULT REALISTIC MOCK DATA (PERSISTED IN LOCALSTORAGE)
-// ============================================================================
-
-const INITIAL_COMPANY_PROFILE = {
-  companyName: 'Apex Enterprise Technologies Pvt Ltd',
-  tradeName: 'Apex Global Solutions',
-  gstin: '27AABCA1234F1Z9',
-  pan: 'AABCA1234F',
-  email: 'billing@apexenterprise.in',
-  phone: '+91 98200 12345',
-  address: 'Plot 42, Tech Park Central, MIDC Andheri East, Mumbai, Maharashtra - 400093',
-  website: 'https://apexenterprise.in',
-  invoicePrefix: 'INV-2026-',
-  quotationPrefix: 'QT-2026-',
-  defaultPaymentTerms: 'Net 15',
-  defaultGstRate: 18,
-  bankName: 'HDFC Bank Ltd',
-  accountHolder: 'Apex Enterprise Technologies Pvt Ltd',
-  accountNumber: '50200012345678',
-  ifscCode: 'HDFC0000123',
-  upiId: 'apexenterprise@hdfcbank',
-  notes: 'Payment is due within 15 days of invoice date. Interest @ 18% p.a. applicable on overdue invoices. Please quote invoice number during wire transfer.'
-}
-
-const INITIAL_CLIENTS = [
-  {
-    id: 'cli-1',
-    name: 'Reliance Tech Services Pvt Ltd',
-    contactPerson: 'Vikram Mehta',
-    email: 'accounts@reliancetech.com',
-    phone: '+91 98201 98765',
-    address: 'Maker Chambers IV, Nariman Point, Mumbai, MH - 400021',
-    gstin: '27AABCR1234F1Z5',
-    state: 'Maharashtra',
-    stateCode: '27',
-    totalBilled: 80240,
-    status: 'Active'
-  },
-  {
-    id: 'cli-2',
-    name: 'Tata Horizon Solutions',
-    contactPerson: 'Ananya Deshmukh',
-    email: 'procurement@tatahorizon.in',
-    phone: '+91 98110 54321',
-    address: 'Horizon Tech Park, Whitefield, Bengaluru, KA - 560066',
-    gstin: '29AABCT5678G1Z2',
-    state: 'Karnataka',
-    stateCode: '29',
-    totalBilled: 41300,
-    status: 'Active'
-  },
-  {
-    id: 'cli-3',
-    name: 'Infosys Digital Enterprise',
-    contactPerson: 'Rajesh Nair',
-    email: 'billing@infosysdigital.com',
-    phone: '+91 99400 67890',
-    address: 'Hinjawadi Phase 2, Pune, MH - 411057',
-    gstin: '27AABCI9012H1Z8',
-    state: 'Maharashtra',
-    stateCode: '27',
-    totalBilled: 73100,
-    status: 'Active'
-  },
-  {
-    id: 'cli-4',
-    name: 'Wipro Cloud Logistics',
-    contactPerson: 'Pooja Sundaram',
-    email: 'finance@wiprocloud.com',
-    phone: '+91 97300 23456',
-    address: 'Financial District, Gachibowli, Hyderabad, TS - 500032',
-    gstin: '36AABCW3456J1Z1',
-    state: 'Telangana',
-    stateCode: '36',
-    totalBilled: 124000,
-    status: 'Active'
-  },
-  {
-    id: 'cli-5',
-    name: 'Zenith Retail Systems',
-    contactPerson: 'Deepak Verma',
-    email: 'invoicing@zenithretail.in',
-    phone: '+91 98101 11223',
-    address: 'Barakhamba Road, Connaught Place, New Delhi, DL - 110001',
-    gstin: '07AABCZ7890K1Z4',
-    state: 'Delhi',
-    stateCode: '07',
-    totalBilled: 17700,
-    status: 'Active'
-  }
-]
-
-const INITIAL_PRODUCTS = [
-  {
-    id: 'prd-1',
-    name: 'Enterprise Cloud ERP License (Annual)',
-    sku: 'SFT-ERP-01',
-    barcode: '890103080001',
-    category: 'Software',
-    price: 45000,
-    gstRate: 18,
-    hsn: '997331',
-    stock: 99,
-    description: 'Single-tenant enterprise financial and workflow license valid for 12 months.'
-  },
-  {
-    id: 'prd-2',
-    name: 'Server Rack Cabinet 42U ServerPro',
-    sku: 'HRD-RCK-42',
-    barcode: '890103080002',
-    category: 'Hardware',
-    price: 28500,
-    gstRate: 18,
-    hsn: '853710',
-    stock: 14,
-    description: 'Standard 19-inch 42U server enclosure with heavy-duty cooling fan tray.'
-  },
-  {
-    id: 'prd-3',
-    name: 'High-Speed Optical Barcode Scanner 2D',
-    sku: 'HRD-SCN-2D',
-    barcode: '890103080003',
-    category: 'Hardware',
-    price: 4200,
-    gstRate: 18,
-    hsn: '847190',
-    stock: 45,
-    description: 'Rugged USB QR and 1D/2D handheld barcode scanner with auto-trigger stand.'
-  },
-  {
-    id: 'prd-4',
-    name: 'Security & Compliance Audit Service',
-    sku: 'SRV-SEC-01',
-    barcode: '890103080004',
-    category: 'Consulting',
-    price: 35000,
-    gstRate: 18,
-    hsn: '998315',
-    stock: 50,
-    description: 'Comprehensive financial IT security, ISO 27001, and SOC2 audit report.'
-  },
-  {
-    id: 'prd-5',
-    name: 'Thermal Receipt & Invoice Printer 80mm',
-    sku: 'HRD-PRT-80',
-    barcode: '890103080005',
-    category: 'Hardware',
-    price: 6800,
-    gstRate: 18,
-    hsn: '844332',
-    stock: 28,
-    description: 'Heavy duty thermal paper printer with ESC/POS support and auto-cutter.'
-  },
-  {
-    id: 'prd-6',
-    name: 'Custom Integration & Deployment Hours',
-    sku: 'SRV-INT-HR',
-    barcode: '890103080006',
-    category: 'Services',
-    price: 2500,
-    gstRate: 18,
-    hsn: '998314',
-    stock: 200,
-    description: 'Senior software engineering and database API consultation per engineering hour.'
-  }
-]
-
-const INITIAL_INVOICES = [
-  {
-    id: 'inv-1',
-    documentNumber: 'INV-2026-001',
-    type: 'invoice',
-    clientId: 'cli-1',
-    clientName: 'Reliance Tech Services Pvt Ltd',
-    clientEmail: 'accounts@reliancetech.com',
-    clientPhone: '+91 98201 98765',
-    clientAddress: 'Maker Chambers IV, Nariman Point, Mumbai, MH - 400021',
-    clientGstin: '27AABCR1234F1Z5',
-    issueDate: '2026-10-05',
-    dueDate: '2026-10-20',
-    paymentTerms: 'Net 15',
-    status: 'Paid',
-    items: [
-      {
-        id: 'item-1-1',
-        productId: 'prd-1',
-        description: 'Enterprise Cloud ERP License (Annual)',
-        sku: 'SFT-ERP-01',
-        quantity: 1,
-        unitPrice: 45000,
-        gstRate: 18,
-        subtotal: 45000,
-        taxAmount: 8100,
-        total: 53100
-      },
-      {
-        id: 'item-1-2',
-        productId: 'prd-2',
-        description: 'Server Rack Cabinet 42U ServerPro',
-        sku: 'HRD-RCK-42',
-        quantity: 1,
-        unitPrice: 23000,
-        gstRate: 18,
-        subtotal: 23000,
-        taxAmount: 4140,
-        total: 27140
-      }
-    ],
-    subtotal: 68000,
-    discountType: 'percentage',
-    discountValue: 0,
-    discountAmount: 0,
-    taxableAmount: 68000,
-    cgstAmount: 6120,
-    sgstAmount: 6120,
-    igstAmount: 0,
-    taxAmount: 12240,
-    grandTotal: 80240,
-    amountPaid: 80240,
-    balanceDue: 0,
-    notes: 'Thank you for your prompt business with Apex Enterprise.'
-  },
-  {
-    id: 'inv-2',
-    documentNumber: 'INV-2026-002',
-    type: 'invoice',
-    clientId: 'cli-2',
-    clientName: 'Tata Horizon Solutions',
-    clientEmail: 'procurement@tatahorizon.in',
-    clientPhone: '+91 98110 54321',
-    clientAddress: 'Horizon Tech Park, Whitefield, Bengaluru, KA - 560066',
-    clientGstin: '29AABCT5678G1Z2',
-    issueDate: '2026-10-12',
-    dueDate: '2026-10-27',
-    paymentTerms: 'Net 15',
-    status: 'Sent',
-    items: [
-      {
-        id: 'item-2-1',
-        productId: 'prd-4',
-        description: 'Security & Compliance Audit Service',
-        sku: 'SRV-SEC-01',
-        quantity: 1,
-        unitPrice: 35000,
-        gstRate: 18,
-        subtotal: 35000,
-        taxAmount: 6300,
-        total: 41300
-      }
-    ],
-    subtotal: 35000,
-    discountType: 'fixed',
-    discountValue: 0,
-    discountAmount: 0,
-    taxableAmount: 35000,
-    cgstAmount: 0,
-    sgstAmount: 0,
-    igstAmount: 6300,
-    taxAmount: 6300,
-    grandTotal: 41300,
-    amountPaid: 0,
-    balanceDue: 41300,
-    notes: 'Interstate IGST @ 18% applied as recipient is registered in Karnataka.'
-  },
-  {
-    id: 'inv-3',
-    documentNumber: 'INV-2026-003',
-    type: 'invoice',
-    clientId: 'cli-3',
-    clientName: 'Infosys Digital Enterprise',
-    clientEmail: 'billing@infosysdigital.com',
-    clientPhone: '+91 99400 67890',
-    clientAddress: 'Hinjawadi Phase 2, Pune, MH - 411057',
-    clientGstin: '27AABCI9012H1Z8',
-    issueDate: '2026-09-28',
-    dueDate: '2026-10-13',
-    paymentTerms: 'Net 15',
-    status: 'Overdue',
-    items: [
-      {
-        id: 'item-3-1',
-        productId: 'prd-1',
-        description: 'Enterprise Cloud ERP License (Annual)',
-        sku: 'SFT-ERP-01',
-        quantity: 1,
-        unitPrice: 45000,
-        gstRate: 18,
-        subtotal: 45000,
-        taxAmount: 8100,
-        total: 53100
-      }
-    ],
-    subtotal: 45000,
-    discountType: 'percentage',
-    discountValue: 0,
-    discountAmount: 0,
-    taxableAmount: 45000,
-    cgstAmount: 4050,
-    sgstAmount: 4050,
-    igstAmount: 0,
-    taxAmount: 8100,
-    grandTotal: 53100,
-    amountPaid: 20000,
-    balanceDue: 33100,
-    notes: 'First installment of &#8377;20,000 received. Balance overdue.'
-  },
-  {
-    id: 'inv-4',
-    documentNumber: 'INV-2026-004',
-    type: 'invoice',
-    clientId: 'cli-5',
-    clientName: 'Zenith Retail Systems',
-    clientEmail: 'invoicing@zenithretail.in',
-    clientPhone: '+91 98101 11223',
-    clientAddress: 'Barakhamba Road, Connaught Place, New Delhi, DL - 110001',
-    clientGstin: '07AABCZ7890K1Z4',
-    issueDate: '2026-10-19',
-    dueDate: '2026-11-03',
-    paymentTerms: 'Net 15',
-    status: 'Draft',
-    items: [
-      {
-        id: 'item-4-1',
-        productId: 'prd-3',
-        description: 'High-Speed Optical Barcode Scanner 2D',
-        sku: 'HRD-SCN-2D',
-        quantity: 2,
-        unitPrice: 4200,
-        gstRate: 18,
-        subtotal: 8400,
-        taxAmount: 1512,
-        total: 9912
-      },
-      {
-        id: 'item-4-2',
-        productId: 'prd-5',
-        description: 'Thermal Receipt & Invoice Printer 80mm',
-        sku: 'HRD-PRT-80',
-        quantity: 1,
-        unitPrice: 6600,
-        gstRate: 18,
-        subtotal: 6600,
-        taxAmount: 1188,
-        total: 7788
-      }
-    ],
-    subtotal: 15000,
-    discountType: 'percentage',
-    discountValue: 0,
-    discountAmount: 0,
-    taxableAmount: 15000,
-    cgstAmount: 0,
-    sgstAmount: 0,
-    igstAmount: 2700,
-    taxAmount: 2700,
-    grandTotal: 17700,
-    amountPaid: 0,
-    balanceDue: 17700,
-    notes: 'Draft order pending customer purchase order confirmation.'
-  }
-]
-
-const INITIAL_QUOTATIONS = [
-  {
-    id: 'qt-1',
-    documentNumber: 'QT-2026-001',
-    type: 'quotation',
-    clientId: 'cli-4',
-    clientName: 'Wipro Cloud Logistics',
-    clientEmail: 'finance@wiprocloud.com',
-    clientPhone: '+91 97300 23456',
-    clientAddress: 'Financial District, Gachibowli, Hyderabad, TS - 500032',
-    clientGstin: '36AABCW3456J1Z1',
-    issueDate: '2026-10-14',
-    dueDate: '2026-11-14',
-    paymentTerms: 'Net 30',
-    status: 'Accepted',
-    items: [
-      {
-        id: 'item-q1-1',
-        productId: 'prd-1',
-        description: 'Enterprise Cloud ERP License (Annual)',
-        sku: 'SFT-ERP-01',
-        quantity: 2,
-        unitPrice: 45000,
-        gstRate: 18,
-        subtotal: 90000,
-        taxAmount: 16200,
-        total: 106200
-      },
-      {
-        id: 'item-q1-2',
-        productId: 'prd-6',
-        description: 'Custom Integration & Deployment Hours',
-        sku: 'SRV-INT-HR',
-        quantity: 6,
-        unitPrice: 2500,
-        gstRate: 18,
-        subtotal: 15000,
-        taxAmount: 2700,
-        total: 17700
-      }
-    ],
-    subtotal: 105000,
-    discountType: 'fixed',
-    discountValue: 0,
-    discountAmount: 0,
-    taxableAmount: 105000,
-    cgstAmount: 0,
-    sgstAmount: 0,
-    igstAmount: 18900,
-    taxAmount: 18900,
-    grandTotal: 123900,
-    amountPaid: 0,
-    balanceDue: 123900,
-    notes: 'Quotation valid for 30 calendar days from issue date.'
-  },
-  {
-    id: 'qt-2',
-    documentNumber: 'QT-2026-002',
-    type: 'quotation',
-    clientId: 'cli-1',
-    clientName: 'Reliance Tech Services Pvt Ltd',
-    clientEmail: 'accounts@reliancetech.com',
-    clientPhone: '+91 98201 98765',
-    clientAddress: 'Maker Chambers IV, Nariman Point, Mumbai, MH - 400021',
-    clientGstin: '27AABCR1234F1Z5',
-    issueDate: '2026-10-18',
-    dueDate: '2026-11-18',
-    paymentTerms: 'Net 15',
-    status: 'Sent',
-    items: [
-      {
-        id: 'item-q2-1',
-        productId: 'prd-2',
-        description: 'Server Rack Cabinet 42U ServerPro',
-        sku: 'HRD-RCK-42',
-        quantity: 2,
-        unitPrice: 26500,
-        gstRate: 18,
-        subtotal: 53000,
-        taxAmount: 9540,
-        total: 62540
-      }
-    ],
-    subtotal: 53000,
-    discountType: 'percentage',
-    discountValue: 0,
-    discountAmount: 0,
-    taxableAmount: 53000,
-    cgstAmount: 4770,
-    sgstAmount: 4770,
-    igstAmount: 0,
-    taxAmount: 9540,
-    grandTotal: 62540,
-    amountPaid: 0,
-    balanceDue: 62540,
-    notes: 'Quotation submitted for server expansion project phase 2.'
-  }
-]
-
-const INITIAL_PAYMENTS = [
-  {
-    id: 'pay-1',
-    paymentNumber: 'PAY-2026-001',
-    invoiceId: 'inv-1',
-    invoiceNumber: 'INV-2026-001',
-    clientName: 'Reliance Tech Services Pvt Ltd',
-    amount: 80240,
-    paymentDate: '2026-10-10',
-    paymentMethod: 'Bank Transfer (NEFT)',
-    referenceNumber: 'HDFCN26101009823',
-    status: 'Completed',
-    notes: 'Full payment cleared via HDFC corporate netbanking.'
-  },
-  {
-    id: 'pay-2',
-    paymentNumber: 'PAY-2026-002',
-    invoiceId: 'inv-3',
-    invoiceNumber: 'INV-2026-003',
-    clientName: 'Infosys Digital Enterprise',
-    amount: 20000,
-    paymentDate: '2026-10-14',
-    paymentMethod: 'UPI Business',
-    referenceNumber: 'UPI/328710928731/CR',
-    status: 'Completed',
-    notes: 'Partial advance payment received.'
-  }
-]
-
 // Number formatting in INR
 function formatINR(amount) {
   const num = Number(amount) || 0
@@ -599,6 +108,7 @@ const STATUS_FROM_DB = {
   draft: 'Draft', pending: 'Sent', partially_paid: 'Partially Paid',
   paid: 'Paid', overdue: 'Overdue', cancelled: 'Cancelled',
 }
+const STATUS_TO_DB = Object.fromEntries(Object.entries(STATUS_FROM_DB).map(([key, label]) => [label.toLowerCase(), key]))
 const METHOD_TO_DB = {
   'Bank Transfer (NEFT)': 'bank_transfer', 'RTGS Wire': 'bank_transfer',
   'UPI Business': 'upi', 'Corporate Credit Card': 'card', Cheque: 'cheque', Cash: 'cash',
@@ -610,18 +120,30 @@ const METHOD_FROM_DB = {
 
 function mapInvoice(r) {
   const rows = (r.invoice_items || []).slice().sort((a, b) => a.position - b.position)
+  const gross = rows.reduce((sum, it) =>
+    sum + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0), 0)
   const items = rows.map((it) => {
-    const qty = Number(it.quantity)
-    const price = Number(it.unit_price)
-    const gst = Number(it.gst_rate)
-    const gross = qty * price
-    const tax = (gross * gst) / 100
+    const qty = Number(it.quantity) || 0
+    const price = Number(it.unit_price) || 0
+    const gst = Number(it.gst_rate) || 0
+    const lineGross = qty * price
+    const discountPct = Math.max(0, Math.min(100, Number(it.discount_pct) || 0))
+    const taxableLine = it.taxable_amount != null
+      ? Number(it.taxable_amount)
+      : lineGross * (1 - discountPct / 100)
+    const hasStoredGst = it.cgst_amount != null || it.sgst_amount != null || it.igst_amount != null
+    const storedTax = Number(it.cgst_amount || 0) + Number(it.sgst_amount || 0) + Number(it.igst_amount || 0)
+    const tax = hasStoredGst
+      ? storedTax
+      : it.tax_amount != null
+        ? Number(it.tax_amount)
+        : taxableLine * gst / 100
+    const total = it.line_total != null ? Number(it.line_total) : taxableLine + tax
     return {
       id: it.id, productId: it.product_id || '', description: it.description, sku: '',
-      quantity: qty, unitPrice: price, gstRate: gst, subtotal: gross, taxAmount: tax, total: gross + tax,
+      quantity: qty, unitPrice: price, gstRate: gst, subtotal: taxableLine, taxAmount: tax, total,
     }
   })
-  const gross = items.reduce((s, it) => s + it.subtotal, 0)
   const taxable = Number(r.subtotal)
   return {
     id: r.id,
@@ -804,7 +326,7 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
       client_id: d.clientId,
       issue_date: d.issueDate,
       due_date: d.dueDate,
-      status: d.status === 'Draft' ? 'draft' : 'pending',
+      status: STATUS_TO_DB[String(d.status || '').toLowerCase()] || (d.status === 'Draft' ? 'draft' : 'pending'),
       notes: d.notes || null,
     }, items)
     await loadInvoices()
@@ -1011,7 +533,7 @@ const [quotations, setQuotations] = useState([])
   const executeDelete = () => {
     const { type, id } = deleteConfirmModal
     if (type === 'invoice') {
-        db.deleteInvoice(id)
+        db.deleteInvoice(org.id, id)
         .then(() => {
           loadInvoices()
           showToast('Invoice deleted successfully', 'success')
@@ -1021,14 +543,14 @@ const [quotations, setQuotations] = useState([])
       setQuotations((prev) => prev.filter((q) => q.id !== id))
       showToast('Quotation deleted successfully', 'success')
     } else if (type === 'client') {
-           db.deleteClient(id)
+           db.deleteClient(org.id, id)
         .then(() => {
           setClients((prev) => prev.filter((c) => c.id !== id))
           showToast('Client removed successfully', 'success')
         })
         .catch((e) => showToast(e.message, 'error'))
     } else if (type === 'product') {
-           db.deleteProduct(id)
+           db.deleteProduct(org.id, id)
         .then(() => {
           setProducts((prev) => prev.filter((p) => p.id !== id))
           showToast('Product removed successfully', 'success')
@@ -1723,7 +1245,7 @@ const [quotations, setQuotations] = useState([])
                 gstin: savedClient.gstin,
                 address: savedClient.address,
               }
-              if (editingClient) await db.updateClient(editingClient.id, payload)
+              if (editingClient) await db.updateClient(org.id, editingClient.id, payload)
               else await db.addClient(org.id, payload)
               await loadClients()
               setClientModalOpen(false)
@@ -1752,7 +1274,7 @@ const [quotations, setQuotations] = useState([])
                 stock_qty: savedProduct.stock,
                 description: savedProduct.description,
               }
-              if (editingProduct) await db.updateProduct(editingProduct.id, payload)
+              if (editingProduct) await db.updateProduct(org.id, editingProduct.id, payload)
               else await db.addProduct(org.id, payload)
               await loadProducts()
               setProductModalOpen(false)
@@ -1776,6 +1298,7 @@ const [quotations, setQuotations] = useState([])
              onSave={async (p) => {
             try {
               await db.recordPaymentFull(
+                org.id,
                 p.invoiceId,
                 p.amount,
                 METHOD_TO_DB[p.paymentMethod] || 'other',
@@ -4427,7 +3950,7 @@ function ReportsView({ invoices, payments }) {
 // SETTINGS VIEW (COMPANY PROFILE, INVOICING PREFERENCES & SUPABASE SYNC)
 // ============================================================================
 
-function SettingsView({ profile, onSaveProfile, showToast }) {
+function SettingsView({ profile, onSaveProfile }) {
   const [formData, setFormData] = useState({ ...profile })
     const handleChange = (field, val) => {
     setFormData((prev) => ({ ...prev, [field]: val }))
