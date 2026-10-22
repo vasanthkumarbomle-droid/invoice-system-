@@ -2439,81 +2439,146 @@ function DocumentEditorView({
     setItems((prev) => prev.filter((_, i) => i !== index))
   }
 
-  // Add Product by Scanned Barcode or SKU
-  const handleAddProductByCode = useCallback((code) => {
-    if (!code) return false
-    const trimmed = code.trim().toLowerCase()
-    const product = products.find(
-      (p) => (p.barcode && p.barcode.toLowerCase() === trimmed) || p.sku.toLowerCase() === trimmed
+  // Add saved products immediately; otherwise look up public product data by barcode.
+  const addScannedLineItem = (incoming) => {
+    setItems((prev) => {
+      const incomingSku = String(incoming.sku || '').trim().toLowerCase()
+      const existingIndex = prev.findIndex((item) => {
+        if (incoming.productId) return item.productId === incoming.productId
+        return !item.productId && incomingSku &&
+          String(item.sku || '').trim().toLowerCase() === incomingSku
+      })
+
+      if (existingIndex >= 0) {
+        const updated = [...prev]
+        const old = updated[existingIndex]
+        const quantity = (Number(old.quantity) || 1) + 1
+        const unitPrice = Number(old.unitPrice) || 0
+        const gstRate = Number(old.gstRate) || 0
+        const subtotal = quantity * unitPrice
+        const taxAmount = subtotal * gstRate / 100
+
+        updated[existingIndex] = {
+          ...old, quantity, subtotal, taxAmount,
+          total: subtotal + taxAmount
+        }
+        return updated
+      }
+
+      const blankIndex = prev.findIndex((item) =>
+        !item.productId &&
+        !String(item.description || '').trim() &&
+        !String(item.sku || '').trim() &&
+        Number(item.unitPrice) === 0
+      )
+
+      if (blankIndex >= 0) {
+        const updated = [...prev]
+        updated[blankIndex] = { ...incoming, id: prev[blankIndex].id }
+        return updated
+      }
+
+      return [...prev, incoming]
+    })
+  }
+
+  const handleAddProductByCode = useCallback(async (code) => {
+    const rawCode = String(code || '').trim()
+    if (!rawCode) return false
+
+    const normalized = rawCode.toLowerCase()
+    const product = products.find((p) =>
+      (p.barcode && String(p.barcode).trim().toLowerCase() === normalized) ||
+      (p.sku && String(p.sku).trim().toLowerCase() === normalized)
     )
 
-    if (!product) {
-      showToast(`No product found with barcode/SKU: ${code}`, 'error')
+    if (product) {
+      const price = Number(product.price) || 0
+      const gstRate = Number(product.gstRate ?? companyProfile.defaultGstRate ?? 18)
+      const subtotal = price
+      const taxAmount = subtotal * gstRate / 100
+
+      addScannedLineItem({
+        id: `item-${Date.now()}-${Math.random()}`,
+        productId: product.id,
+        description: product.name,
+        sku: product.sku || product.barcode || rawCode,
+        quantity: 1,
+        unitPrice: price,
+        gstRate,
+        subtotal,
+        taxAmount,
+        total: subtotal + taxAmount
+      })
+
+      showToast(`Added "${product.name}" from your catalogue.`, 'success')
+      return true
+    }
+
+    // Open Food Facts lookup is for numeric retail barcodes, not arbitrary QR text or SKUs.
+    const barcode = rawCode.replace(/\s+/g, '')
+    if (!/^\d{8,14}$/.test(barcode)) {
+      showToast(`No catalogue match for "${rawCode}". Enter the product details manually.`, 'warning')
       return false
     }
 
-    setItems((prev) => {
-      const existingIndex = prev.findIndex((it) => it.productId === product.id)
-      if (existingIndex >= 0) {
-        const updated = [...prev]
-        const newQty = (updated[existingIndex].quantity || 1) + 1
-        const price = updated[existingIndex].unitPrice
-        const gst = updated[existingIndex].gstRate
-        const subtotal = newQty * price
-        const taxAmount = (subtotal * gst) / 100
-        updated[existingIndex] = {
-          ...updated[existingIndex],
-          quantity: newQty,
-          subtotal,
-          taxAmount,
-          total: subtotal + taxAmount
-        }
-        showToast(`Increased quantity of "${product.name}" to ${newQty}`, 'success')
-        return updated
-      } else {
-        if (prev.length === 1 && !prev[0].description && prev[0].unitPrice === 0) {
-          const subtotal = product.price
-          const taxAmount = (subtotal * product.gstRate) / 100
-          showToast(`Scanned and added "${product.name}"`, 'success')
-          return [
-            {
-              id: prev[0].id,
-              productId: product.id,
-              description: product.name,
-              sku: product.sku,
-              quantity: 1,
-              unitPrice: product.price,
-              gstRate: product.gstRate,
-              subtotal,
-              taxAmount,
-              total: subtotal + taxAmount
-            }
-          ]
-        } else {
-          const subtotal = product.price
-          const taxAmount = (subtotal * product.gstRate) / 100
-          showToast(`Scanned and added "${product.name}"`, 'success')
-          return [
-            ...prev,
-            {
-              id: `item-${Date.now()}`,
-              productId: product.id,
-              description: product.name,
-              sku: product.sku,
-              quantity: 1,
-              unitPrice: product.price,
-              gstRate: product.gstRate,
-              subtotal,
-              taxAmount,
-              total: subtotal + taxAmount
-            }
-          ]
-        }
-      }
-    })
-    return true
-  }, [products, showToast])
+    try {
+      showToast('Searching the public product database...', 'warning')
 
+      const url = `https://world.openfoodfacts.org/api/v3/product/${encodeURIComponent(barcode)}.json?fields=code,product_name,product_name_en,brands,quantity,generic_name,categories`
+      const response = await fetch(url, {
+        headers: { Accept: 'application/json' }
+      })
+
+      if (!response.ok) {
+        throw new Error(`Product lookup returned HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      const external = data?.product
+      const productName = external?.product_name ||
+        external?.product_name_en ||
+        external?.generic_name
+
+      if (!external || !productName) {
+        showToast(`Barcode ${barcode} was not found online. Enter the product manually.`, 'warning')
+        return false
+      }
+
+      const brand = String(external.brands || '').split(',')[0].trim()
+      const quantityLabel = String(external.quantity || '').trim()
+      const description = [
+        productName,
+        brand && brand !== productName ? brand : '',
+        quantityLabel
+      ].filter(Boolean).join(' — ')
+
+      const gstRate = Number(companyProfile.defaultGstRate ?? 18)
+
+      addScannedLineItem({
+        id: `item-${Date.now()}-${Math.random()}`,
+        productId: '',
+        description,
+        sku: barcode,
+        quantity: 1,
+        unitPrice: 0,
+        gstRate,
+        subtotal: 0,
+        taxAmount: 0,
+        total: 0
+      })
+
+      showToast(
+        `Found "${productName}". Enter its selling price and verify GST/HSN before issuing.`,
+        'success'
+      )
+      return true
+    } catch (error) {
+      console.warn('Public barcode lookup failed:', error)
+      showToast('Online lookup failed. Enter the product details manually.', 'error')
+      return false
+    }
+  }, [products, showToast, companyProfile.defaultGstRate])
   // Computed Totals
   const subtotal = useMemo(() => items.reduce((sum, it) => sum + (it.subtotal || 0), 0), [items])
 
@@ -3027,11 +3092,13 @@ function DocumentEditorView({
       {scannerOpen && (
         <BarcodeScannerModal
           onClose={() => setScannerOpen(false)}
-          onDetected={(code) => {
-            handleAddProductByCode(code)
+          onDetected={async (code) => {
+            const added = await handleAddProductByCode(code)
+            if (added) setScannerOpen(false)
           }}
-          onManualSubmit={(code) => {
-            handleAddProductByCode(code)
+          onManualSubmit={async (code) => {
+            const added = await handleAddProductByCode(code)
+            if (added) setScannerOpen(false)
           }}
           products={products}
         />
@@ -3049,6 +3116,7 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
   const [scannerError, setScannerError] = useState(null)
   const [isScanning, setIsScanning] = useState(false)
   const html5QrCodeRef = useRef(null)
+  const hasProcessedScanRef = useRef(false)
 
   useEffect(() => {
     const scannerId = 'ledgerflow-barcode-reader'
@@ -3068,6 +3136,9 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
           { facingMode: 'environment' },
           config,
           (decodedText) => {
+            if (hasProcessedScanRef.current) return
+            hasProcessedScanRef.current = true
+            html5QrCodeRef.current?.stop().catch(() => {})
             onDetected(decodedText)
           },
           () => {
