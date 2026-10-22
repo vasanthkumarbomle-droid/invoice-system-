@@ -540,8 +540,18 @@ const [quotations, setQuotations] = useState([])
         })
         .catch((e) => showToast(e.message, 'error'))
     } else if (type === 'quotation') {
-      setQuotations((prev) => prev.filter((q) => q.id !== id))
-      showToast('Quotation deleted successfully', 'success')
+      // Delete from Supabase first. Only show success after the database confirms it.
+      db.deleteQuotation(org.id, id)
+        .then(async () => {
+          await loadQuotations()
+          showToast('Quotation deleted successfully', 'success')
+        })
+        .catch((e) => {
+          console.error('Failed to delete quotation:', e)
+          showToast(e.message || 'Failed to delete quotation', 'error')
+          // Restore the authoritative server list if the delete was rejected.
+          loadQuotations()
+        })
     } else if (type === 'client') {
            db.deleteClient(org.id, id)
         .then(() => {
