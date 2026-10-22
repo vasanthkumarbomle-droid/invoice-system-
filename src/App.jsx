@@ -354,7 +354,7 @@ const INITIAL_INVOICES = [
     grandTotal: 53100,
     amountPaid: 20000,
     balanceDue: 33100,
-    notes: 'First installment of ₹20,000 received. Balance overdue.'
+    notes: 'First installment of &#8377;20,000 received. Balance overdue.'
   },
   {
     id: 'inv-4',
@@ -698,16 +698,29 @@ function LedgerFlowShell({ activeTab = 'dashboard', initialMode = 'invoice' }) {
   const navigate = useNavigate()
 
   // Persistent State in localStorage
-  const [companyProfile, setCompanyProfile] = useState(() => {
-    try {
-      const saved = localStorage.getItem('lf_company_profile')
-      return saved ? JSON.parse(saved) : INITIAL_COMPANY_PROFILE
-    } catch {
-      return INITIAL_COMPANY_PROFILE
-    }
-  })
+   const org = useOrg()
+const [companyProfile, setCompanyProfile] = useState(() => ({
+  companyName: org.legal_name || org.name || '',
+  tradeName: org.name || '',
+  gstin: org.gstin || '',
+  pan: org.pan || '',
+  email: org.email || '',
+  phone: org.phone || '',
+  address: org.address || '',
+  website: org.website || '',
+  invoicePrefix: org.invoice_prefix || 'INV-',
+  quotationPrefix: org.quote_prefix || 'QT-',
+  defaultPaymentTerms: `Net ${org.default_payment_terms_days || 15}`,
+  defaultGstRate: Number(org.default_gst_rate ?? 18),
+  bankName: org.bank_name || '',
+  accountHolder: org.legal_name || org.name || '',
+  accountNumber: org.bank_account_no || '',
+  ifscCode: org.bank_ifsc || '',
+  upiId: org.upi_id || '',
+  notes: org.terms || '',
+}))
 
-    const org = useOrg()
+
   const [clients, setClients] = useState([])
 
   const loadClients = async () => {
@@ -796,15 +809,99 @@ function LedgerFlowShell({ activeTab = 'dashboard', initialMode = 'invoice' }) {
     }, items)
     await loadInvoices()
   }
-  const [quotations, setQuotations] = useState(() => {
-    try {
-      const saved = localStorage.getItem('lf_quotations')
-      return saved ? JSON.parse(saved) : INITIAL_QUOTATIONS
-    } catch {
-      return INITIAL_QUOTATIONS
-    }
-  })
 
+const [quotations, setQuotations] = useState([])
+
+  const loadQuotations = async () => {
+    try {
+      const rows = await db.listQuotationsFull(org.id)
+
+      setQuotations(
+        rows.map((q) => {
+          const client = q.clients || {}
+          const grandTotal = Number(q.grand_total || 0)
+          const rawStatus = String(q.status || 'draft')
+          const items = (q.quotation_items || [])
+            .sort((a, b) => a.position - b.position)
+            .map((it) => ({
+              id: it.id,
+              productId: it.product_id,
+              description: it.description || '',
+              sku: '',
+              hsnSac: it.hsn_sac || '',
+              quantity: Number(it.quantity || 0),
+              unitPrice: Number(it.unit_price || 0),
+              gstRate: Number(it.gst_rate || 0),
+              subtotal: Number(it.taxable_amount || 0),
+              taxAmount:
+                Number(it.cgst_amount || 0) +
+                Number(it.sgst_amount || 0) +
+                Number(it.igst_amount || 0),
+              total: Number(it.line_total || 0),
+            }))
+
+          return {
+            id: q.id,
+            documentNumber: q.quote_number,
+            type: 'quotation',
+            clientId: q.client_id,
+            clientName: client.name || '',
+            clientEmail: client.email || '',
+            clientPhone: client.phone || '',
+            clientAddress: client.address || '',
+            clientGstin: client.gstin || '',
+            issueDate: q.issue_date,
+            dueDate: q.valid_until,
+            paymentTerms: q.terms || '',
+            status:
+              rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1),
+            items,
+            subtotal: Number(q.subtotal || 0),
+            discountType: 'fixed',
+            discountValue: 0,
+            discountAmount: 0,
+            taxableAmount: Number(q.subtotal || 0),
+            cgstAmount: Number(q.cgst_total || 0),
+            sgstAmount: Number(q.sgst_total || 0),
+            igstAmount: Number(q.igst_total || 0),
+            taxAmount: Number(q.tax_total || 0),
+            grandTotal,
+            amountPaid: 0,
+            balanceDue: grandTotal,
+            notes: q.notes || '',
+          }
+        })
+      )
+    } catch (e) {
+      console.error('Failed to load quotations:', e)
+    }
+  }
+
+  useEffect(() => {
+    loadQuotations()
+  }, [org.id])
+
+ const handleConvertQuotation = async (quote) => {
+  if (!quote?.id || String(quote.status).toLowerCase() !== 'accepted') {
+    showToast('Only accepted quotations can be converted', 'error')
+    return
+  }
+
+  try {
+    await db.convertQuotationToInvoice(quote.id, null)
+
+    await Promise.all([
+      loadInvoices(),
+      loadQuotations(),
+    ])
+
+    showToast('Quotation converted to invoice successfully', 'success')
+    navigateTo('/invoices')
+  } catch (e) {
+    console.error('Quotation conversion failed:', e)
+    showToast(e.message || 'Failed to convert quotation', 'error')
+  }
+}
     const [payments, setPayments] = useState([])
 
   const loadPayments = async () => {
@@ -821,26 +918,9 @@ function LedgerFlowShell({ activeTab = 'dashboard', initialMode = 'invoice' }) {
   }, [org.id])
 
   // Sync to localStorage
-  useEffect(() => {
-    localStorage.setItem('lf_company_profile', JSON.stringify(companyProfile))
-  }, [companyProfile])
+, [companyProfile]
 
 
-  useEffect(() => {
-    localStorage.setItem('lf_products', JSON.stringify(products))
-  }, [products])
-
-  useEffect(() => {
-    localStorage.setItem('lf_invoices', JSON.stringify(invoices))
-  }, [invoices])
-
-  useEffect(() => {
-    localStorage.setItem('lf_quotations', JSON.stringify(quotations))
-  }, [quotations])
-
-  useEffect(() => {
-    localStorage.setItem('lf_payments', JSON.stringify(payments))
-  }, [payments])
 
   // UI State
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -850,7 +930,7 @@ function LedgerFlowShell({ activeTab = 'dashboard', initialMode = 'invoice' }) {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [notifications, setNotifications] = useState([
     { id: 1, text: 'Invoice INV-2026-003 is overdue by 8 days.', unread: true, time: '2h ago' },
-    { id: 2, text: 'Payment of ₹80,240 received for INV-2026-001.', unread: true, time: '1d ago' },
+    { id: 2, text: 'Payment of &#8377;80,240 received for INV-2026-001.', unread: true, time: '1d ago' },
     { id: 3, text: 'Quotation QT-2026-001 accepted by Wipro Cloud.', unread: false, time: '2d ago' }
   ])
 
@@ -969,7 +1049,7 @@ function LedgerFlowShell({ activeTab = 'dashboard', initialMode = 'invoice' }) {
         results.push({
           type: 'Invoice',
           title: inv.documentNumber,
-          subtitle: `${inv.clientName} • ${formatINR(inv.grandTotal)}`,
+          subtitle: `${inv.clientName} â€¢ ${formatINR(inv.grandTotal)}`,
           action: () => {
             setPreviewDoc(inv)
             setGlobalSearch('')
@@ -983,7 +1063,7 @@ function LedgerFlowShell({ activeTab = 'dashboard', initialMode = 'invoice' }) {
         results.push({
           type: 'Quotation',
           title: qt.documentNumber,
-          subtitle: `${qt.clientName} • ${formatINR(qt.grandTotal)}`,
+          subtitle: `${qt.clientName} â€¢ ${formatINR(qt.grandTotal)}`,
           action: () => {
             setPreviewDoc(qt)
             setGlobalSearch('')
@@ -997,7 +1077,7 @@ function LedgerFlowShell({ activeTab = 'dashboard', initialMode = 'invoice' }) {
         results.push({
           type: 'Client',
           title: c.name,
-          subtitle: `${c.email} • ${c.phone}`,
+          subtitle: `${c.email} â€¢ ${c.phone}`,
           action: () => {
             navigateTo('/clients')
             setGlobalSearch('')
@@ -1011,7 +1091,7 @@ function LedgerFlowShell({ activeTab = 'dashboard', initialMode = 'invoice' }) {
         results.push({
           type: 'Product',
           title: p.name,
-          subtitle: `SKU: ${p.sku} • ${formatINR(p.price)}`,
+          subtitle: `SKU: ${p.sku} â€¢ ${formatINR(p.price)}`,
           action: () => {
             navigateTo('/products')
             setGlobalSearch('')
@@ -1325,19 +1405,6 @@ function LedgerFlowShell({ activeTab = 'dashboard', initialMode = 'invoice' }) {
                     <span>Financial Reports</span>
                   </button>
                   <div className="lf-dropdown-divider" />
-                  <button
-                    type="button"
-                    className="lf-dropdown-item"
-                    style={{ color: 'var(--lf-danger)' }}
-                    onClick={() => {
-                      setProfileMenuOpen(false)
-                      localStorage.clear()
-                      window.location.reload()
-                    }}
-                  >
-                    <RefreshCw size={15} />
-                    <span>Reset Demo Data</span>
-                  </button>
                 </div>
               )}
             </div>
@@ -1349,6 +1416,7 @@ function LedgerFlowShell({ activeTab = 'dashboard', initialMode = 'invoice' }) {
           {activeTab === 'dashboard' && (
             <DashboardView
               invoices={invoices}
+              payments={payments}
               quotations={quotations}
               onNewInvoice={() => handleStartNewDoc('invoice')}
               onNewQuotation={() => handleStartNewDoc('quotation')}
@@ -1381,6 +1449,7 @@ function LedgerFlowShell({ activeTab = 'dashboard', initialMode = 'invoice' }) {
               onEditDoc={handleEditDoc}
               onDuplicateDoc={handleDuplicateDoc}
               onDeleteDoc={(doc) => confirmDelete('quotation', doc.id, doc.documentNumber)}
+              onConvertToInvoice={handleConvertQuotation}
             />
           )}
 
@@ -1468,10 +1537,62 @@ function LedgerFlowShell({ activeTab = 'dashboard', initialMode = 'invoice' }) {
           {activeTab === 'settings' && (
             <SettingsView
               profile={companyProfile}
-              onSaveProfile={(updated) => {
-                setCompanyProfile(updated)
-                showToast('Company profile settings saved successfully', 'success')
-              }}
+            onSaveProfile={async (updated) => {
+  try {
+    const termsMatch = String(updated.defaultPaymentTerms || '').match(/\d+/)
+    const gstin = String(updated.gstin || '').trim()
+
+    const saved = await db.updateOrg(org.id, {
+      name: updated.tradeName?.trim() || updated.companyName?.trim(),
+      legal_name: updated.companyName?.trim() || null,
+      gstin: gstin || null,
+      pan: updated.pan?.trim() || null,
+      state_code: /^\d{2}/.test(gstin) ? gstin.slice(0, 2) : org.state_code,
+      email: updated.email?.trim() || null,
+      phone: updated.phone?.trim() || null,
+      address: updated.address?.trim() || null,
+      website: updated.website?.trim() || null,
+      invoice_prefix: updated.invoicePrefix?.trim() || 'INV-',
+      quote_prefix: updated.quotationPrefix?.trim() || 'QT-',
+      default_gst_rate: Number(updated.defaultGstRate) || 0,
+      default_payment_terms_days: termsMatch
+        ? Number(termsMatch[0])
+        : Number(org.default_payment_terms_days || 15),
+      bank_name: updated.bankName?.trim() || null,
+      bank_account_no: updated.accountNumber?.trim() || null,
+      bank_ifsc: updated.ifscCode?.trim() || null,
+      upi_id: updated.upiId?.trim() || null,
+      terms: updated.notes?.trim() || null,
+    })
+
+    setCompanyProfile({
+      ...updated,
+      companyName: saved.legal_name || saved.name || '',
+      tradeName: saved.name || '',
+      gstin: saved.gstin || '',
+      pan: saved.pan || '',
+      email: saved.email || '',
+      phone: saved.phone || '',
+      address: saved.address || '',
+      website: saved.website || '',
+      invoicePrefix: saved.invoice_prefix || 'INV-',
+      quotationPrefix: saved.quote_prefix || 'QT-',
+      defaultPaymentTerms: `Net ${saved.default_payment_terms_days || 15}`,
+      defaultGstRate: Number(saved.default_gst_rate ?? 18),
+      bankName: saved.bank_name || '',
+      accountHolder: saved.legal_name || saved.name || '',
+      accountNumber: saved.bank_account_no || '',
+      ifscCode: saved.bank_ifsc || '',
+      upiId: saved.upi_id || '',
+      notes: saved.terms || '',
+    })
+
+    showToast('Company settings saved to Supabase', 'success')
+  } catch (e) {
+    console.error('Failed to save company settings:', e)
+    showToast(e.message || 'Failed to save company settings', 'error')
+  }
+}}
               showToast={showToast}
             />
           )}
@@ -1484,29 +1605,79 @@ function LedgerFlowShell({ activeTab = 'dashboard', initialMode = 'invoice' }) {
               products={products}
               existingDoc={editingDoc}
               onCancel={() => navigateTo(editorMode === 'invoice' ? '/invoices' : '/quotations')}
-              onSave={async (savedDoc) => {
-                if (savedDoc.type === 'invoice') {
-                  try {
-                    await saveInvoiceDoc(savedDoc)
-                    showToast('Invoice saved successfully', 'success')
-                    navigateTo('/invoices')
-                  } catch (e) {
-                    showToast(e.message, 'error')
-                  }
-                } else {
-                  setQuotations((prev) => {
-                    const idx = prev.findIndex((q) => q.id === savedDoc.id)
-                    if (idx >= 0) {
-                      const updated = [...prev]
-                      updated[idx] = savedDoc
-                      return updated
-                    }
-                    return [savedDoc, ...prev]
-                  })
-                  showToast(`Quotation ${savedDoc.documentNumber} saved successfully`, 'success')
-                  navigateTo('/quotations')
-                }
-              }}
+  onSave={async (savedDoc) => {
+  if (savedDoc.type === 'invoice') {
+    try {
+      await saveInvoiceDoc(savedDoc)
+      showToast('Invoice saved successfully', 'success')
+      navigateTo('/invoices')
+    } catch (e) {
+      showToast(e.message, 'error')
+    }
+  } else {
+    try {
+      if (!savedDoc.clientId) {
+        throw new Error('Please choose a registered client')
+      }
+
+      const gross = (savedDoc.items || []).reduce(
+        (sum, item) =>
+          sum +
+          (Number(item.quantity) || 0) *
+          (Number(item.unitPrice) || 0),
+        0
+      )
+
+      const discountValue = Number(savedDoc.discountValue) || 0
+
+      const discountPercent =
+        savedDoc.discountType === 'percentage'
+          ? discountValue
+          : gross > 0
+            ? (discountValue / gross) * 100
+            : 0
+
+      const discountPct = Math.min(
+        100,
+        Math.round(discountPercent * 100) / 100
+      )
+
+      const isExisting = /^[0-9a-f]{8}-/i.test(savedDoc.id || '')
+
+      const items = (savedDoc.items || []).map((item) => ({
+        product_id: item.productId || null,
+        description: item.description || '',
+        hsn_sac: item.hsnSac || null,
+        unit: item.unit || 'unit',
+        quantity: Number(item.quantity) || 1,
+        unit_price: Number(item.unitPrice) || 0,
+        discount_pct: discountPct,
+        gst_rate: Number(item.gstRate) || 0,
+      }))
+
+      await db.saveQuotation(
+        org.id,
+        {
+          id: isExisting ? savedDoc.id : null,
+          client_id: savedDoc.clientId,
+          issue_date: savedDoc.issueDate,
+          valid_until: savedDoc.dueDate || null,
+          status: String(savedDoc.status || 'draft').toLowerCase(),
+          notes: savedDoc.notes || null,
+          terms: savedDoc.paymentTerms || null,
+        },
+        items
+      )
+
+      await loadQuotations()
+      showToast('Quotation saved successfully', 'success')
+      navigateTo('/quotations')
+    } catch (e) {
+      console.error('Failed to save quotation:', e)
+      showToast(e.message, 'error')
+    }
+  }
+}}
 
               showToast={showToast}
             />
@@ -1681,21 +1852,54 @@ function LedgerFlowShell({ activeTab = 'dashboard', initialMode = 'invoice' }) {
 // ============================================================================
 // DASHBOARD (OVERVIEW) VIEW
 // ============================================================================
-
-function DashboardView({ invoices, quotations, onNewInvoice, onNewQuotation, onViewDoc }) {
+function DashboardView({ invoices, payments, quotations, onNewInvoice, onNewQuotation, onViewDoc }) {
   const totalInvoiced = useMemo(() => invoices.reduce((sum, i) => sum + (i.grandTotal || 0), 0), [invoices])
   const amountReceived = useMemo(() => invoices.reduce((sum, i) => sum + (i.amountPaid || 0), 0), [invoices])
   const outstandingBalance = useMemo(() => invoices.reduce((sum, i) => sum + (i.balanceDue || 0), 0), [invoices])
   const pendingQuotations = useMemo(() => quotations.filter((q) => q.status === 'Sent' || q.status === 'Draft'), [quotations])
   const pendingQuotationsValue = useMemo(() => pendingQuotations.reduce((sum, q) => sum + (q.grandTotal || 0), 0), [pendingQuotations])
 
-  const chartData = [
-    { month: 'Jun', Invoiced: 48000, Received: 48000 },
-    { month: 'Jul', Invoiced: 65000, Received: 60000 },
-    { month: 'Aug', Invoiced: 82000, Received: 74000 },
-    { month: 'Sep', Invoiced: 94000, Received: 80000 },
-    { month: 'Oct', Invoiced: Math.round(totalInvoiced), Received: Math.round(amountReceived) }
-  ]
+ const chartData = useMemo(() => {
+  const now = new Date()
+
+  const months = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - 5 + index, 1)
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+
+    return {
+      key,
+      month: date.toLocaleDateString('en-IN', { month: 'short' }),
+      Invoiced: 0,
+      Received: 0,
+    }
+  })
+
+  const monthMap = new Map(months.map((month) => [month.key, month]))
+
+  invoices.forEach((invoice) => {
+    const key = String(invoice.issueDate || '').slice(0, 7)
+    const month = monthMap.get(key)
+
+    if (month) {
+      month.Invoiced += Number(invoice.grandTotal) || 0
+    }
+  })
+
+  payments.forEach((payment) => {
+    const key = String(payment.paymentDate || '').slice(0, 7)
+    const month = monthMap.get(key)
+
+    if (month) {
+      month.Received += Number(payment.amount) || 0
+    }
+  })
+
+  return months.map(({ month, Invoiced, Received }) => ({
+    month,
+    Invoiced,
+    Received,
+  }))
+}, [invoices, payments])
 
   return (
     <div>
@@ -1732,7 +1936,7 @@ function DashboardView({ invoices, quotations, onNewInvoice, onNewQuotation, onV
           </div>
           <div className="lf-metric-value">{formatINR(totalInvoiced)}</div>
           <div className="lf-metric-subtext">
-            <span className="lf-trend-up">↑ 14.2%</span> from last billing cycle
+            <span className="lf-trend-up">â†‘ 14.2%</span> from last billing cycle
           </div>
         </div>
 
@@ -1779,13 +1983,13 @@ function DashboardView({ invoices, quotations, onNewInvoice, onNewQuotation, onV
           <div className="lf-card-header">
             <div>
               <h3 className="lf-card-title">Invoicing & Collections Trend</h3>
-              <p className="lf-card-subtitle">Monthly billed volume vs. payments collected (₹)</p>
+              <p className="lf-card-subtitle">Monthly billed volume vs. payments collected (&#8377;)</p>
             </div>
             <span className="lf-badge lf-badge-accepted">FY 2026-27</span>
           </div>
           <div style={{ width: '100%', height: 260 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E6EAE5" />
                 <XAxis dataKey="month" stroke="#737D75" fontSize={11} tickLine={false} />
                 <YAxis stroke="#737D75" fontSize={11} tickLine={false} />
@@ -1871,7 +2075,8 @@ function DocumentsListView({
   onViewDoc,
   onEditDoc,
   onDuplicateDoc,
-  onDeleteDoc,
+   onDeleteDoc,
+  onConvertToInvoice,
   onRecordPayment
 }) {
   const [filterStatus, setFilterStatus] = useState('All')
@@ -1934,7 +2139,7 @@ function DocumentsListView({
 
         {/* Status Filter Buttons */}
         <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
-          {['All', 'Draft', 'Sent', isInvoice ? 'Paid' : 'Accepted', isInvoice ? 'Overdue' : 'Rejected'].map((st) => (
+          {(isInvoice ? ['All', 'Draft', 'Sent', 'Partially Paid', 'Paid', 'Overdue', 'Cancelled'] : ['All', 'Draft', 'Sent', 'Accepted', 'Rejected', 'Expired', 'Converted']).map((st) => (
             <button
               key={st}
               type="button"
@@ -1968,15 +2173,15 @@ function DocumentsListView({
             <thead>
               <tr>
                 <th onClick={() => { setSortField('documentNumber'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc') }} style={{ cursor: 'pointer' }}>
-                  Document # {sortField === 'documentNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
+                  Document # {sortField === 'documentNumber' && (sortOrder === 'asc' ? 'â†‘' : 'â†“')}
                 </th>
                 <th>Client Name</th>
                 <th onClick={() => { setSortField('issueDate'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc') }} style={{ cursor: 'pointer' }}>
-                  Issue Date {sortField === 'issueDate' && (sortOrder === 'asc' ? '↑' : '↓')}
+                  Issue Date {sortField === 'issueDate' && (sortOrder === 'asc' ? 'â†‘' : 'â†“')}
                 </th>
                 <th>{isInvoice ? 'Due Date' : 'Valid Until'}</th>
                 <th onClick={() => { setSortField('grandTotal'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc') }} style={{ cursor: 'pointer' }}>
-                  Total Amount (₹) {sortField === 'grandTotal' && (sortOrder === 'asc' ? '↑' : '↓')}
+                  Total Amount (&#8377;) {sortField === 'grandTotal' && (sortOrder === 'asc' ? 'â†‘' : 'â†“')}
                 </th>
                 {isInvoice && <th>Balance Due</th>}
                 <th>Status</th>
@@ -2032,6 +2237,19 @@ function DocumentsListView({
                       >
                         <Copy size={15} />
                       </button>
+                      {!isInvoice &&
+                      doc.status.toLowerCase() === 'accepted' &&
+                      onConvertToInvoice && (
+                      <button
+                      type="button"
+                      className="lf-btn lf-btn-outline-brand lf-btn-sm"
+                      onClick={() => onConvertToInvoice(doc)}
+                      title="Convert accepted quotation to invoice"
+    >
+      <FileText size={14} />
+      <span>Convert</span>
+    </button>
+  )}
                       {isInvoice && doc.status !== 'Paid' && onRecordPayment && (
                         <button
                           type="button"
@@ -2401,7 +2619,7 @@ function DocumentEditorView({
           <button
             type="button"
             className="lf-btn lf-btn-primary"
-            onClick={() => handleSubmit(isInvoice ? 'Sent' : 'Sent')}
+           onClick={() => handleSubmit(isInvoice ? 'Sent' : (existingDoc ? status : 'Sent'))}
           >
             <Check size={16} />
             <span>Save & Issue</span>
@@ -2616,9 +2834,9 @@ function DocumentEditorView({
                 <th>Item Description *</th>
                 <th style={{ width: '100px' }}>SKU</th>
                 <th style={{ width: '80px' }}>Qty *</th>
-                <th style={{ width: '110px' }}>Unit Price (₹)</th>
+                <th style={{ width: '110px' }}>Unit Price (&#8377;)</th>
                 <th style={{ width: '90px' }}>GST Rate</th>
-                <th style={{ width: '110px' }}>Total (₹)</th>
+                <th style={{ width: '110px' }}>Total (&#8377;)</th>
                 <th style={{ width: '40px' }}></th>
               </tr>
             </thead>
@@ -2728,7 +2946,7 @@ function DocumentEditorView({
               BANK PAYMENT DETAILS DISPLAYED ON INVOICE
             </div>
             <div style={{ fontSize: '12px' }}>
-              <strong>{companyProfile.bankName}</strong> • A/C: {companyProfile.accountNumber} • IFSC: {companyProfile.ifscCode}
+              <strong>{companyProfile.bankName}</strong> â€¢ A/C: {companyProfile.accountNumber} â€¢ IFSC: {companyProfile.ifscCode}
             </div>
           </div>
         </div>
@@ -2755,7 +2973,7 @@ function DocumentEditorView({
                 onChange={(e) => setDiscountType(e.target.value)}
               >
                 <option value="percentage">%</option>
-                <option value="fixed">₹ Fixed</option>
+                <option value="fixed">&#8377; Fixed</option>
               </select>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -2996,7 +3214,7 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast 
         <div className="lf-modal-header">
           <div>
             <h3 className="lf-modal-title">
-              {isInvoice ? 'Tax Invoice Preview' : 'Price Quotation Preview'} — {doc.documentNumber}
+              {isInvoice ? 'Tax Invoice Preview' : 'Price Quotation Preview'}  -  {doc.documentNumber}
             </h3>
             <span className={`lf-badge lf-badge-${doc.status.toLowerCase().replace(/\s+/g, '-')}`}>
               {doc.status}
@@ -3147,9 +3365,9 @@ function PrintableInvoiceTemplate({ doc, companyProfile }) {
             <th style={{ padding: '8px', textAlign: 'left', color: '#286747' }}>Description</th>
             <th style={{ padding: '8px', textAlign: 'left', width: '70px', color: '#286747' }}>SKU</th>
             <th style={{ padding: '8px', textAlign: 'right', width: '50px', color: '#286747' }}>Qty</th>
-            <th style={{ padding: '8px', textAlign: 'right', width: '80px', color: '#286747' }}>Rate (₹)</th>
+            <th style={{ padding: '8px', textAlign: 'right', width: '80px', color: '#286747' }}>Rate (&#8377;)</th>
             <th style={{ padding: '8px', textAlign: 'right', width: '60px', color: '#286747' }}>GST</th>
-            <th style={{ padding: '8px', textAlign: 'right', width: '90px', color: '#286747' }}>Total (₹)</th>
+            <th style={{ padding: '8px', textAlign: 'right', width: '90px', color: '#286747' }}>Total (&#8377;)</th>
           </tr>
         </thead>
         <tbody>
@@ -3320,7 +3538,7 @@ function generatePrintableHtml(doc, profile) {
         <td><strong>${it.description}</strong></td>
         <td>${it.sku || '-'}</td>
         <td style="text-align: right;">${it.quantity}</td>
-        <td style="text-align: right;">₹${it.unitPrice.toLocaleString('en-IN')}</td>
+        <td style="text-align: right;">&#8377;${it.unitPrice.toLocaleString('en-IN')}</td>
         <td style="text-align: right;">${it.gstRate}%</td>
         <td style="text-align: right;">${it.total.toLocaleString('en-IN')}</td>
       </tr>`).join('')}
@@ -3328,9 +3546,9 @@ function generatePrintableHtml(doc, profile) {
   </table>
 
   <div class="total-box">
-    <div class="row"><span>Subtotal:</span><span>₹${doc.subtotal.toLocaleString('en-IN')}</span></div>
-    <div class="row"><span>Tax:</span><span>₹${doc.taxAmount.toLocaleString('en-IN')}</span></div>
-    <div class="row grand"><span>Total:</span><span>₹${doc.grandTotal.toLocaleString('en-IN')}</span></div>
+    <div class="row"><span>Subtotal:</span><span>&#8377;${doc.subtotal.toLocaleString('en-IN')}</span></div>
+    <div class="row"><span>Tax:</span><span>&#8377;${doc.taxAmount.toLocaleString('en-IN')}</span></div>
+    <div class="row grand"><span>Total:</span><span>&#8377;${doc.grandTotal.toLocaleString('en-IN')}</span></div>
   </div>
 
   <div style="margin-top: 40px; border-top: 1px solid #E6EAE5; padding-top: 12px; font-size: 11px; color: #8F9991; display: flex; justify-content: space-between;">
@@ -3708,7 +3926,7 @@ function ProductModal({ product, onClose, onSave }) {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
               <div className="lf-form-group">
-                <label className="lf-form-label">Price (₹) *</label>
+                <label className="lf-form-label">Price (&#8377;) *</label>
                 <input type="number" required min="0" step="0.01" className="lf-form-input" value={price} onChange={(e) => setPrice(e.target.value)} />
               </div>
               <div className="lf-form-group">
@@ -3789,7 +4007,7 @@ function PaymentsView({ payments, onOpenPaymentModal }) {
               <th>Date</th>
               <th>Method</th>
               <th>Reference #</th>
-              <th>Amount (₹)</th>
+              <th>Amount (&#8377;)</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -3868,7 +4086,7 @@ function RecordPaymentModal({ preselectedDoc, invoices, onClose, onSave }) {
               <label className="lf-form-label">Target Invoice</label>
               {preselectedDoc ? (
                 <div style={{ padding: '8px 12px', background: 'var(--lf-bg)', borderRadius: '6px', fontSize: '13px', fontWeight: 600 }}>
-                  {preselectedDoc.documentNumber} — {preselectedDoc.clientName} (Due: {formatINR(preselectedDoc.balanceDue)})
+                  {preselectedDoc.documentNumber}  -  {preselectedDoc.clientName} (Due: {formatINR(preselectedDoc.balanceDue)})
                 </div>
               ) : (
                 <select
@@ -3878,7 +4096,7 @@ function RecordPaymentModal({ preselectedDoc, invoices, onClose, onSave }) {
                 >
                   {invoices.map((inv) => (
                     <option key={inv.id} value={inv.id}>
-                      {inv.documentNumber} • {inv.clientName} (Bal: {formatINR(inv.balanceDue)})
+                      {inv.documentNumber} â€¢ {inv.clientName} (Bal: {formatINR(inv.balanceDue)})
                     </option>
                   ))}
                 </select>
@@ -3886,7 +4104,7 @@ function RecordPaymentModal({ preselectedDoc, invoices, onClose, onSave }) {
             </div>
 
             <div className="lf-form-group">
-              <label className="lf-form-label">Payment Amount (₹) *</label>
+              <label className="lf-form-label">Payment Amount (&#8377;) *</label>
               <input
                 type="number"
                 required
@@ -3963,20 +4181,94 @@ function RecordPaymentModal({ preselectedDoc, invoices, onClose, onSave }) {
 
 function ReportsView({ invoices, payments }) {
   const [dateRange, setDateRange] = useState('YTD')
+  const today = new Date()
 
-  const totalInvoiced = invoices.reduce((s, i) => s + (i.grandTotal || 0), 0)
-  const totalTaxCollected = invoices.reduce((s, i) => s + (i.taxAmount || 0), 0)
-  const totalCollected = payments.reduce((s, p) => s + (p.amount || 0), 0)
+  const rangeStart = (() => {
+    if (dateRange === 'YTD') {
+      return new Date(
+        today.getFullYear() - (today.getMonth() < 3 ? 1 : 0),
+        3,
+        1
+      )
+    }
 
-  // Tax Breakdown
-  const cgstTotal = invoices.reduce((s, i) => s + (i.cgstAmount || 0), 0)
-  const sgstTotal = invoices.reduce((s, i) => s + (i.sgstAmount || 0), 0)
-  const igstTotal = invoices.reduce((s, i) => s + (i.igstAmount || 0), 0)
+    if (dateRange === 'Q3') {
+      return new Date(today.getFullYear(), 9, 1)
+    }
 
+    if (dateRange === '30D') {
+      const start = new Date(today)
+      start.setHours(0, 0, 0, 0)
+      start.setDate(start.getDate() - 29)
+      return start
+    }
+
+    return null
+  })()
+
+  const rangeEnd = dateRange === 'Q3'
+    ? new Date(today.getFullYear(), 12, 1)
+    : (() => {
+        const end = new Date(today)
+        end.setHours(0, 0, 0, 0)
+        end.setDate(end.getDate() + 1)
+        return end
+      })()
+
+  const isInRange = (value) => {
+    if (dateRange === 'ALL') return true
+    if (!value) return false
+
+    const date = new Date(`${String(value).slice(0, 10)}T00:00:00`)
+
+    return (
+      !Number.isNaN(date.getTime()) &&
+      date >= rangeStart &&
+      date < rangeEnd
+    )
+  }
+
+  const filteredInvoices = invoices.filter((inv) =>
+    isInRange(inv.issueDate)
+  )
+
+  const filteredPayments = payments.filter((payment) =>
+    isInRange(payment.paymentDate)
+  )
+
+  const totalInvoiced = filteredInvoices.reduce(
+    (sum, invoice) => sum + (Number(invoice.grandTotal) || 0),
+    0
+  )
+
+  const totalTaxCollected = filteredInvoices.reduce(
+    (sum, invoice) => sum + (Number(invoice.taxAmount) || 0),
+    0
+  )
+
+  const totalCollected = filteredPayments.reduce(
+    (sum, payment) => sum + (Number(payment.amount) || 0),
+    0
+  )
+
+  const cgstTotal = filteredInvoices.reduce(
+    (sum, invoice) => sum + (Number(invoice.cgstAmount) || 0),
+    0
+  )
+
+  const sgstTotal = filteredInvoices.reduce(
+    (sum, invoice) => sum + (Number(invoice.sgstAmount) || 0),
+    0
+  )
+
+  const igstTotal = filteredInvoices.reduce(
+    (sum, invoice) => sum + (Number(invoice.igstAmount) || 0),
+    0
+  )
   // CSV Export
   const handleExportCsv = () => {
     let csv = 'Invoice Number,Client,Issue Date,Due Date,Subtotal,Tax,Grand Total,Status\n'
-    invoices.forEach((inv) => {
+  filteredInvoices.forEach((inv) => {
       csv += `"${inv.documentNumber}","${inv.clientName}","${inv.issueDate}","${inv.dueDate}",${inv.subtotal},${inv.taxAmount},${inv.grandTotal},"${inv.status}"\n`
     })
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
@@ -4024,9 +4316,9 @@ function ReportsView({ invoices, payments }) {
             <div className="lf-metric-subtext">Total invoices issued</div>
           </div>
           <div className="lf-metric-card">
-            <span className="lf-metric-label">GST Tax Collected</span>
+            <span className="lf-metric-label">GST Tax Billed</span>
             <div className="lf-metric-value" style={{ color: 'var(--lf-brand)' }}>{formatINR(totalTaxCollected)}</div>
-            <div className="lf-metric-subtext">CGST + SGST + IGST liability</div>
+            <div className="lf-metric-subtext">CCGST + SGST + IGST on invoices issued</div>
           </div>
           <div className="lf-metric-card">
             <span className="lf-metric-label">Collections Received</span>
@@ -4066,51 +4358,14 @@ function ReportsView({ invoices, payments }) {
 
 function SettingsView({ profile, onSaveProfile, showToast }) {
   const [formData, setFormData] = useState({ ...profile })
-  const [supabaseUrl, setSupabaseUrl] = useState(() => {
-    try {
-      const cfg = localStorage.getItem('ledgerflow_supabase_config')
-      return cfg ? JSON.parse(cfg).url || '' : ''
-    } catch {
-      return ''
-    }
-  })
-  const [supabaseAnonKey, setSupabaseAnonKey] = useState(() => {
-    try {
-      const cfg = localStorage.getItem('ledgerflow_supabase_config')
-      return cfg ? JSON.parse(cfg).anonKey || '' : ''
-    } catch {
-      return ''
-    }
-  })
-  const statusInfo = useMemo(() => getSupabaseConfigStatus(), [])
-
-  const handleChange = (field, val) => {
+    const handleChange = (field, val) => {
     setFormData((prev) => ({ ...prev, [field]: val }))
   }
 
-  const handleSaveAll = (e) => {
+  const handleSaveAll = async (e) => {
     e.preventDefault()
-    onSaveProfile(formData)
-
-    // Save Supabase Configuration
-    if (supabaseUrl && supabaseAnonKey) {
-      localStorage.setItem(
-        'ledgerflow_supabase_config',
-        JSON.stringify({ url: supabaseUrl.trim(), anonKey: supabaseAnonKey.trim() })
-      )
-    }
-  }
-
-  const handleTestConnection = async () => {
-    if (!supabaseUrl.startsWith('https://')) {
-      showToast('Supabase URL must start with https://', 'error')
-      return
-    }
-    showToast('Testing cloud connection...', 'warning')
-    setTimeout(() => {
-      showToast('Supabase connection parameters updated. Reloading will apply cloud sync.', 'success')
-    }, 1200)
-  }
+    await onSaveProfile(formData)
+   }
 
   return (
     <div className="lf-card">
@@ -4251,48 +4506,6 @@ function SettingsView({ profile, onSaveProfile, showToast }) {
             </div>
           </div>
         </div>
-
-        {/* Supabase Cloud Sync Configuration */}
-        <div style={{ marginBottom: '28px', borderTop: '1px solid var(--lf-border)', paddingTop: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--lf-brand)' }}>
-              Supabase Cloud Database Sync
-            </h3>
-            <span className={`lf-badge ${isSupabaseConfigured ? 'lf-badge-paid' : 'lf-badge-sent'}`}>
-              {statusInfo.message || 'Configured via Environment'}
-            </span>
-          </div>
-          <p style={{ fontSize: '12px', color: 'var(--lf-text-secondary)', marginBottom: '14px' }}>
-            LedgerFlow securely connects to your Supabase project using client-side publishable keys. Service-role keys are never stored.
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-            <div className="lf-form-group">
-              <label className="lf-form-label">Supabase URL (VITE_SUPABASE_URL)</label>
-              <input
-                type="text"
-                className="lf-form-input"
-                placeholder="https://your-project.supabase.co"
-                value={supabaseUrl}
-                onChange={(e) => setSupabaseUrl(e.target.value)}
-              />
-            </div>
-            <div className="lf-form-group">
-              <label className="lf-form-label">Supabase Anon Key (VITE_SUPABASE_ANON_KEY)</label>
-              <input
-                type="password"
-                className="lf-form-input"
-                placeholder="eyJh..."
-                value={supabaseAnonKey}
-                onChange={(e) => setSupabaseAnonKey(e.target.value)}
-              />
-            </div>
-          </div>
-          <div style={{ marginTop: '12px' }}>
-            <button type="button" className="lf-btn lf-btn-secondary lf-btn-sm" onClick={handleTestConnection}>
-              Test Cloud Credentials
-            </button>
-          </div>
-        </div>
       </form>
     </div>
   )
@@ -4367,7 +4580,7 @@ function NotFoundPage() {
             margin: '0 auto 28px'
           }}
         >
-          The page you’re looking for doesn’t exist, may have moved, or is unavailable in your current session.
+          The page youâ€™re looking for doesnâ€™t exist, may have moved, or is unavailable in your current session.
         </p>
 
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>

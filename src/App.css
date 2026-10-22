@@ -1410,3 +1410,10 @@ a:hover {
     padding: 14px 16px;
   }
 }
+/* Keep the application sign-out control out of printed invoices */
+@media print {
+  .signout {
+    display: none !important;
+    visibility: hidden !important;
+  }
+}
