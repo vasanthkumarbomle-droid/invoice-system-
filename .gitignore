@@ -37,3 +37,5 @@ _ledgerflow_reminders_package/
 REMINDERS-SETUP.md
 # Do not publish the unfinished Resend-based reminder function
 supabase/functions/send-invoice-reminders/
+ledgerflow-free-gmail-reminders.zip
+deno-check-output.txt
