@@ -7,21 +7,41 @@ This edition uses Google Apps Script's `MailApp` to send emails from the Google 
 - Sends a polite reminder for invoices due in 1–3 days (one successful reminder per invoice due date; the window allows recovery if a scheduled run was missed).
 - Sends an overdue follow-up for an outstanding invoice, then at most once every 7 days.
 - Skips draft, cancelled, and paid invoices, invoices without a client email, and invoices with no outstanding balance.
-- Uses the existing `public.invoice_reminder_log` table to prevent duplicates.
-- Includes invoice number, due date, total, outstanding balance, client name, company sign-off, and the light-green/white/charcoal LedgerFlow design.
+- Uses `public.invoice_reminder_log` to record sends and suppress repeat reminders.
+- Sends email through the Google account that authorizes the Apps Script. This is a shared sender, not each organization's own Gmail account.
 - Keeps the Supabase service-role key inside the Edge Function, never in Apps Script or the frontend.
 
 ## Prerequisites
 
-- The `invoice_reminder_log` SQL migration has already been run in Supabase.
+- Access to the correct Supabase project and its SQL Editor.
+- Both SQL scripts in `supabase/sql/` applied successfully, in order:
+  1. `001_invoice_reminder_log.sql`
+  2. `002_organization_reminder_settings.sql`
 - Access to the Supabase project and Supabase CLI (or another supported method to deploy Edge Functions).
 - A Google account that can send mail using Apps Script. Consumer accounts have a limited daily email-recipient quota; quotas are subject to change.
 
-## 1. Add/deploy the Edge Function
+**Important:** The Edge Function will return an error if either SQL script is missing. Existing organizations start with reminders disabled. Do not enable reminders for an organization until its owner has explicitly agreed to use the shared sender.
 
-Copy `supabase/functions/gmail-invoice-reminders/index.ts` into the matching path in your LedgerFlow repository.
+## 1. Apply the SQL scripts
 
-In Supabase Edge Functions Secrets, add `INVOICE_REMINDER_CRON_SECRET`. Use a long random secret (32+ characters), generated privately. Supabase provides `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to the deployed function; do not copy the service-role key into client-side code or Apps Script.
+In the Supabase SQL Editor for the correct project, run the full contents of `supabase/sql/001_invoice_reminder_log.sql`, then `supabase/sql/002_organization_reminder_settings.sql`. Confirm both complete successfully before deploying the function.
+
+### Enable reminders only after explicit consent
+
+The settings migration intentionally defaults every organization to disabled. After the organization owner has reviewed and accepted the shared-sender arrangement, find the correct organization UUID and run this statement, replacing `YOUR_ORG_UUID` with that UUID:
+
+```sql
+UPDATE public.organization_reminder_settings
+SET enabled = true,
+    shared_sender_acknowledged = true,
+    enabled_at = now(),
+    updated_at = now()
+WHERE org_id = 'YOUR_ORG_UUID';
+```
+
+Check that exactly the intended organization's row was updated. To disable reminders, set `enabled = false` for that same `org_id`. These settings are managed in Supabase; this repository does not currently provide a reminder-consent screen in the app.
+
+## 2. Deploy the Edge Function
 
 From the project root:
 
@@ -31,12 +51,15 @@ supabase link --project-ref YOUR_PROJECT_REF
 supabase functions deploy gmail-invoice-reminders --no-verify-jwt
 ```
 
-Replace `YOUR_PROJECT_REF` with the reference in your Supabase project URL. The function rejects calls without the matching `x-cron-secret` header. If you already linked the right project, `supabase link` may be unnecessary.
+Replace `YOUR_PROJECT_REF` with the reference in your Supabase project URL. In Supabase Edge Function Secrets, add `INVOICE_REMINDER_CRON_SECRET` using a privately generated random secret of at least 32 characters. Supabase provides `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to the deployed function. Never put the service-role key in the frontend or Apps Script.
 
-The deployed function URL is:
+The function URL is:
+
 `https://YOUR_PROJECT_REF.supabase.co/functions/v1/gmail-invoice-reminders`
 
-## 2. Create the Google Apps Script
+The function checks the `x-cron-secret` header on each POST request. If you already linked the correct project, `supabase link` may be unnecessary.
+
+## 3. Create the Google Apps Script
 
 1. Open https://script.google.com and create a new standalone project.
 2. Copy all contents of `google-apps-script/Code.gs` into `Code.gs`.
@@ -46,21 +69,21 @@ The deployed function URL is:
    - `LEDGERFLOW_REMINDER_CRON_SECRET` = the exact same secret as the Supabase Edge Function secret
 5. Save. Do not publish/share this Apps Script project with people who should not be allowed to trigger customer emails.
 
-## 3. Test without sending
+## 4. Preview without sending
 
-Choose `previewInvoiceReminders` in the function selector and click Run. Approve Google authorization. Open the execution log; it should show candidate count and invoice numbers but send no email.
+Choose `previewInvoiceReminders` in the function selector and click Run. Approve Google authorization. Open the execution log and verify the candidate count, invoice numbers, and recipients against the intended test data. This function does not send email.
 
-Before sending any real reminders, ensure the only candidates are test invoices and the client email addresses belong to people who have agreed to receive a test message.
+Before sending any real reminders, ensure candidates are expected and recipients are correct. Use test invoices and email addresses you control for initial testing.
 
-## 4. Send one controlled test
+## 5. Send one controlled test
 
-For initial testing, use a test invoice whose due date is in the next 1–3 days and a client email you control. Run `runInvoiceReminders` manually. Confirm the message arrived and a row was added to `invoice_reminder_log`.
+Use a test invoice due in the next 1–3 days and a client email address you control. Run `runInvoiceReminders` manually. Confirm the message arrived and a row was added to `invoice_reminder_log`.
 
-The reminder log records a successful `MailApp.sendEmail` call, then validates and stores the reminder. If the email sends but the log request fails, check the execution log before rerunning; that rare gap could allow a duplicate on the next run.
+The script logs after `MailApp.sendEmail` returns successfully. If the email sends but the logging request fails, inspect the execution log before retrying; a duplicate is possible in that failure window. Avoid running multiple reminder jobs concurrently.
 
-## 5. Enable daily automation
+## 6. Enable daily automation
 
-After the controlled test succeeds, choose `installDailyReminderTrigger` and Run once. This replaces any existing trigger for `runInvoiceReminders` and installs a daily time-driven trigger around 9 AM in the project's `Asia/Kolkata` time zone. Verify it under Apps Script Triggers and Executions.
+Only after the controlled test succeeds, choose `installDailyReminderTrigger` and Run once. This replaces any existing trigger for `runInvoiceReminders` and installs a daily time-driven trigger around 9 AM in the project's `Asia/Kolkata` time zone. Verify it under Apps Script Triggers and Executions.
 
 ## Reminder behavior and safety
 
@@ -68,4 +91,5 @@ After the controlled test succeeds, choose `installDailyReminderTrigger` and Run
 - Overdue: first eligible run after due date; then at most once every seven days while still outstanding.
 - Day calculations use India Standard Time for the server's date.
 - Use only with legitimate invoices and correct recipient addresses. Review candidates first. Apps Script/Gmail sending quotas are limited and can change.
-- This does not make reminders part of the LedgerFlow browser app itself; the script runs independently on Google's schedule while the browser is closed.
+- This is not an in-app background process: Apps Script runs on Google's schedule while the browser is closed.
+- The current design uses one shared Apps Script sender. Per-organization Gmail OAuth/sender identities are not implemented.
