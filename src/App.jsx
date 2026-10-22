@@ -2641,60 +2641,74 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
   const html5QrCodeRef = useRef(null)
   const hasProcessedScanRef = useRef(false)
 
+  const onDetectedRef = useRef(onDetected)
+  const onManualSubmitRef = useRef(onManualSubmit)
+
+  useEffect(() => {
+    onDetectedRef.current = onDetected
+    onManualSubmitRef.current = onManualSubmit
+  }, [onDetected, onManualSubmit])
+
   useEffect(() => {
     const scannerId = 'ledgerflow-barcode-reader'
+    let cancelled = false
+    let started = false
+    const scannerInstance = new Html5Qrcode(scannerId)
+    html5QrCodeRef.current = scannerInstance
 
     const startScanner = async () => {
       try {
-        const scannerInstance = new Html5Qrcode(scannerId)
-        html5QrCodeRef.current = scannerInstance
-
-        const config = {
-          fps: 10,
-          qrbox: { width: 250, height: 160 },
-          aspectRatio: 1.777778
-        }
-
         await scannerInstance.start(
           { facingMode: 'environment' },
-          config,
-          (decodedText) => {
-            if (hasProcessedScanRef.current) return
+          { fps: 10, qrbox: { width: 250, height: 160 }, aspectRatio: 1.777778 },
+          async (decodedText) => {
+            if (cancelled || hasProcessedScanRef.current) return
             hasProcessedScanRef.current = true
-            html5QrCodeRef.current?.stop().catch(() => {})
-            onDetected(decodedText)
+            try {
+              if (scannerInstance.isScanning) await scannerInstance.stop()
+            } catch { /* Camera may already have stopped. */ }
+            if (!cancelled) await onDetectedRef.current(decodedText)
           },
-          () => {
-            // Ignore non-detect frames
-          }
+          () => {}
         )
-        setIsScanning(true)
+        started = true
+        if (cancelled) {
+          await scannerInstance.stop().catch(() => {})
+          scannerInstance.clear()
+        } else {
+          setIsScanning(true)
+        }
       } catch (err) {
-        setScannerError(
-          err?.message || 'Unable to access camera. Please verify device camera permissions.'
-        )
+        if (!cancelled) {
+          setScannerError(err?.message || 'Unable to access camera. Check camera permissions and use HTTPS or localhost.')
+          setIsScanning(false)
+        }
       }
     }
 
     startScanner()
-
     return () => {
-      if (html5QrCodeRef.current) {
-        html5QrCodeRef.current
-          .stop()
-          .then(() => html5QrCodeRef.current.clear())
-          .catch(() => {
-            /* Cleanup ignore */
-          })
+      cancelled = true
+      if (started && scannerInstance.isScanning) {
+        scannerInstance.stop().then(() => scannerInstance.clear()).catch(() => {})
+      } else if (!started) {
+        // startScanner checks cancelled after camera initialization resolves.
+      } else {
+        try { scannerInstance.clear() } catch { /* already cleared */ }
       }
     }
-  }, [onDetected])
+  }, [])
 
-  const handleManualAdd = (e) => {
+  const handleManualAdd = async (e) => {
     e.preventDefault()
-    if (!manualCode.trim()) return
-    onManualSubmit(manualCode.trim())
-    setManualCode('')
+    const code = manualCode.trim()
+    if (!code) return
+    try {
+      const result = await onManualSubmitRef.current(code)
+      if (result !== false) setManualCode('')
+    } catch (err) {
+      setScannerError(err?.message || 'Could not add this barcode. Please try again.')
+    }
   }
 
   return (
@@ -2734,7 +2748,7 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
                 DEMO BARCODES (CLICK TO TEST SIMULATED SCAN):
               </div>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {products.slice(0, 4).map((p) => (
+                {products.filter((p) => String(p.barcode || '').trim()).slice(0, 4).map((p) => (
                   <button
                     key={p.id}
                     type="button"
@@ -3063,94 +3077,55 @@ function PrintableInvoiceTemplate({ doc, companyProfile }) {
   )
 }
 
-// Generate Standalone HTML Document
+// Generate Standalone HTML Document. Escape every user/database value before inserting it into HTML.
 function generatePrintableHtml(doc, profile) {
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>${doc.documentNumber} - ${profile.tradeName}</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 40px; color: #252B27; background: #fff; }
-    .header { display: flex; justify-content: space-between; border-bottom: 2px solid #286747; padding-bottom: 16px; margin-bottom: 20px; }
-    .title { font-size: 24px; font-weight: 800; color: #286747; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
-    .box { padding: 12px; background: #F8FAF8; border: 1px solid #E6EAE5; border-radius: 4px; font-size: 12px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 12px; }
-    th { background: #EEF5F1; color: #286747; text-align: left; padding: 8px; border-bottom: 1.5px solid #286747; }
-    td { padding: 8px; border-bottom: 1px solid #E6EAE5; }
-    .total-box { margin-left: auto; width: 280px; border: 1px solid #E6EAE5; border-radius: 4px; padding: 12px; font-size: 12px; }
-    .row { display: flex; justify-content: space-between; padding: 3px 0; }
-    .grand { border-top: 2px solid #286747; margin-top: 6px; padding-top: 6px; font-size: 15px; font-weight: 800; color: #286747; }
-    @media print { body { margin: 0; } }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div>
-      <div class="title">${profile.tradeName || profile.companyName}</div>
-      <div style="font-size: 12px; color: #6B756D; margin-top: 4px;">${profile.address}</div>
-      <div style="font-size: 12px; color: #6B756D;">GSTIN: ${profile.gstin} | PAN: ${profile.pan}</div>
-    </div>
-    <div style="text-align: right;">
-      <div style="font-size: 24px; font-weight: 800; text-transform: uppercase;">${doc.type === 'invoice' ? 'Tax Invoice' : 'Price Quotation'}</div>
-      <div style="font-size: 14px; font-weight: 700; color: #286747;">#${doc.documentNumber}</div>
-      <div style="font-size: 12px; color: #6B756D;">Date: ${doc.issueDate}</div>
-    </div>
-  </div>
-
-  <div class="grid">
-    <div class="box">
-      <strong>Billed To:</strong><br>
-      <strong>${doc.clientName}</strong><br>
-      ${doc.clientAddress}<br>
-      ${doc.clientGstin ? 'GSTIN: ' + doc.clientGstin : ''}
-    </div>
-    <div class="box">
-      <strong>Payment & Due Details:</strong><br>
-      Due Date: ${doc.dueDate}<br>
-      Terms: ${doc.paymentTerms}<br>
-      Bank: ${profile.bankName} (A/C: ${profile.accountNumber}, IFSC: ${profile.ifscCode})
-    </div>
-  </div>
-
-  <table>
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Description</th>
-        <th>SKU</th>
-        <th style="text-align: right;">Qty</th>
-        <th style="text-align: right;">Rate</th>
-        <th style="text-align: right;">GST</th>
-        <th style="text-align: right;">Total</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${doc.items.map((it, i) => `<tr>
-        <td>${i + 1}</td>
-        <td><strong>${it.description}</strong></td>
-        <td>${it.sku || '-'}</td>
-        <td style="text-align: right;">${it.quantity}</td>
-        <td style="text-align: right;">&#8377;${it.unitPrice.toLocaleString('en-IN')}</td>
-        <td style="text-align: right;">${it.gstRate}%</td>
-        <td style="text-align: right;">${it.total.toLocaleString('en-IN')}</td>
-      </tr>`).join('')}
-    </tbody>
-  </table>
-
-  <div class="total-box">
-    <div class="row"><span>Subtotal:</span><span>&#8377;${doc.subtotal.toLocaleString('en-IN')}</span></div>
-    <div class="row"><span>Tax:</span><span>&#8377;${doc.taxAmount.toLocaleString('en-IN')}</span></div>
-    <div class="row grand"><span>Total:</span><span>&#8377;${doc.grandTotal.toLocaleString('en-IN')}</span></div>
-  </div>
-
-  <div style="margin-top: 40px; border-top: 1px solid #E6EAE5; padding-top: 12px; font-size: 11px; color: #8F9991; display: flex; justify-content: space-between;">
-    <div>Generated via LedgerFlow Financial Suite.</div>
-    <div>Authorized Signatory: ${profile.tradeName}</div>
-  </div>
-</body>
-</html>`
+  const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[char])
+  const money = (value) => (Number(value) || 0).toLocaleString('en-IN', {
+    minimumFractionDigits: 2, maximumFractionDigits: 2
+  })
+  const safeItems = (doc.items || []).map((it, index) => `<tr>
+    <td>${index + 1}</td><td><strong>${esc(it.description)}</strong></td><td>${esc(it.sku || '-')}</td>
+    <td class="num">${esc(it.quantity)}</td><td class="num">&#8377;${money(it.unitPrice)}</td>
+    <td class="num">${esc(it.gstRate)}%</td><td class="num">&#8377;${money(it.total)}</td>
+  </tr>`).join('')
+  const isInvoice = doc.type === 'invoice'
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(doc.documentNumber)} - ${esc(profile.tradeName)}</title>
+<style>
+*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;margin:32px;color:#252b27;background:#fff}
+.header{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #286747;padding-bottom:16px;margin-bottom:20px}
+.title{font-size:24px;font-weight:800;color:#286747}.muted{font-size:12px;color:#6b756d;margin-top:4px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+.box{padding:12px;background:#f8faf8;border:1px solid #e6eae5;border-radius:4px;font-size:12px;overflow-wrap:anywhere}
+table{width:100%;border-collapse:collapse;margin-bottom:24px;font-size:12px}th{background:#eef5f1;color:#286747;text-align:left;padding:8px;border-bottom:1.5px solid #286747}
+td{padding:8px;border-bottom:1px solid #e6eae5}.num{text-align:right;white-space:nowrap}
+.total-box{margin-left:auto;width:280px;max-width:100%;border:1px solid #e6eae5;border-radius:4px;padding:12px;font-size:12px}
+.row{display:flex;justify-content:space-between;gap:12px;padding:3px 0}.grand{border-top:2px solid #286747;margin-top:6px;padding-top:6px;font-size:15px;font-weight:800;color:#286747}
+.footer{margin-top:36px;border-top:1px solid #e6eae5;padding-top:12px;font-size:11px;color:#6b756d}
+@media(max-width:600px){body{margin:14px}.header{flex-direction:column}.grid{grid-template-columns:1fr}table{font-size:10px}th,td{padding:5px}}
+@media print{body{margin:0}.no-print{display:none}}
+</style></head><body>
+<div class="header"><div><div class="title">${esc(profile.tradeName || profile.companyName)}</div>
+<div class="muted">${esc(profile.address)}</div><div class="muted">GSTIN: ${esc(profile.gstin)} | PAN: ${esc(profile.pan)}</div>
+<div class="muted">${esc(profile.email)} ${profile.phone ? ' | ' + esc(profile.phone) : ''}</div></div>
+<div style="text-align:right"><div style="font-size:24px;font-weight:800;text-transform:uppercase">${isInvoice ? 'Tax Invoice' : 'Price Quotation'}</div>
+<div style="font-size:14px;font-weight:700;color:#286747">#${esc(doc.documentNumber)}</div><div class="muted">Date: ${esc(doc.issueDate)}</div></div></div>
+<div class="grid"><div class="box"><strong>Billed To:</strong><br><strong>${esc(doc.clientName)}</strong><br>
+${esc(doc.clientAddress)}<br>${doc.clientGstin ? 'GSTIN: ' + esc(doc.clientGstin) : ''}<br>${esc(doc.clientEmail)}</div>
+<div class="box"><strong>Payment & Due Details:</strong><br>Due Date: ${esc(doc.dueDate)}<br>Terms: ${esc(doc.paymentTerms)}<br>
+Bank: ${esc(profile.bankName)} (A/C: ${esc(profile.accountNumber)}, IFSC: ${esc(profile.ifscCode)})<br>UPI: ${esc(profile.upiId)}</div></div>
+<table><thead><tr><th>#</th><th>Description</th><th>SKU</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">GST</th><th class="num">Total</th></tr></thead>
+<tbody>${safeItems}</tbody></table>
+<div class="total-box"><div class="row"><span>Subtotal:</span><span>&#8377;${money(doc.subtotal)}</span></div>
+<div class="row"><span>Discount:</span><span>&#8377;${money(doc.discountAmount)}</span></div>
+<div class="row"><span>Tax:</span><span>&#8377;${money(doc.taxAmount)}</span></div>
+<div class="row grand"><span>Total:</span><span>&#8377;${money(doc.grandTotal)}</span></div></div>
+<div class="footer">Generated via LedgerFlow. <span style="float:right">Authorized Signatory: ${esc(profile.tradeName || profile.companyName)}</span>
+<div style="margin-top:8px;white-space:pre-wrap">${esc(doc.notes)}</div></div>
+</body></html>`
 }
 
 // ============================================================================
