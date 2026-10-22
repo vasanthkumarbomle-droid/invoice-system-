@@ -195,4 +195,11 @@ export const convertQuotationToInvoice = (quoteId, dueDate) =>
     .then(must)
 
 export const deleteQuotation = (orgId, id) =>
-  supabase.from('quotations').delete().eq('org_id', orgId).eq('id', id).then(must)
+  supabase
+    .from('quotations')
+    .delete()
+    .eq('org_id', orgId)
+    .eq('id', id)
+    .select('id')
+    .single()
+    .then(must)
