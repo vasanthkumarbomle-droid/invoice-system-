@@ -1,0 +1,4 @@
+[functions.quotation-workflow]
+# Public client links use unguessable expiring tokens. The function separately verifies
+# the signed-in owner on "send" actions, so this endpoint must accept public requests.
+verify_jwt = false
