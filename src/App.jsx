@@ -112,8 +112,10 @@ function mapInvoice(r) {
   })
   const taxable = Number(r.subtotal ?? gross) || 0
   const rawStatus = String(r.status || 'draft').toLowerCase()
-  const balanceDue = Number(r.balance_due) || 0
   const amountPaid = Number(r.amount_paid) || 0
+  const balanceDue = r.balance_due == null
+    ? Math.max(0, (Number(r.grand_total) || 0) - amountPaid)
+    : (Number(r.balance_due) || 0)
   const status = rawStatus === 'cancelled' ? 'Cancelled'
     : rawStatus === 'draft' ? 'Draft'
       : balanceDue <= 0 ? 'Paid'
