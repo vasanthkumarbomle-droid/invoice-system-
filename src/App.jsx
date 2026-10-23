@@ -79,6 +79,7 @@ function addDaysToDateString(dateString, days) {
 }
 
 function paymentTermsDays(value, fallback = 15) {
+  if (/due on receipt/i.test(String(value || ''))) return 0
   const match = String(value || '').match(/\d+/)
   const days = match ? Number(match[0]) : fallback
   return Number.isFinite(days) && days >= 0 ? days : fallback
@@ -1487,6 +1488,7 @@ const [quotations, setQuotations] = useState([])
 // ============================================================================
 function DashboardView({ invoices, payments, quotations, companyProfile, onNewInvoice, onNewQuotation, onViewDoc }) {
   const reportableInvoices = useMemo(() => invoices.filter((invoice) => !['Draft', 'Cancelled'].includes(invoice.status)), [invoices])
+  const reportableInvoiceIds = useMemo(() => new Set(reportableInvoices.map((invoice) => invoice.id)), [reportableInvoices])
   const totalInvoiced = useMemo(() => reportableInvoices.reduce((sum, i) => sum + (Number(i.grandTotal) || 0), 0), [reportableInvoices])
   const amountReceived = useMemo(() => reportableInvoices.reduce((sum, i) => sum + (Number(i.amountPaid) || 0), 0), [reportableInvoices])
   const outstandingBalance = useMemo(() => reportableInvoices.reduce((sum, i) => sum + (Number(i.balanceDue) || 0), 0), [reportableInvoices])
@@ -1519,7 +1521,7 @@ function DashboardView({ invoices, payments, quotations, companyProfile, onNewIn
     }
   })
 
-  payments.forEach((payment) => {
+  payments.filter((payment) => reportableInvoiceIds.has(payment.invoiceId)).forEach((payment) => {
     const key = String(payment.paymentDate || '').slice(0, 7)
     const month = monthMap.get(key)
 
@@ -2451,7 +2453,11 @@ function DocumentEditorView({
                 type="date"
                 className="lf-form-input"
                 value={issueDate}
-                onChange={(e) => setIssueDate(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setIssueDate(value)
+                  setDueDate(addDaysToDateString(value, paymentTermsDays(paymentTerms)))
+                }}
               />
             </div>
             <div className="lf-form-group">
@@ -2471,7 +2477,11 @@ function DocumentEditorView({
               <select
                 className="lf-form-select"
                 value={paymentTerms}
-                onChange={(e) => setPaymentTerms(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setPaymentTerms(value)
+                  setDueDate(addDaysToDateString(issueDate, paymentTermsDays(value)))
+                }}
               >
                 <option value="Due on Receipt">Due on Receipt</option>
                 <option value="Net 15">Net 15 Days</option>
@@ -4140,8 +4150,9 @@ function ReportsView({ invoices, payments }) {
   const handleExportCsv = () => {
     const csvCell = (value) => {
       let text = String(value ?? '')
-      if (typeof value === 'string' && /^[\t\r ]*[=+@-]/.test(text)) text = `'${text}`
-      return `"${text.replace(/"/g, '""')}"`
+      const firstNonWhitespace = text.trimStart()[0]
+      if (typeof value === 'string' && ['=', '+', '-', '@'].includes(firstNonWhitespace)) text = "'" + text
+      return '"' + text.replace(/"/g, '""') + '"'
     }
     const rows = [
       ['Invoice Number', 'Client', 'Issue Date', 'Due Date', 'Subtotal', 'Discount', 'Taxable Amount', 'CGST', 'SGST', 'IGST', 'Tax Total', 'Grand Total', 'Status'],
