@@ -2,7 +2,7 @@
 
 ## Existing projects
 
-LedgerFlow's original core database schema was created outside this repository. The SQL files numbered `001` through `008` are **additive feature migrations**; they are not a replacement for the original schema. Do not run the application against a fresh Supabase database until the core tables, totals/numbering triggers, grants, and organization-scoped RLS policies have been installed and verified.
+LedgerFlow's original core database schema was created outside this repository. The SQL files numbered `001` through `009` are **additive feature migrations**; they are not a replacement for the original schema. Do not run the application against a fresh Supabase database until the core tables, totals/numbering triggers, grants, and organization-scoped RLS policies have been installed and verified.
 
 The app expects these core tables:
 
@@ -29,7 +29,7 @@ For an existing project, check which migrations have already succeeded. Apply **
 5. Apply `005_payment_integrity.sql`. The database trigger rejects payments on draft/cancelled/paid invoices, cross-organization payment rows, and payment amounts exceeding the current invoice balance.
 6. Apply `006_due_date_reminders.sql` before deploying the current invoice-reminder Edge Function. It adds a separate `due_today` log type so a prior due-soon reminder does not suppress the due-date reminder.
 7. Apply `008_payment_update_integrity.sql` only after reviewing the live payment schema. It validates payment updates, recalculates both invoices when a payment is moved, and clamps stored invoice balance due at zero. Test payment insert, amount correction, move, and delete with disposable records before issuing real documents.
-8. Apply `009_document_save_tenant_integrity.sql`. It explicitly requires organization membership and same-organization client/product references in the invoice and quotation save functions; it also revokes direct browser execution of the internal `invoice_refresh(uuid)` helper. This assumes the named core tables and columns already exist.
+8. Apply `009_document_save_tenant_integrity.sql`. It explicitly requires organization membership and same-organization client/product references in the invoice/quotation save functions and quotation conversion; it also revokes direct browser execution of the internal `invoice_refresh(uuid)` helper. This assumes the named core tables and columns already exist.
 9. Test document saves, quotation conversion, and payment create/correct/move/delete with disposable records before issuing real documents.
 
 ## Database behavior that must exist
