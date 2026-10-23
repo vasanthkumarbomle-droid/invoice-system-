@@ -9,6 +9,11 @@ export function todayInIndia() {
   return `${part('year')}-${part('month')}-${part('day')}`
 }
 
+export function isPastDueDate(dueDate, today = todayInIndia()) {
+  const due = String(dueDate || '').slice(0, 10)
+  return /^\\d{4}-\\d{2}-\\d{2}$/.test(due) && due < today
+}
+
 export function addDaysToDateString(dateString, days) {
   const match = String(dateString || todayInIndia()).match(/^(\d{4})-(\d{2})-(\d{2})$/)
   if (!match) return todayInIndia()
