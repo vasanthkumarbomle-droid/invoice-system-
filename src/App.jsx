@@ -702,14 +702,14 @@ const [quotations, setQuotations] = useState([])
             <svg className="lf-logo-icon" viewBox="0 0 40 40" role="img" aria-label="LedgerFlow logo" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <linearGradient id="ledgerflow-mark-gradient" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#147D53" />
-                  <stop offset="100%" stopColor="#075638" />
+                  <stop offset="0%" stopColor="#344054" />
+                  <stop offset="100%" stopColor="#1F2937" />
                 </linearGradient>
               </defs>
               <rect x="1" y="1" width="38" height="38" rx="11" fill="url(#ledgerflow-mark-gradient)" />
-              <path d="M11 13.5h18M11 20h11M11 26.5h7" fill="none" stroke="#F8F5E9" strokeWidth="2.4" strokeLinecap="round" />
-              <circle cx="27.5" cy="26.5" r="5.5" fill="#E9B949" />
-              <path d="M27.5 23.5v6M29.2 24.7c-.5-.5-1-.7-1.7-.7-1 0-1.7.5-1.7 1.3 0 2 3.4.8 3.4 2.5 0 .8-.7 1.3-1.7 1.3-.7 0-1.4-.3-1.9-.8" fill="none" stroke="#17452F" strokeWidth="1.1" strokeLinecap="round" />
+              <path d="M11 13.5h18M11 20h11M11 26.5h7" fill="none" stroke="#F8F5F0" strokeWidth="2.4" strokeLinecap="round" />
+              <circle cx="27.5" cy="26.5" r="5.5" fill="#D79A62" />
+              <path d="M27.5 23.5v6M29.2 24.7c-.5-.5-1-.7-1.7-.7-1 0-1.7.5-1.7 1.3 0 2 3.4.8 3.4 2.5 0 .8-.7 1.3-1.7 1.3-.7 0-1.4-.3-1.9-.8" fill="none" stroke="#263445" strokeWidth="1.1" strokeLinecap="round" />
             </svg>
             {!sidebarCollapsed && (
               <div className="lf-brand-text">
@@ -4558,14 +4558,14 @@ function TermsConditionsPage() {
             <svg className="lf-logo-icon" viewBox="0 0 40 40" role="img" aria-label="LedgerFlow logo" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <linearGradient id="ledgerflow-mark-gradient" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#147D53" />
-                  <stop offset="100%" stopColor="#075638" />
+                  <stop offset="0%" stopColor="#344054" />
+                  <stop offset="100%" stopColor="#1F2937" />
                 </linearGradient>
               </defs>
               <rect x="1" y="1" width="38" height="38" rx="11" fill="url(#ledgerflow-mark-gradient)" />
-              <path d="M11 13.5h18M11 20h11M11 26.5h7" fill="none" stroke="#F8F5E9" strokeWidth="2.4" strokeLinecap="round" />
-              <circle cx="27.5" cy="26.5" r="5.5" fill="#E9B949" />
-              <path d="M27.5 23.5v6M29.2 24.7c-.5-.5-1-.7-1.7-.7-1 0-1.7.5-1.7 1.3 0 2 3.4.8 3.4 2.5 0 .8-.7 1.3-1.7 1.3-.7 0-1.4-.3-1.9-.8" fill="none" stroke="#17452F" strokeWidth="1.1" strokeLinecap="round" />
+              <path d="M11 13.5h18M11 20h11M11 26.5h7" fill="none" stroke="#F8F5F0" strokeWidth="2.4" strokeLinecap="round" />
+              <circle cx="27.5" cy="26.5" r="5.5" fill="#D79A62" />
+              <path d="M27.5 23.5v6M29.2 24.7c-.5-.5-1-.7-1.7-.7-1 0-1.7.5-1.7 1.3 0 2 3.4.8 3.4 2.5 0 .8-.7 1.3-1.7 1.3-.7 0-1.4-.3-1.9-.8" fill="none" stroke="#263445" strokeWidth="1.1" strokeLinecap="round" />
             </svg>
             <div>
               <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--lf-text)' }}>LedgerFlow</div>
