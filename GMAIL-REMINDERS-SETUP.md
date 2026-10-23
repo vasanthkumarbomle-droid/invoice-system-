@@ -16,7 +16,8 @@ This edition uses Google Apps Script's `MailApp` to send emails from the Google 
 - Access to the correct Supabase project and its SQL Editor.
 - Both SQL scripts in `supabase/sql/` applied successfully, in order:
   1. `001_invoice_reminder_log.sql`
-  2. `002_organization_reminder_settings.sql`\n  3. `006_due_date_reminders.sql` (also requires `001` to have been applied)
+  2. `002_organization_reminder_settings.sql`
+  3. `006_due_date_reminders.sql` (also requires `001` to have been applied)
 - Access to the Supabase project and Supabase CLI (or another supported method to deploy Edge Functions).
 - A Google account that can send mail using Apps Script. Consumer accounts have a limited daily email-recipient quota; quotas are subject to change.
 
@@ -41,7 +42,9 @@ WHERE org_id = 'YOUR_ORG_UUID';
 
 Check that exactly the intended organization's row was updated. To disable reminders, set `enabled = false` for that same `org_id`. These settings are managed in Supabase; this repository does not currently provide a reminder-consent screen in the app.
 
-After applying migration 006, deploy the current `gmail-invoice-reminders` Edge Function from the repository. The new migration adds a distinct `due_today` reminder type so a reminder sent 1–3 days early does not suppress the due-date reminder.\n\n## 2. Deploy the Edge Function
+After applying migration 006, deploy the current `gmail-invoice-reminders` Edge Function from the repository. The new migration adds a distinct `due_today` reminder type so a reminder sent 1–3 days early does not suppress the due-date reminder. If your Apps Script is already deployed, copy the updated `google-apps-script/Code.gs` into your existing project without removing your other functions or trigger, save it, then use Deploy → Manage deployments → Edit → New version → Deploy.
+
+## 2. Deploy the Edge Function
 
 From the project root:
 
