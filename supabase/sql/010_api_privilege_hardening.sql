@@ -76,4 +76,4 @@ ALTER FUNCTION public.set_updated_at() SET search_path = pg_catalog;
 
 -- New public-schema functions must receive explicit EXECUTE grants instead of inheriting PUBLIC access.
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
