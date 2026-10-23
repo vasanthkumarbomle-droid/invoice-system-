@@ -33,9 +33,9 @@ function doPost(e) {
     var subject = String(request.subject || "").trim();
     var body = String(request.body || "");
     var htmlBody = String(request.htmlBody || "");
-    var senderName = String(request.senderName || "LedgerFlow").replace(/[\\r\\n]/g, " ").trim().slice(0, 120);
+    var senderName = String(request.senderName || "LedgerFlow").replace(/[\r\n]/g, " ").trim().slice(0, 120);
     var replyTo = String(request.replyTo || "").trim();
-    var validEmail = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(to);
+    var validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to);
 
     if (!validEmail) return ledgerFlowJson_({ success: false, error: "Recipient email is invalid." });
     if (!subject || subject.length > 200) return ledgerFlowJson_({ success: false, error: "Email subject is missing or too long." });
@@ -51,7 +51,7 @@ function doPost(e) {
       name: senderName || "LedgerFlow"
     };
     if (htmlBody) message.htmlBody = htmlBody;
-    if (/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(replyTo)) message.replyTo = replyTo;
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyTo)) message.replyTo = replyTo;
 
     MailApp.sendEmail(message);
     return ledgerFlowJson_({ success: true });
