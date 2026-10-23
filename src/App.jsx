@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
 import ClientDocumentPage from './ClientDocumentPage.jsx'
+import PasswordResetPage from './PasswordResetPage.jsx'
 import { useOrg } from './OrgContext'
 import * as db from './lib/db'
 import {
@@ -220,6 +221,7 @@ export default function App() {
         <Route path="/settings" element={<LedgerFlowShell activeTab="settings" />} />
         <Route path="/client-document" element={<ClientDocumentPage />} />
         <Route path="/terms" element={<TermsConditionsPage />} />
+        <Route path="/reset-password" element={<PasswordResetPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
