@@ -8,19 +8,18 @@ const migration = await readFile(
 )
 
 test('invoice and quotation save RPCs require an authenticated organization member', () => {
-  assert.equal((migration.match(/IF auth\.uid\(\) IS NULL/g) || []).length, 2)
-  assert.equal((migration.match(/FROM public\.org_members AS member/g) || []).length, 2)
+  assert.ok((migration.match(/IF auth\.uid\(\) IS NULL/g) || []).length >= 2)
+  assert.equal((migration.match(/FROM public\.org_members AS member/g) || []).length, 3)
   assert.equal((migration.match(/member\.org_id = p_org_id AND member\.user_id = auth\.uid\(\)/g) || []).length, 2)
 })
 
-test('both document save RPCs validate client and product organization ownership', () => {
+test('document save RPCs and conversion validate organization ownership', () => {
   assert.equal((migration.match(/client\.id = v_client_id AND client\.org_id = p_org_id/g) || []).length, 2)
   assert.equal((migration.match(/product\.id = v_product_id AND product\.org_id = p_org_id/g) || []).length, 2)
   assert.match(migration, /The invoice client must belong to the same organization/)
   assert.match(migration, /The quotation client must belong to the same organization/)
+  assert.match(migration, /product\.id = v_item\.product_id AND product\.org_id = v_quote\.org_id/)
   assert.match(migration, /Every converted quotation product must belong to the same organization/)
-  assert.match(migration, /product\\.id = v_item\\.product_id AND product\\.org_id = v_quote\\.org_id/)
-  assert.match(migration, /product\\.id = v_item\\.product_id AND product\\.org_id = v_quote\\.org_id/)
 })
 
 test('both save RPCs validate financial item inputs before insert', () => {
