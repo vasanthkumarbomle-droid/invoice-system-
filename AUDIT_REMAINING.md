@@ -42,7 +42,8 @@ Last reviewed against GitHub `main` on 2026-10-23. This is a source-code review 
 - [ ] Check all remaining report date ranges and fiscal-year labels with fixed test dates, including Q3 Oct–Dec.
 - [ ] Replace any remaining demo/fake notifications, trend percentages, sample business identity or hard-coded financial-year labels.
 - [ ] Check badge styles for every document status, barcode scan recovery after unmatched codes, product stock-zero editing, account-holder persistence and paise-level payment settlement.
-- [ ] Add automated unit tests for finance helpers and regression tests for invoice/quotation save/edit/payment flows; add database integration tests for RPCs/RLS.
+- [x] Added `src/lib/finance.test.js` with unit tests for date rollover, payment terms, discount/tax math, CSV escaping/formula protection and paise wording. These tests were committed but have **not been executed in this environment**.
+- [ ] Add regression tests for invoice/quotation save/edit/payment flows and database integration tests for RPCs/RLS.
 - [ ] Run current CI after the latest commits and perform a browser smoke test. Prior static/source checks are not evidence that live Supabase/email workflows work.
 
 ## Validation record
