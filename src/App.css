@@ -1,34 +1,34 @@
 /* ==========================================================================
    LEDGERFLOW DESIGN SYSTEM — REFINED LIGHT THEME
-   Strict Colour Palette: Forest Green, Muted Green, Warm Amber, Charcoal.
-   Strictly Zero Purple, Zero Indigo, Zero Navy, Zero Dark Blue.
+   Strict Colour Palette: Graphite, Warm Ivory, Copper, Muted Slate.
+   Strictly Zero Purple, Zero Green, Zero Indigo, Zero Navy.
    ========================================================================== */
 
 :root {
-  /* Brand Palette */
-  --lf-bg: #F8F7F1;
+  /* Brand Palette — premium graphite, warm ivory and copper */
+  --lf-bg: #F6F4F0;
   --lf-card: #FFFFFF;
-  --lf-card-hover: #FDFCF7;
-  --lf-brand: #08764E;            /* Confident emerald */
-  --lf-brand-hover: #075B3D;      /* Deep money green */
-  --lf-brand-light: #E9F5EE;      /* Soft emerald tint */
-  --lf-brand-subtle: #CBE6D5;     /* Sage border */
-  --lf-accent: #55A77B;           /* Fresh green */
-  --lf-highlight: #B88620;        /* Premium brass gold */
-  --lf-highlight-light: #FBF5E5;  /* Warm gold background */
-  --lf-highlight-border: #EAD9A9; /* Soft gold border */
+  --lf-card-hover: #FBF8F4;
+  --lf-brand: #344054;
+  --lf-brand-hover: #263445;
+  --lf-brand-light: #EEF1F5;
+  --lf-brand-subtle: #D9DEE7;
+  --lf-accent: #C77D4A;
+  --lf-highlight: #B87842;
+  --lf-highlight-light: #FBF0E7;
+  --lf-highlight-border: #E9CBB5;
 
   /* Neutrals & Typography */
-  --lf-text: #1E2B24;             /* Deep evergreen charcoal */
-  --lf-text-secondary: #5D6D62;   /* Muted green-grey */
-  --lf-text-muted: #7D8A80;       /* Readable sage grey */
-  --lf-border: #E4E8DF;           /* Warm neutral border */
-  --lf-border-strong: #C9D3C8;    /* Strong input border */
-  --lf-border-focus: #08764E;
+  --lf-text: #252A32;
+  --lf-text-secondary: #5D6470;
+  --lf-text-muted: #7B818B;
+  --lf-border: #E6E1DA;
+  --lf-border-strong: #CFC7BD;
+  --lf-border-focus: #B87842;
 
   /* Status Colors */
-  --lf-success: #08764E;
-  --lf-success-bg: #E9F5EE;
+  --lf-success: #526A78;
+  --lf-success-bg: #EDF1F3;
   --lf-warning: #A66C13;
   --lf-warning-bg: #FBF3E2;
   --lf-danger: #B83A3A;
@@ -128,6 +128,29 @@ a:hover {
   width: var(--lf-sidebar-collapsed-width);
 }
 
+/* Keep the complete brand mark and toggle visible in icon-only mode. */
+.lf-sidebar.collapsed .lf-sidebar-header {
+  height: auto;
+  min-height: var(--lf-header-height);
+  padding: 14px 0;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 12px;
+}
+
+.lf-sidebar.collapsed .lf-brand-logo {
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+  overflow: visible;
+}
+
+.lf-sidebar.collapsed .lf-sidebar-toggle-btn {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
 .lf-sidebar-header {
   height: var(--lf-header-height);
   padding: 0 20px;
@@ -152,7 +175,7 @@ a:hover {
   display: block;
   flex: 0 0 40px;
   border-radius: 11px;
-  box-shadow: 0 3px 9px rgba(8, 118, 78, 0.2);
+  box-shadow: 0 3px 9px rgba(37, 42, 50, 0.18);
 }
 
 .lf-brand-text {
