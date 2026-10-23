@@ -79,7 +79,7 @@ BEGIN
       FROM public.quotation_items
      WHERE quotation_id = v_quote.id
        AND org_id = v_quote.org_id
-     ORDER BY position, created_at, id
+     ORDER BY position, id
   LOOP
     INSERT INTO public.invoice_items (
       org_id,
