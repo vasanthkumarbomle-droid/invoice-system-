@@ -506,6 +506,10 @@ const [quotations, setQuotations] = useState([])
 
   // Accepted/rejected/converted quotations are immutable; duplicate to create a revised offer.
   const handleEditDoc = (doc) => {
+    if (doc.type === 'invoice' && doc.status !== 'Draft') {
+      showToast('Issued invoices are not editable. Duplicate the invoice to prepare a corrected draft; cancel an unpaid issued invoice only when appropriate.', 'warning')
+      return
+    }
     if (doc.type === 'quotation' && ['Accepted', 'Rejected', 'Expired', 'Converted'].includes(doc.status)) {
       showToast('This quotation is closed. Duplicate it to create a new draft revision.', 'warning')
       return
@@ -565,6 +569,17 @@ const [quotations, setQuotations] = useState([])
   const executeDelete = () => {
     const { type, id } = deleteConfirmModal
     if (type === 'invoice') {
+      const invoiceToCancel = invoices.find((invoice) => invoice.id === id)
+      if (invoiceToCancel?.status === 'Cancelled') {
+        setDeleteConfirmModal({ open: false, type: '', id: '', title: '' })
+        showToast('This invoice is already cancelled.', 'warning')
+        return
+      }
+      if (invoiceToCancel && (invoiceToCancel.status === 'Paid' || Number(invoiceToCancel.amountPaid) > 0)) {
+        setDeleteConfirmModal({ open: false, type: '', id: '', title: '' })
+        showToast('Invoices with recorded payments cannot be cancelled. Resolve the payment/refund through the appropriate accounting workflow.', 'warning')
+        return
+      }
       db.cancelInvoice(org.id, id)
         .then(async () => {
           await loadInvoices()
@@ -1867,8 +1882,11 @@ function DocumentsListView({
                         type="button"
                         className="lf-btn lf-btn-ghost lf-btn-sm"
                         style={{ color: 'var(--lf-danger)' }}
+                        disabled={isInvoice && (doc.status === 'Paid' || doc.status === 'Cancelled' || Number(doc.amountPaid) > 0)}
                         onClick={() => onDeleteDoc(doc)}
-                        title="Delete Document"
+                        title={isInvoice && (doc.status === 'Paid' || doc.status === 'Cancelled' || Number(doc.amountPaid) > 0)
+                          ? 'Invoices with payments or an existing cancellation cannot be cancelled'
+                          : 'Cancel document'}
                       >
                         <Trash2 size={15} />
                       </button>
