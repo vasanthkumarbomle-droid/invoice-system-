@@ -141,6 +141,10 @@ export default function AuthGate({ children }) {
     getMyOrg().then(setOrg).catch(() => setOrg(null))
   }, [session])
 
+  // The emailed client portal is public by design; the edge function validates its one-time/expiring token.
+  const isPublicDocumentRoute = typeof window !== 'undefined' && window.location.pathname === '/client-document'
+  if (isPublicDocumentRoute) return children
+
   if (!supabase) {
     return (
       <Layout title="Connect LedgerFlow" subtitle="Supabase configuration is required before sign-in or cloud data can be used.">
