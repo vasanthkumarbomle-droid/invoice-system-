@@ -353,7 +353,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           const quoteNumber = quote.quote_number || quote.id;
           const accepted = decision === "accepted";
           const subject = `Quotation ${quoteNumber} was ${accepted ? "accepted" : "rejected"}`;
-          const message = `The client ${quote.clients?.name || "customer"} has ${accepted ? "accepted" : "rejected"} quotation ${quoteNumber}.`;
+          const message = "The client " + (quote.clients?.name || "customer") + " has " + (accepted ? "accepted" : "rejected") + " quotation " + quoteNumber + " from " + businessName + ".";
           const mailResult = await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: { Authorization: "Bearer " + mailKey, "Content-Type": "application/json" },
@@ -361,8 +361,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
               from: fromAddress,
               to: [ownerEmail],
               subject,
-              text: message + "\\n\\nOpen LedgerFlow to review the recorded response.",
-              html: "<div style=\\"font-family:Arial,sans-serif;color:#202b24\\"><h2>" + escapeHtml(subject) + "</h2><p>" + escapeHtml(message) + "</p><p>Open LedgerFlow to review the recorded response.</p></div>",
+              text: message + String.fromCharCode(10, 10) + "Open LedgerFlow to review the recorded response.",
+              html: "<div><h2>" + escapeHtml(subject) + "</h2><p>" + escapeHtml(message) + "</p><p>Open LedgerFlow to review the recorded response.</p></div>",
             }),
           });
           ownerNotified = mailResult.ok;
