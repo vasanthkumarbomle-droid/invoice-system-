@@ -8,6 +8,15 @@ export function todayInIndia() {
   const part = (type) => parts.find((entry) => entry.type === type)?.value || ''
   return `${part('year')}-${part('month')}-${part('day')}`
 }
+export function indianFinancialYearLabel(dateString = todayInIndia()) {
+  const match = String(dateString || '').match(/^(\\d{4})-(\\d{2})-\\d{2}$/)
+  if (!match) return indianFinancialYearLabel(todayInIndia())
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const startYear = month >= 4 ? year : year - 1
+  return `FY ${startYear}-${String(startYear + 1).slice(-2)}`
+}
+
 
 export function isPastDueDate(dueDate, today = todayInIndia()) {
   const due = String(dueDate || '').slice(0, 10)
