@@ -77,6 +77,15 @@ export const setQuotationStatus = (orgId, id, status) => supabase.from('quotatio
 export const convertQuotation = (id, dueDate = null) =>
   supabase.rpc('convert_quotation_to_invoice', { p_quote_id: id, p_due_date: dueDate }).then(must)
 
+export const sendDocumentEmail = async (orgId, documentType, documentId) => {
+  const { data, error } = await supabase.functions.invoke('quotation-workflow', {
+    body: { action: 'send', orgId, documentType, documentId },
+  })
+  if (error) throw new Error(error.message || 'Could not send the document email.')
+  if (data?.error) throw new Error(data.error)
+  return data
+}
+
 // ---------- Dashboard ----------
 export const getDashboardStats = async (orgId) => {
   const inv = await supabase.from('invoices').select('grand_total, amount_paid, balance_due, status').eq('org_id', orgId).neq('status', 'cancelled').then(must)
@@ -92,21 +101,20 @@ export const listInvoicesFull = (orgId) =>
   supabase.from('invoices').select('*, clients(*), invoice_items(*)').eq('org_id', orgId).order('created_at', { ascending: false }).then(must)
 
 export const saveInvoice = async (orgId, inv, items) => {
-  let id = inv.id
-  const fields = { client_id: inv.client_id, issue_date: inv.issue_date, due_date: inv.due_date, status: inv.status, notes: inv.notes }
-  if (id) {
-    await supabase.from('invoices').update(fields).eq('org_id', orgId).eq('id', id).select('id').single().then(must)
-    await supabase.from('invoice_items').delete().eq('org_id', orgId).eq('invoice_id', id).then(must)
-  } else {
-    const row = await supabase.from('invoices').insert({ ...fields, org_id: orgId }).select().single().then(must)
-    id = row.id
+  const fields = {
+    client_id: inv.client_id,
+    issue_date: inv.issue_date,
+    due_date: inv.due_date,
+    status: inv.status,
+    notes: inv.notes,
   }
-  if (items.length) {
-    await supabase.from('invoice_items').insert(items.map((it, i) => ({ ...it, invoice_id: id, org_id: orgId, position: i }))).then(must)
-  }
-  return id
+  return supabase.rpc('save_invoice_with_items', {
+    p_org_id: orgId,
+    p_document_id: inv.id || null,
+    p_invoice: fields,
+    p_items: items || [],
+  }).then(must)
 }
-
 export const deleteInvoice = (orgId, id) => supabase.from('invoices').delete().eq('org_id', orgId).eq('id', id).select('id').single().then(must)
 
 export const recordPaymentFull = (orgId, invoiceId, amount, method, reference, paidAt) =>
@@ -121,78 +129,33 @@ export const listQuotationsFull = (orgId) =>
     .then(must)
 
 export const saveQuotation = async (orgId, quote, items = []) => {
-  let id = quote.id
-
   const fields = {
     client_id: quote.client_id ?? quote.clientId,
     issue_date: quote.issue_date ?? quote.issueDate,
-    valid_until:
-      quote.valid_until ??
-      quote.validUntil ??
-      quote.due_date ??
-      quote.dueDate ??
-      null,
+    valid_until: quote.valid_until ?? quote.validUntil ?? quote.due_date ?? quote.dueDate ?? null,
     status: String(quote.status ?? 'draft').toLowerCase(),
     notes: quote.notes ?? null,
     terms: quote.terms ?? null,
   }
 
-  if (id) {
-    await supabase
-      .from('quotations')
-      .update(fields)
-      .eq('id', id)
-      .eq('org_id', orgId)
-      .then(must)
+  const normalizedItems = items.map((it) => ({
+    product_id: it.product_id ?? it.productId ?? null,
+    description: it.description ?? '',
+    hsn_sac: it.hsn_sac ?? it.hsnSac ?? null,
+    unit: it.unit ?? 'unit',
+    quantity: it.quantity ?? 1,
+    unit_price: it.unit_price ?? it.unitPrice ?? 0,
+    discount_pct: it.discount_pct ?? it.discountPct ?? 0,
+    gst_rate: it.gst_rate ?? it.gstRate ?? 0,
+  }))
 
-    await supabase
-      .from('quotation_items')
-      .delete()
-      .eq('quotation_id', id)
-      .eq('org_id', orgId)
-      .then(must)
-  } else {
-    const row = await supabase
-      .from('quotations')
-      .insert({ ...fields, org_id: orgId })
-      .select('id')
-      .single()
-      .then(must)
-
-    id = row.id
-  }
-
-  if (items.length) {
-    await supabase
-      .from('quotation_items')
-      .insert(
-        items.map((it, i) => ({
-          quotation_id: id,
-          org_id: orgId,
-          product_id: it.product_id ?? it.productId ?? null,
-          position: i,
-          description: it.description ?? '',
-          hsn_sac: it.hsn_sac ?? it.hsnSac ?? null,
-          unit: it.unit ?? 'unit',
-          quantity: it.quantity ?? 1,
-          unit_price: it.unit_price ?? it.unitPrice ?? 0,
-          discount_pct: it.discount_pct ?? it.discountPct ?? 0,
-          gst_rate: it.gst_rate ?? it.gstRate ?? 0,
-        }))
-      )
-      .then(must)
-  }
-
-  return id
+  return supabase.rpc('save_quotation_with_items', {
+    p_org_id: orgId,
+    p_document_id: quote.id || null,
+    p_quotation: fields,
+    p_items: normalizedItems,
+  }).then(must)
 }
-
-export const convertQuotationToInvoice = (quoteId, dueDate) =>
-  supabase
-    .rpc('convert_quotation_to_invoice', {
-      p_quote_id: quoteId,
-      p_due_date: dueDate,
-    })
-    .then(must)
 
 export const deleteQuotation = (orgId, id) =>
   supabase
