@@ -1451,3 +1451,7 @@ a:hover {
 }
 .lf-spin { animation: lf-spin 1s linear infinite; }
 @keyframes lf-spin { to { transform: rotate(360deg); } }
+
+@media (hover: none) {
+  .lf-signature-pen { opacity: 1; pointer-events: auto; }
+}
