@@ -1527,7 +1527,7 @@ function DashboardView({ invoices, payments, quotations, companyProfile, onNewIn
   return (
     <div>
       {/* Welcome & Primary Actions Bar */}
-      <div className="lf-card" style={{ marginBottom: '24px', background: 'linear-gradient(135deg, #FFFFFF 0%, #F4F8F5 100%)' }}>
+      <div className="lf-card" style={{ marginBottom: '24px', background: 'linear-gradient(135deg, #FFFFFF 0%, #FBF8F4 100%)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--lf-text)', marginBottom: '4px' }}>
@@ -1613,21 +1613,21 @@ function DashboardView({ invoices, payments, quotations, companyProfile, onNewIn
           <div style={{ width: '100%', height: 260 }}>
             <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E6EAE5" />
-                <XAxis dataKey="month" stroke="#737D75" fontSize={11} tickLine={false} />
-                <YAxis stroke="#737D75" fontSize={11} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E6E1DA" />
+                <XAxis dataKey="month" stroke="#7B818B" fontSize={11} tickLine={false} />
+                <YAxis stroke="#7B818B" fontSize={11} tickLine={false} />
                 <Tooltip
                   formatter={(val) => [formatINR(val), '']}
                   contentStyle={{
                     backgroundColor: '#FFFFFF',
-                    border: '1px solid #E6EAE5',
+                    border: '1px solid #E6E1DA',
                     borderRadius: '8px',
                     boxShadow: '0 4px 12px rgba(37,43,39,0.08)'
                   }}
                 />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-                <Bar dataKey="Invoiced" fill="#286747" radius={[4, 4, 0, 0]} barSize={20} name="Total Invoiced" />
-                <Bar dataKey="Received" fill="#86B99A" radius={[4, 4, 0, 0]} barSize={20} name="Amount Received" />
+                <Bar dataKey="Invoiced" fill="#B87842" radius={[4, 4, 0, 0]} barSize={20} name="Total Invoiced" />
+                <Bar dataKey="Received" fill="#D9A783" radius={[4, 4, 0, 0]} barSize={20} name="Amount Received" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -3032,7 +3032,7 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
         </div>
 
         {/* Modal Scrollable Body Previewing A4 Document */}
-        <div className="lf-modal-body" style={{ background: '#EAEFEA', padding: '24px', display: 'flex', justifyContent: 'center' }}>
+        <div className="lf-modal-body" style={{ background: '#F1E7DE', padding: '24px', display: 'flex', justifyContent: 'center' }}>
           <div
             style={{
               width: '100%',
@@ -3168,32 +3168,32 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
   const isInterState = Number(doc.igstAmount) > 0 || (hasPlaceOfSupply && sellerStateCode !== buyerStateCode)
 
   return (
-    <div style={{ fontFamily: 'Arial, sans-serif', color: '#252B27' }}>
+    <div style={{ fontFamily: 'Arial, sans-serif', color: '#252A32' }}>
       {/* Top Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #286747', paddingBottom: '16px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #B87842', paddingBottom: '16px', marginBottom: '20px' }}>
         <div>
-          <div style={{ fontSize: '22px', fontWeight: 800, color: '#286747' }}>
+          <div style={{ fontSize: '22px', fontWeight: 800, color: '#B87842' }}>
             {companyProfile.tradeName || companyProfile.companyName}
           </div>
-          <div style={{ fontSize: '11px', color: '#6B756D', maxWidth: '340px', marginTop: '4px', lineHeight: '1.4' }}>
+          <div style={{ fontSize: '11px', color: '#7B818B', maxWidth: '340px', marginTop: '4px', lineHeight: '1.4' }}>
             {companyProfile.address}
           </div>
-          <div style={{ fontSize: '11px', color: '#6B756D', marginTop: '4px' }}>
+          <div style={{ fontSize: '11px', color: '#7B818B', marginTop: '4px' }}>
             GSTIN: <strong>{companyProfile.gstin}</strong> | PAN: <strong>{companyProfile.pan}</strong>
           </div>
-          <div style={{ fontSize: '11px', color: '#6B756D' }}>
+          <div style={{ fontSize: '11px', color: '#7B818B' }}>
             Email: {companyProfile.email} | Phone: {companyProfile.phone}
           </div>
         </div>
 
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: '#252B27', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <div style={{ fontSize: '24px', fontWeight: 800, color: '#252A32', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             {isInvoice ? 'Tax Invoice' : 'Price Quotation'}
           </div>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: '#286747', marginTop: '4px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: '#B87842', marginTop: '4px' }}>
             #{doc.documentNumber}
           </div>
-          <div style={{ fontSize: '11px', color: '#6B756D', marginTop: '4px' }}>
+          <div style={{ fontSize: '11px', color: '#7B818B', marginTop: '4px' }}>
             Original for Recipient
           </div>
         </div>
@@ -3201,44 +3201,44 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
 
       {/* Meta Grid: Billed To & Document Details */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
-        <div style={{ padding: '12px', background: '#F8FAF8', borderRadius: '4px', border: '1px solid #E6EAE5' }}>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: '#286747', textTransform: 'uppercase', marginBottom: '6px' }}>
+        <div style={{ padding: '12px', background: '#F6F4F0', borderRadius: '4px', border: '1px solid #E6E1DA' }}>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: '#B87842', textTransform: 'uppercase', marginBottom: '6px' }}>
             Billed To / Customer Details
           </div>
-          <div style={{ fontSize: '14px', fontWeight: 700, color: '#252B27' }}>{doc.clientName}</div>
-          <div style={{ fontSize: '11px', color: '#6B756D', marginTop: '3px' }}>{doc.clientAddress}</div>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: '#252A32' }}>{doc.clientName}</div>
+          <div style={{ fontSize: '11px', color: '#7B818B', marginTop: '3px' }}>{doc.clientAddress}</div>
           {doc.clientGstin && (
             <div style={{ fontSize: '11px', marginTop: '4px' }}>
               GSTIN: <strong>{doc.clientGstin}</strong>
             </div>
           )}
-          <div style={{ fontSize: '11px', color: '#6B756D', marginTop: '2px' }}>
+          <div style={{ fontSize: '11px', color: '#7B818B', marginTop: '2px' }}>
             Phone: {doc.clientPhone} | Email: {doc.clientEmail}
           </div>
         </div>
 
-        <div style={{ padding: '12px', background: '#F8FAF8', borderRadius: '4px', border: '1px solid #E6EAE5' }}>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: '#286747', textTransform: 'uppercase', marginBottom: '6px' }}>
+        <div style={{ padding: '12px', background: '#F6F4F0', borderRadius: '4px', border: '1px solid #E6E1DA' }}>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: '#B87842', textTransform: 'uppercase', marginBottom: '6px' }}>
             Document Reference & Terms
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
-            <span style={{ color: '#6B756D' }}>Issue Date:</span>
+            <span style={{ color: '#7B818B' }}>Issue Date:</span>
             <span style={{ fontWeight: 600 }}>{doc.issueDate}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
-            <span style={{ color: '#6B756D' }}>{isInvoice ? 'Due Date:' : 'Valid Until:'}</span>
+            <span style={{ color: '#7B818B' }}>{isInvoice ? 'Due Date:' : 'Valid Until:'}</span>
             <span style={{ fontWeight: 600 }}>{doc.dueDate}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
-            <span style={{ color: '#6B756D' }}>Payment Terms:</span>
+            <span style={{ color: '#7B818B' }}>Payment Terms:</span>
             <span style={{ fontWeight: 600 }}>{doc.paymentTerms}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
-            <span style={{ color: '#6B756D' }}>Place of Supply:</span>
+            <span style={{ color: '#7B818B' }}>Place of Supply:</span>
             <span style={{ fontWeight: 600 }}>{buyerStateCode || 'Not specified'}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
-            <span style={{ color: '#6B756D' }}>Supply Type:</span>
+            <span style={{ color: '#7B818B' }}>Supply Type:</span>
             <span style={{ fontWeight: 600 }}>{hasPlaceOfSupply ? (isInterState ? 'Inter-State (IGST)' : 'Intra-State (CGST+SGST)') : 'Verify state codes'}</span>
           </div>
         </div>
@@ -3247,24 +3247,24 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
       {/* Items Table */}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px', fontSize: '11px' }}>
         <thead>
-          <tr style={{ backgroundColor: '#EEF5F1', borderBottom: '1.5px solid #286747' }}>
-            <th style={{ padding: '8px', textAlign: 'left', width: '30px', color: '#286747' }}>#</th>
-            <th style={{ padding: '8px', textAlign: 'left', color: '#286747' }}>Description</th>
-            <th style={{ padding: '8px', textAlign: 'left', width: '70px', color: '#286747' }}>SKU</th>
-            <th style={{ padding: '8px', textAlign: 'left', width: '70px', color: '#286747' }}>HSN / SAC</th>
-            <th style={{ padding: '8px', textAlign: 'right', width: '50px', color: '#286747' }}>Qty</th>
-            <th style={{ padding: '8px', textAlign: 'right', width: '80px', color: '#286747' }}>Rate (&#8377;)</th>
-            <th style={{ padding: '8px', textAlign: 'right', width: '60px', color: '#286747' }}>GST</th>
-            <th style={{ padding: '8px', textAlign: 'right', width: '90px', color: '#286747' }}>Total (&#8377;)</th>
+          <tr style={{ backgroundColor: '#FBF0E7', borderBottom: '1.5px solid #B87842' }}>
+            <th style={{ padding: '8px', textAlign: 'left', width: '30px', color: '#B87842' }}>#</th>
+            <th style={{ padding: '8px', textAlign: 'left', color: '#B87842' }}>Description</th>
+            <th style={{ padding: '8px', textAlign: 'left', width: '70px', color: '#B87842' }}>SKU</th>
+            <th style={{ padding: '8px', textAlign: 'left', width: '70px', color: '#B87842' }}>HSN / SAC</th>
+            <th style={{ padding: '8px', textAlign: 'right', width: '50px', color: '#B87842' }}>Qty</th>
+            <th style={{ padding: '8px', textAlign: 'right', width: '80px', color: '#B87842' }}>Rate (&#8377;)</th>
+            <th style={{ padding: '8px', textAlign: 'right', width: '60px', color: '#B87842' }}>GST</th>
+            <th style={{ padding: '8px', textAlign: 'right', width: '90px', color: '#B87842' }}>Total (&#8377;)</th>
           </tr>
         </thead>
         <tbody>
           {doc.items.map((it, idx) => (
-            <tr key={idx} style={{ borderBottom: '1px solid #E6EAE5' }}>
-              <td style={{ padding: '8px', color: '#6B756D' }}>{idx + 1}</td>
+            <tr key={idx} style={{ borderBottom: '1px solid #E6E1DA' }}>
+              <td style={{ padding: '8px', color: '#7B818B' }}>{idx + 1}</td>
               <td style={{ padding: '8px', fontWeight: 600 }}>{it.description}</td>
-              <td style={{ padding: '8px', color: '#6B756D' }}>{it.sku || '-'}</td>
-              <td style={{ padding: '8px', color: '#6B756D' }}>{it.hsnSac || '-'}</td>
+              <td style={{ padding: '8px', color: '#7B818B' }}>{it.sku || '-'}</td>
+              <td style={{ padding: '8px', color: '#7B818B' }}>{it.hsnSac || '-'}</td>
               <td style={{ padding: '8px', textAlign: 'right' }}>{it.quantity}</td>
               <td style={{ padding: '8px', textAlign: 'right' }}>{formatINR(it.unitPrice)}</td>
               <td style={{ padding: '8px', textAlign: 'right' }}>{it.gstRate}%</td>
@@ -3278,82 +3278,82 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px', marginBottom: '24px' }}>
         {/* Bank & Notes Details */}
         <div style={{ flex: 1 }}>
-          <div style={{ padding: '10px 14px', background: '#F8FAF8', border: '1px solid #E6EAE5', borderRadius: '4px', marginBottom: '12px', fontSize: '11px' }}>
-            <div style={{ fontWeight: 700, color: '#286747', marginBottom: '4px' }}>BANK PAYMENT DETAILS</div>
+          <div style={{ padding: '10px 14px', background: '#F6F4F0', border: '1px solid #E6E1DA', borderRadius: '4px', marginBottom: '12px', fontSize: '11px' }}>
+            <div style={{ fontWeight: 700, color: '#B87842', marginBottom: '4px' }}>BANK PAYMENT DETAILS</div>
             <div>Bank: <strong>{companyProfile.bankName}</strong></div>
             <div>A/C Name: <strong>{companyProfile.accountHolder}</strong></div>
             <div>A/C Number: <strong>{companyProfile.accountNumber}</strong></div>
             <div>IFSC Code: <strong>{companyProfile.ifscCode}</strong> | UPI ID: <strong>{companyProfile.upiId}</strong></div>
           </div>
           {doc.notes && (
-            <div style={{ fontSize: '10px', color: '#6B756D', lineHeight: '1.4' }}>
+            <div style={{ fontSize: '10px', color: '#7B818B', lineHeight: '1.4' }}>
               <strong>Terms:</strong> {doc.notes}
             </div>
           )}
         </div>
 
         {/* Totals Table */}
-        <div style={{ width: '280px', border: '1px solid #E6EAE5', borderRadius: '4px', padding: '12px', background: '#FFFFFF', fontSize: '11px' }}>
+        <div style={{ width: '280px', border: '1px solid #E6E1DA', borderRadius: '4px', padding: '12px', background: '#FFFFFF', fontSize: '11px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
-            <span style={{ color: '#6B756D' }}>Subtotal:</span>
+            <span style={{ color: '#7B818B' }}>Subtotal:</span>
             <span style={{ fontWeight: 600 }}>{formatINR(doc.subtotal)}</span>
           </div>
 
           {doc.discountAmount > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', color: '#C57B36' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', color: '#B87842' }}>
               <span>Discount:</span>
               <span>-{formatINR(doc.discountAmount)}</span>
             </div>
           )}
 
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
-            <span style={{ color: '#6B756D' }}>Taxable Amount:</span>
+            <span style={{ color: '#7B818B' }}>Taxable Amount:</span>
             <span style={{ fontWeight: 600 }}>{formatINR(doc.taxableAmount)}</span>
           </div>
 
           {isInterState ? (
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
-              <span style={{ color: '#6B756D' }}>IGST:</span>
+              <span style={{ color: '#7B818B' }}>IGST:</span>
               <span>{formatINR(doc.igstAmount)}</span>
             </div>
           ) : (
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
-                <span style={{ color: '#6B756D' }}>CGST:</span>
+                <span style={{ color: '#7B818B' }}>CGST:</span>
                 <span>{formatINR(doc.cgstAmount)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
-                <span style={{ color: '#6B756D' }}>SGST:</span>
+                <span style={{ color: '#7B818B' }}>SGST:</span>
                 <span>{formatINR(doc.sgstAmount)}</span>
               </div>
             </>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 4px', borderTop: '2px solid #286747', marginTop: '6px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 800, color: '#286747' }}>Total:</span>
-            <span style={{ fontSize: '14px', fontWeight: 800, color: '#286747' }}>{formatINR(doc.grandTotal)}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 4px', borderTop: '2px solid #B87842', marginTop: '6px' }}>
+            <span style={{ fontSize: '13px', fontWeight: 800, color: '#B87842' }}>Total:</span>
+            <span style={{ fontSize: '14px', fontWeight: 800, color: '#B87842' }}>{formatINR(doc.grandTotal)}</span>
           </div>
 
-          <div style={{ fontSize: '9px', color: '#6B756D', textAlign: 'right', marginTop: '2px' }}>
+          <div style={{ fontSize: '9px', color: '#7B818B', textAlign: 'right', marginTop: '2px' }}>
             {numberToWordsINR(doc.grandTotal)}
           </div>
         </div>
       </div>
 
       {/* Footer Signatures */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid #E6EAE5', paddingTop: '16px', marginTop: '20px' }}>
-        <div style={{ fontSize: '9px', color: '#8F9991' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid #E6E1DA', paddingTop: '16px', marginTop: '20px' }}>
+        <div style={{ fontSize: '9px', color: '#7B818B' }}>
           This is a computer generated document. Generated via LedgerFlow Financial Suite.
         </div>
         <div style={{ textAlign: 'center', minWidth: '170px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#286747', marginBottom: '6px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#B87842', marginBottom: '6px' }}>
             For {companyProfile.tradeName || companyProfile.companyName}
           </div>
           <div className="lf-signature-area" style={{ position: 'relative', width: '170px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 3px' }}>
             {signatureData ? <img src={signatureData} alt="Authorized signatory signature" style={{ maxWidth: '160px', maxHeight: '42px', objectFit: 'contain' }} /> : <span style={{ display: 'block', width: '160px', height: '38px' }} aria-hidden="true" />}
             {showSignatureControl && <button type="button" className="lf-non-printable lf-signature-pen" onClick={onRequestSignature} title={signatureData ? 'Edit signature' : 'Add signature'} aria-label={signatureData ? 'Edit authorized signature' : 'Add authorized signature'}><PenLine size={14} /></button>}
           </div>
-          <div style={{ fontSize: '9px', borderTop: '1px solid #252B27', paddingTop: '3px', width: '160px', margin: '0 auto' }}>Authorized Signatory</div>
+          <div style={{ fontSize: '9px', borderTop: '1px solid #252A32', paddingTop: '3px', width: '160px', margin: '0 auto' }}>Authorized Signatory</div>
         </div>
       </div>
     </div>
@@ -3383,14 +3383,14 @@ function generatePrintableHtml(doc, profile, signatureData = '') {
 <title>${esc(doc.documentNumber)} - ${esc(profile.tradeName)}</title>
 <style>
 *{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;margin:32px;color:#252b27;background:#fff}
-.header{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #286747;padding-bottom:16px;margin-bottom:20px}
-.title{font-size:24px;font-weight:800;color:#286747}.muted{font-size:12px;color:#6b756d;margin-top:4px}
+.header{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #B87842;padding-bottom:16px;margin-bottom:20px}
+.title{font-size:24px;font-weight:800;color:#B87842}.muted{font-size:12px;color:#6b756d;margin-top:4px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
 .box{padding:12px;background:#f8faf8;border:1px solid #e6eae5;border-radius:4px;font-size:12px;overflow-wrap:anywhere}
-table{width:100%;border-collapse:collapse;margin-bottom:24px;font-size:12px}th{background:#eef5f1;color:#286747;text-align:left;padding:8px;border-bottom:1.5px solid #286747}
+table{width:100%;border-collapse:collapse;margin-bottom:24px;font-size:12px}th{background:#eef5f1;color:#B87842;text-align:left;padding:8px;border-bottom:1.5px solid #B87842}
 td{padding:8px;border-bottom:1px solid #e6eae5}.num{text-align:right;white-space:nowrap}
 .total-box{margin-left:auto;width:280px;max-width:100%;border:1px solid #e6eae5;border-radius:4px;padding:12px;font-size:12px}
-.row{display:flex;justify-content:space-between;gap:12px;padding:3px 0}.grand{border-top:2px solid #286747;margin-top:6px;padding-top:6px;font-size:15px;font-weight:800;color:#286747}
+.row{display:flex;justify-content:space-between;gap:12px;padding:3px 0}.grand{border-top:2px solid #B87842;margin-top:6px;padding-top:6px;font-size:15px;font-weight:800;color:#B87842}
 .footer{margin-top:36px;border-top:1px solid #e6eae5;padding-top:12px;font-size:11px;color:#6b756d}.signature-image{display:block;max-width:160px;max-height:42px;object-fit:contain;margin:0 auto 4px}
 @media(max-width:600px){body{margin:14px}.header{flex-direction:column}.grid{grid-template-columns:1fr}table{font-size:10px}th,td{padding:5px}}
 @media print{body{margin:0}.no-print{display:none}}
@@ -3399,7 +3399,7 @@ td{padding:8px;border-bottom:1px solid #e6eae5}.num{text-align:right;white-space
 <div class="muted">${esc(profile.address)}</div><div class="muted">GSTIN: ${esc(profile.gstin)} | PAN: ${esc(profile.pan)}</div>
 <div class="muted">${esc(profile.email)} ${profile.phone ? ' | ' + esc(profile.phone) : ''}</div></div>
 <div style="text-align:right"><div style="font-size:24px;font-weight:800;text-transform:uppercase">${isInvoice ? 'Tax Invoice' : 'Price Quotation'}</div>
-<div style="font-size:14px;font-weight:700;color:#286747">#${esc(doc.documentNumber)}</div><div class="muted">Date: ${esc(doc.issueDate)}</div></div></div>
+<div style="font-size:14px;font-weight:700;color:#B87842">#${esc(doc.documentNumber)}</div><div class="muted">Date: ${esc(doc.issueDate)}</div></div></div>
 <div class="grid"><div class="box"><strong>Billed To:</strong><br><strong>${esc(doc.clientName)}</strong><br>
 ${esc(doc.clientAddress)}<br>${doc.clientGstin ? 'GSTIN: ' + esc(doc.clientGstin) : ''}<br>${esc(doc.clientEmail)}</div>
 <div class="box"><strong>Payment & Due Details:</strong><br>Due Date: ${esc(doc.dueDate)}<br>Terms: ${esc(doc.paymentTerms)}<br>Place of Supply (state code): ${esc(supplyState || 'Not specified')}<br>
@@ -3411,7 +3411,7 @@ Bank: ${esc(profile.bankName)} (A/C: ${esc(profile.accountNumber)}, IFSC: ${esc(
 ${taxRows}
 <div class="row grand"><span>Total:</span><span>&#8377;${money(doc.grandTotal)}</span></div></div>
 <div class="footer">Generated via LedgerFlow.
-<div style="float:right;text-align:center;min-width:170px"><div style="font-weight:700;color:#286747">For ${esc(profile.tradeName || profile.companyName)}</div>
+<div style="float:right;text-align:center;min-width:170px"><div style="font-weight:700;color:#B87842">For ${esc(profile.tradeName || profile.companyName)}</div>
 ${signatureData ? `<img class="signature-image" src="${esc(signatureData)}" alt="Authorized signatory signature">` : '<div style="height:42px"></div>'}
 <div style="border-top:1px solid #252b27;padding-top:3px">Authorized Signatory</div></div>
 <div style="margin-top:8px;white-space:pre-wrap;clear:both">${esc(doc.notes)}</div></div>
