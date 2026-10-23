@@ -61,8 +61,19 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
-  IF lower(COALESCE(v_invoice.status::text, '')) IN ('draft', 'cancelled', 'paid') THEN
-    RAISE EXCEPTION 'Payments cannot be assigned to draft, cancelled or paid invoices.'
+  IF lower(COALESCE(v_invoice.status::text, '')) IN ('draft', 'cancelled') THEN
+    RAISE EXCEPTION 'Payments cannot be assigned to draft or cancelled invoices.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  -- A fully paid invoice may need a payment corrected downward. Do not allow
+  -- adding/increasing a payment on a paid invoice or moving another payment onto it.
+  IF lower(COALESCE(v_invoice.status::text, '')) = 'paid'
+     AND (
+       NEW.invoice_id IS DISTINCT FROM OLD.invoice_id
+       OR NEW.amount > OLD.amount
+     ) THEN
+    RAISE EXCEPTION 'Payments cannot be increased or moved onto a paid invoice.'
       USING ERRCODE = '23514';
   END IF;
 
