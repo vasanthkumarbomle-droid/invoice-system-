@@ -20,6 +20,7 @@ test('both document save RPCs validate client and product organization ownership
   assert.match(migration, /The quotation client must belong to the same organization/)
   assert.match(migration, /Every converted quotation product must belong to the same organization/)
   assert.match(migration, /product\\.id = v_item\\.product_id AND product\\.org_id = v_quote\\.org_id/)
+  assert.match(migration, /product\\.id = v_item\\.product_id AND product\\.org_id = v_quote\\.org_id/)
 })
 
 test('both save RPCs validate financial item inputs before insert', () => {
