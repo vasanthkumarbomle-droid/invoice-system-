@@ -1019,7 +1019,7 @@ const [quotations, setQuotations] = useState([])
               onEditDoc={handleEditDoc}
               onDuplicateDoc={handleDuplicateDoc}
               onDeleteDoc={(doc) => confirmDelete('quotation', doc.id, doc.documentNumber)}
-              onConvertToInvoice={handleConvertQuotation}
+              onConvertToInvoice={canManageBusiness ? handleConvertQuotation : undefined}
             />
           )}
 
@@ -1105,7 +1105,7 @@ const [quotations, setQuotations] = useState([])
           )}
 
           {activeTab === 'settings' && (
-            <SettingsView
+            canManageBusiness ? <SettingsView
               profile={companyProfile}
             onSaveProfile={async (updated) => {
   try {
@@ -1166,7 +1166,12 @@ const [quotations, setQuotations] = useState([])
   }
 }}
               showToast={showToast}
-            />
+            /> : (
+              <div className="lf-card" role="alert">
+                <h2 className="lf-card-title">Business settings are restricted</h2>
+                <p className="lf-card-subtitle">Only organization owners and admins can change company-wide settings. Ask an owner or admin if these details need updating.</p>
+              </div>
+            )
           )}
 
           {activeTab === 'editor' && (
