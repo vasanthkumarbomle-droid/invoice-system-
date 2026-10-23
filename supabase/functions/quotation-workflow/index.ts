@@ -137,6 +137,57 @@ Deno.serve(async (req: Request): Promise<Response> => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  if (action === "save_signature") {
+    const authorization = req.headers.get("authorization") || "";
+    const publishableKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+    if (!authorization || !publishableKey) return respondJson({ error: "Sign in before saving a signature." }, 401);
+
+    const caller = createClient(supabaseUrl, publishableKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: userData, error: authError } = await caller.auth.getUser();
+    const user = userData?.user;
+    if (authError || !user) return respondJson({ error: "Your session is invalid. Sign in again." }, 401);
+
+    const orgId = String(body?.orgId || "");
+    const documentId = String(body?.documentId || "");
+    const documentType = body?.documentType;
+    const signatureData = String(body?.signatureData || "");
+    if (!/^[0-9a-f-]{36}$/i.test(orgId) || !/^[0-9a-f-]{36}$/i.test(documentId) ||
+        !["invoice", "quotation"].includes(documentType)) {
+      return respondJson({ error: "Invalid document request." }, 400);
+    }
+    if (!/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/.test(signatureData) || signatureData.length > 1000000) {
+      return respondJson({ error: "Signature image is invalid or too large." }, 400);
+    }
+
+    const { data: membership, error: memberError } = await admin.from("org_members")
+      .select("role").eq("org_id", orgId).eq("user_id", user.id).maybeSingle();
+    if (memberError || !membership) return respondJson({ error: "You do not have permission to sign documents for this business." }, 403);
+
+    try {
+      await getDocument(admin, documentType, documentId, orgId);
+    } catch (error) {
+      return respondJson({ error: error instanceof Error ? error.message : "Document not found." }, 404);
+    }
+
+    const { data: savedSignature, error: signatureError } = await admin.from("document_signatures")
+      .upsert({
+        org_id: orgId,
+        document_type: documentType,
+        document_id: documentId,
+        signature_data: signatureData,
+        updated_by: user.id,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "org_id,document_type,document_id" })
+      .select("id,updated_at").single();
+    if (signatureError || !savedSignature) {
+      return respondJson({ error: "Signature could not be saved. Apply the client document workflow SQL migration and try again." }, 500);
+    }
+    return respondJson({ success: true, updatedAt: savedSignature.updated_at });
+  }
+
   if (action === "send") {
     const authorization = req.headers.get("authorization") || "";
     const publishableKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
@@ -395,9 +446,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .select("*").eq("id", tokenRow.org_id).maybeSingle();
     if (organizationError || !organization) return respondJson({ error: "Business details could not be loaded." }, 500);
 
+    const { data: signatureRow, error: signatureError } = await admin.from("document_signatures")
+      .select("signature_data")
+      .eq("org_id", tokenRow.org_id)
+      .eq("document_type", tokenRow.document_type)
+      .eq("document_id", tokenRow.document_id)
+      .maybeSingle();
+    if (signatureError) return respondJson({ error: "Document signature could not be loaded." }, 500);
+    const publicDocument = mapPublicDocument(tokenRow.document_type, record, organization);
+    publicDocument.signatureData = signatureRow?.signature_data || "";
+
     return respondJson({
       documentType: tokenRow.document_type,
-      document: mapPublicDocument(tokenRow.document_type, record, organization),
+      document: publicDocument,
       organization: {
         name: organization.name || "",
         legal_name: organization.legal_name || organization.name || "",
