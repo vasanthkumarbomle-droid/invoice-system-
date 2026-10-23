@@ -5,6 +5,7 @@ import {
   calculateDocumentAmounts,
   escapeCsvCell,
   numberToWordsINR,
+  isPastDueDate,
   paymentTermsDays,
 } from '../src/lib/finance.js'
 
@@ -42,6 +43,14 @@ test('a zero-GST product remains zero-rated', () => {
 test('Indian date arithmetic crosses month boundaries without UTC day drift', () => {
   assert.equal(addDaysToDateString('2026-10-23', 30), '2026-11-22')
   assert.equal(addDaysToDateString('2026-10-23', 0), '2026-10-23')
+})
+
+test('dashboard due-date helper handles past, current, future and invalid dates', () => {
+  assert.equal(isPastDueDate('2026-10-22', '2026-10-23'), true)
+  assert.equal(isPastDueDate('2026-10-23', '2026-10-23'), false)
+  assert.equal(isPastDueDate('2026-10-24', '2026-10-23'), false)
+  assert.equal(isPastDueDate(null, '2026-10-23'), false)
+  assert.equal(isPastDueDate('not-a-date', '2026-10-23'), false)
 })
 
 test('payment terms parse due-on-receipt and numbered terms', () => {
