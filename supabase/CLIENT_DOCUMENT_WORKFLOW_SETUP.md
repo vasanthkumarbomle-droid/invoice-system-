@@ -3,6 +3,8 @@
 ## What this adds
 
 - A private, unguessable link emailed to a client for reviewing an invoice/quotation.
+- A pen control that appears on hover in the owner’s Authorized Signatory area. The owner can draw, clear, save and reuse a signature for that document.
+- The signature image is stored securely and also appears in the client’s view/PDF when the document is sent.
 - Clients can open the link without creating a LedgerFlow account.
 - Clients can accept or reject a quotation once. The response is recorded in Supabase and the quotation status changes.
 - The email provider receives a request to send the message. This confirms provider acceptance, not final inbox delivery.
@@ -13,7 +15,7 @@
 
 1. Open the correct Supabase project and verify it already has the core LedgerFlow tables and columns used by the app: `organizations`, `org_members`, `clients`, `invoices`, `invoice_items`, `quotations`, and `quotation_items`. The repository does not contain a full clean-install migration for every core table. Do not run this feature migration against an unrelated or empty project.
 2. In **Supabase → SQL Editor**, run the complete file `supabase/sql/003_client_document_workflow.sql`.
-3. Confirm it completes successfully. It creates the private share-token table and the two atomic-save RPC functions. Since the client now uses those RPCs, invoice and quotation create/edit saves will fail until this migration is applied.
+3. Confirm it completes successfully. It creates the private share-token and document-signature tables plus the two atomic-save RPC functions. Since the client now uses those RPCs, invoice and quotation create/edit saves will fail until this migration is applied.
 4. From the repository root, deploy the Edge Function:
    ```powershell
    supabase login
