@@ -20,7 +20,7 @@ Feature tables include `document_share_tokens` and `document_signatures` (migrat
 
 ## Safe setup sequence
 
-For the existing project where migrations 001–003 have already succeeded, apply **004, then 005, then 006, then 008** as needed. Migration 007 is a read-only audit. Do not rerun migrations that have already succeeded.
+For an existing project, check which migrations have already succeeded. Apply **004, then 005, then 006, then 008, then 009** where appropriate. Migration 007 is a read-only audit. Do not rerun migrations that have already succeeded.
 
 1. Open Supabase Dashboard → SQL Editor.
 2. Run `VERIFY_CORE_SCHEMA.sql`. Its first result checks expected columns; the second shows whether RLS is enabled and how many policies exist.
@@ -29,7 +29,8 @@ For the existing project where migrations 001–003 have already succeeded, appl
 5. Apply `005_payment_integrity.sql`. The database trigger rejects payments on draft/cancelled/paid invoices, cross-organization payment rows, and payment amounts exceeding the current invoice balance.
 6. Apply `006_due_date_reminders.sql` before deploying the current invoice-reminder Edge Function. It adds a separate `due_today` log type so a prior due-soon reminder does not suppress the due-date reminder.
 7. Apply `008_payment_update_integrity.sql` only after reviewing the live payment schema. It validates payment updates, recalculates both invoices when a payment is moved, and clamps stored invoice balance due at zero. Test payment insert, amount correction, move, and delete with disposable records before issuing real documents.
-8. Test with disposable records before issuing real documents.
+8. Apply `009_document_save_tenant_integrity.sql`. It explicitly requires organization membership and same-organization client/product references in the invoice and quotation save functions; it also revokes direct browser execution of the internal `invoice_refresh(uuid)` helper. This assumes the named core tables and columns already exist.
+9. Test document saves, quotation conversion, and payment create/correct/move/delete with disposable records before issuing real documents.
 
 ## Database behavior that must exist
 
@@ -38,7 +39,7 @@ The application depends on database behavior for:
 - allocating unique invoice and quotation numbers;
 - updating invoice balances and payment status when payments are inserted;
 - enforcing organization-scoped row-level security on all client-accessible tables and RPCs;
-- ensuring referenced clients, products, and document items belong to the same organization.
+- ensuring referenced clients, products, and document items belong to the same organization (migration 009 adds explicit checks to both document-save RPCs).
 
 Migration 003 makes the document header and item writes transactional, but the repository does **not** include the complete original core schema or every existing numbering/tax trigger. The verification script checks table/column presence and RLS state; it cannot prove trigger calculations or policy predicates are correct. Inspect actual triggers and policies in the Supabase Dashboard before treating those controls as verified.
 
