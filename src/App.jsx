@@ -699,7 +699,18 @@ const [quotations, setQuotations] = useState([])
       <aside className={`lf-sidebar ${sidebarCollapsed ? 'collapsed' : ''} ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="lf-sidebar-header">
           <Link to="/" className="lf-brand-logo" onClick={() => setMobileMenuOpen(false)}>
-            <div className="lf-logo-icon">LF</div>
+            <svg className="lf-logo-icon" viewBox="0 0 40 40" role="img" aria-label="LedgerFlow logo" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="ledgerflow-mark-gradient" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#147D53" />
+                  <stop offset="100%" stopColor="#075638" />
+                </linearGradient>
+              </defs>
+              <rect x="1" y="1" width="38" height="38" rx="11" fill="url(#ledgerflow-mark-gradient)" />
+              <path d="M11 13.5h18M11 20h11M11 26.5h7" fill="none" stroke="#F8F5E9" strokeWidth="2.4" strokeLinecap="round" />
+              <circle cx="27.5" cy="26.5" r="5.5" fill="#E9B949" />
+              <path d="M27.5 23.5v6M29.2 24.7c-.5-.5-1-.7-1.7-.7-1 0-1.7.5-1.7 1.3 0 2 3.4.8 3.4 2.5 0 .8-.7 1.3-1.7 1.3-.7 0-1.4-.3-1.9-.8" fill="none" stroke="#17452F" strokeWidth="1.1" strokeLinecap="round" />
+            </svg>
             {!sidebarCollapsed && (
               <div className="lf-brand-text">
                 <span className="lf-brand-title">LedgerFlow</span>
@@ -806,12 +817,6 @@ const [quotations, setQuotations] = useState([])
         </nav>
 
         <div className="lf-sidebar-footer">
-          {!sidebarCollapsed && (
-            <div className={`lf-demo-pill ${isSupabaseConfigured ? 'connected' : ''}`}>
-              <div className="lf-demo-dot" />
-              <span>{isSupabaseConfigured ? 'Supabase Connected' : 'Verified Demo Mode'}</span>
-            </div>
-          )}
           <Link
             to="/terms"
             className="lf-nav-item"
@@ -4550,7 +4555,18 @@ function TermsConditionsPage() {
         {/* Top Header Bar */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div className="lf-logo-icon">LF</div>
+            <svg className="lf-logo-icon" viewBox="0 0 40 40" role="img" aria-label="LedgerFlow logo" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="ledgerflow-mark-gradient" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#147D53" />
+                  <stop offset="100%" stopColor="#075638" />
+                </linearGradient>
+              </defs>
+              <rect x="1" y="1" width="38" height="38" rx="11" fill="url(#ledgerflow-mark-gradient)" />
+              <path d="M11 13.5h18M11 20h11M11 26.5h7" fill="none" stroke="#F8F5E9" strokeWidth="2.4" strokeLinecap="round" />
+              <circle cx="27.5" cy="26.5" r="5.5" fill="#E9B949" />
+              <path d="M27.5 23.5v6M29.2 24.7c-.5-.5-1-.7-1.7-.7-1 0-1.7.5-1.7 1.3 0 2 3.4.8 3.4 2.5 0 .8-.7 1.3-1.7 1.3-.7 0-1.4-.3-1.9-.8" fill="none" stroke="#17452F" strokeWidth="1.1" strokeLinecap="round" />
+            </svg>
             <div>
               <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--lf-text)' }}>LedgerFlow</div>
               <div style={{ fontSize: '11px', color: 'var(--lf-brand)', fontWeight: 600 }}>Terms & Conditions Documentation</div>
