@@ -33,6 +33,8 @@ async function fetchAllPages<T>(
   }
 }
 
+type ClientSummary = { name?: string | null; email?: string | null };
+
 type InvoiceRow = {
   id: string;
   org_id: string;
@@ -42,8 +44,12 @@ type InvoiceRow = {
   amount_paid: number | string | null;
   balance_due: number | string | null;
   status: string;
-  clients: { name?: string | null; email?: string | null } | null;
+  clients: ClientSummary | ClientSummary[] | null;
 };
+
+function firstClient(value: ClientSummary | ClientSummary[] | null | undefined): ClientSummary | null {
+  return Array.isArray(value) ? value[0] ?? null : value ?? null;
+}
 
 type OrganizationRow = {
   id: string;
@@ -229,7 +235,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
         continue;
       }
 
-      const recipient = invoice.clients?.email?.trim();
+      // Foreign-key relationship responses can be objects or single-item arrays.
+      const invoiceClient = firstClient(invoice.clients);
+      const recipient = invoiceClient?.email?.trim();
       if (!validEmail(recipient)) {
         skipped++;
         continue;
@@ -299,7 +307,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         balance_due: balance,
         status,
         recipient_email: recipient,
-        client_name: invoice.clients?.name || "Customer",
+        client_name: invoiceClient?.name || "Customer",
         organization: {
           name: organization.name || "",
           legal_name: organization.legal_name || "",
@@ -373,12 +381,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return jsonResponse({ error: "Invoice is no longer eligible for reminders." }, 409);
   }
 
-  // PostgREST can infer one-to-many relationships as arrays even for a
-  // single invoice. Normalize both response shapes before reading the email.
-  const invoiceClientRelation: unknown = invoice.clients;
-  const invoiceClient = Array.isArray(invoiceClientRelation)
-    ? invoiceClientRelation[0] as { email?: string | null } | undefined
-    : invoiceClientRelation as { email?: string | null } | null;
+  const invoiceClient = firstClient(invoice.clients);
   const actualEmail = String(invoiceClient?.email || "").trim().toLowerCase();
   if (!actualEmail || actualEmail !== recipientEmail.toLowerCase()) {
     return jsonResponse({
