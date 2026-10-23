@@ -23,6 +23,7 @@ DECLARE
     v_discount_pct numeric;
     v_gst_rate numeric;
     v_existing_status text;
+    v_requested_status text;
     v_position integer := 0;
 BEGIN
     IF auth.uid() IS NULL THEN
@@ -41,6 +42,12 @@ BEGIN
         RAISE EXCEPTION 'Invalid invoice payload.' USING ERRCODE = '22023';
     END IF;
 
+    v_requested_status := lower(COALESCE(NULLIF(p_invoice->>'status', ''), 'draft'));
+    IF v_requested_status NOT IN ('draft', 'pending') THEN
+        RAISE EXCEPTION 'Invoice status must be draft or pending when saving.'
+            USING ERRCODE = '23514';
+    END IF;
+
     v_client_id := NULLIF(p_invoice->>'client_id', '')::uuid;
     IF v_client_id IS NULL OR NOT EXISTS (
         SELECT 1 FROM public.clients AS client
@@ -57,7 +64,7 @@ BEGIN
             p_org_id, v_client_id,
             COALESCE(NULLIF(p_invoice->>'issue_date', '')::date, CURRENT_DATE),
             NULLIF(p_invoice->>'due_date', '')::date,
-            COALESCE(NULLIF(p_invoice->>'status', ''), 'draft'),
+            v_requested_status,
             NULLIF(p_invoice->>'notes', '')
         )
         RETURNING id INTO v_id;
@@ -81,7 +88,7 @@ BEGIN
         SET client_id = v_client_id,
             issue_date = COALESCE(NULLIF(p_invoice->>'issue_date', '')::date, issue_date),
             due_date = NULLIF(p_invoice->>'due_date', '')::date,
-            status = COALESCE(NULLIF(p_invoice->>'status', ''), status),
+            status = v_requested_status,
             notes = NULLIF(p_invoice->>'notes', '')
         WHERE id = v_id AND org_id = p_org_id AND lower(status::text) = 'draft';
 
@@ -225,6 +232,8 @@ DECLARE
     v_unit_price numeric;
     v_discount_pct numeric;
     v_gst_rate numeric;
+    v_requested_status text;
+    v_existing_status text;
     v_position integer := 0;
 BEGIN
     IF auth.uid() IS NULL THEN
@@ -243,6 +252,12 @@ BEGIN
         RAISE EXCEPTION 'Invalid quotation payload.' USING ERRCODE = '22023';
     END IF;
 
+    v_requested_status := lower(COALESCE(NULLIF(p_quotation->>'status', ''), 'draft'));
+    IF v_requested_status NOT IN ('draft', 'sent') THEN
+        RAISE EXCEPTION 'Quotation status must be draft or sent when saving.'
+            USING ERRCODE = '23514';
+    END IF;
+
     v_client_id := NULLIF(p_quotation->>'client_id', '')::uuid;
     IF v_client_id IS NULL OR NOT EXISTS (
         SELECT 1 FROM public.clients AS client
@@ -259,23 +274,38 @@ BEGIN
             p_org_id, v_client_id,
             COALESCE(NULLIF(p_quotation->>'issue_date', '')::date, CURRENT_DATE),
             NULLIF(p_quotation->>'valid_until', '')::date,
-            COALESCE(NULLIF(p_quotation->>'status', ''), 'draft'),
+            v_requested_status,
             NULLIF(p_quotation->>'notes', ''),
             NULLIF(p_quotation->>'terms', '')
         )
         RETURNING id INTO v_id;
     ELSE
+        SELECT lower(quotation.status::text)
+          INTO v_existing_status
+          FROM public.quotations AS quotation
+         WHERE quotation.id = v_id AND quotation.org_id = p_org_id
+         FOR UPDATE;
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Quotation not found in this organization.';
+        END IF;
+
+        IF v_existing_status NOT IN ('draft', 'sent') THEN
+            RAISE EXCEPTION 'Closed quotations cannot be edited; duplicate them to create a revision.'
+                USING ERRCODE = '23514';
+        END IF;
+
         UPDATE public.quotations
         SET client_id = v_client_id,
             issue_date = COALESCE(NULLIF(p_quotation->>'issue_date', '')::date, issue_date),
             valid_until = NULLIF(p_quotation->>'valid_until', '')::date,
-            status = COALESCE(NULLIF(p_quotation->>'status', ''), status),
+            status = v_requested_status,
             notes = NULLIF(p_quotation->>'notes', ''),
             terms = NULLIF(p_quotation->>'terms', '')
-        WHERE id = v_id AND org_id = p_org_id;
+        WHERE id = v_id AND org_id = p_org_id AND lower(status::text) IN ('draft', 'sent');
 
         IF NOT FOUND THEN
-            RAISE EXCEPTION 'Quotation not found in this organization.';
+            RAISE EXCEPTION 'Closed quotations cannot be edited.' USING ERRCODE = '23514';
         END IF;
 
         DELETE FROM public.quotation_items
