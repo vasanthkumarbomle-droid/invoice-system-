@@ -9,7 +9,7 @@ export function todayInIndia() {
   return `${part('year')}-${part('month')}-${part('day')}`
 }
 export function indianFinancialYearLabel(dateString = todayInIndia()) {
-  const match = String(dateString || '').match(/^(\\d{4})-(\\d{2})-\\d{2}$/)
+  const match = String(dateString || '').match(/^(\d{4})-(\d{2})-\d{2}$/)
   if (!match) return indianFinancialYearLabel(todayInIndia())
   const year = Number(match[1])
   const month = Number(match[2])
