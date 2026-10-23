@@ -169,7 +169,11 @@ export default function ClientDocumentPage() {
 
         <footer className="client-doc-footer">
           <span>This document was shared securely by {org.name || org.legal_name || 'the sender'} via LedgerFlow.</span>
-          <div><strong>For {org.name || org.legal_name || 'Business'}</strong><span className="client-signature-line">Authorized Signatory</span></div>
+          <div>
+            <strong>For {org.name || org.legal_name || 'Business'}</strong>
+            {doc.signatureData && <img className="client-signature-image" src={doc.signatureData} alt="Authorized signatory signature" />}
+            <span className="client-signature-line">Authorized Signatory</span>
+          </div>
         </footer>
       </section>
 
