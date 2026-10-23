@@ -32,6 +32,11 @@ For an existing project, check which migrations have already succeeded. Apply **
 8. Apply `009_document_save_tenant_integrity.sql`. It explicitly requires organization membership and same-organization client/product references in the invoice/quotation save functions and quotation conversion; allowlists invoice/quotation workflow statuses in the save RPCs; permits edits only for draft invoices and open quotations; adds a locked, payment-aware invoice cancellation RPC; and revokes direct browser execution of the internal `invoice_refresh(uuid)` helper. This assumes the named core tables and columns already exist.
 9. Test document saves, quotation conversion, and payment create/correct/move/delete with disposable records before issuing real documents.
 
+10. Apply `010_api_privilege_hardening.sql` to remove anonymous table/sequence access, reduce authenticated structural privileges, reserve internal tables for server-side workflows, revoke direct execution of trigger/event-trigger helpers, and restrict default function execution grants.
+11. Apply `011_authenticated_rls_and_maintain.sql` to change existing organization/billing policies from `PUBLIC` to `authenticated` and remove PostgreSQL `MAINTAIN` from authenticated users. Public document sharing and reminder workflows should go through their server-side Edge Functions.
+
+After migrations 010 and 011, verify anonymous table access is absent, every exposed data table has RLS enabled, private business policies target authenticated users, internal helper functions cannot be called as RPCs, and the application's authenticated save/payment/quotation flows still work. Some remaining Supabase advisor findings (for example foreign-key indexes, `pg_trgm` placement, password-breach protection, and helper RPC warnings) require individual review rather than blanket suppression.
+
 ## Database behavior that must exist
 
 The application depends on database behavior for:
