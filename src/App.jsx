@@ -575,7 +575,7 @@ const [quotations, setQuotations] = useState([])
         showToast('This invoice is already cancelled.', 'warning')
         return
       }
-      if (invoiceToCancel && (invoiceToCancel.status === 'Paid' || Number(invoiceToCancel.amountPaid) > 0)) {
+      if (invoiceToCancel && (['Paid', 'Partially Paid'].includes(invoiceToCancel.status) || Number(invoiceToCancel.amountPaid) > 0)) {
         setDeleteConfirmModal({ open: false, type: '', id: '', title: '' })
         showToast('Invoices with recorded payments cannot be cancelled. Resolve the payment/refund through the appropriate accounting workflow.', 'warning')
         return
@@ -1882,9 +1882,9 @@ function DocumentsListView({
                         type="button"
                         className="lf-btn lf-btn-ghost lf-btn-sm"
                         style={{ color: 'var(--lf-danger)' }}
-                        disabled={isInvoice && (doc.status === 'Paid' || doc.status === 'Cancelled' || Number(doc.amountPaid) > 0)}
+                        disabled={isInvoice && (['Paid', 'Partially Paid', 'Cancelled'].includes(doc.status) || Number(doc.amountPaid) > 0)}
                         onClick={() => onDeleteDoc(doc)}
-                        title={isInvoice && (doc.status === 'Paid' || doc.status === 'Cancelled' || Number(doc.amountPaid) > 0)
+                        title={isInvoice && (['Paid', 'Partially Paid', 'Cancelled'].includes(doc.status) || Number(doc.amountPaid) > 0)
                           ? 'Invoices with payments or an existing cancellation cannot be cancelled'
                           : 'Cancel document'}
                       >
