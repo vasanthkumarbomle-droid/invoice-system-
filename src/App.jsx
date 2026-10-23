@@ -1224,8 +1224,19 @@ const [quotations, setQuotations] = useState([])
     }
   } else {
     try {
-      if (!savedDoc.clientId) {
-        throw new Error('Please choose a registered client')
+      let resolvedClientId = savedDoc.clientId
+      if (!resolvedClientId) {
+        if (!savedDoc.clientName?.trim()) throw new Error('Enter a client name before saving.')
+        const createdClient = await db.addClient(org.id, {
+          name: savedDoc.clientName.trim(),
+          email: savedDoc.clientEmail?.trim() || null,
+          phone: savedDoc.clientPhone?.trim() || null,
+          gstin: savedDoc.clientGstin?.trim().toUpperCase() || null,
+          state_code: savedDoc.clientStateCode || (savedDoc.clientGstin ? savedDoc.clientGstin.slice(0, 2) : null),
+          address: savedDoc.clientAddress?.trim() || null,
+        })
+        resolvedClientId = createdClient.id
+        await loadClients()
       }
 
       const gross = (savedDoc.items || []).reduce(
@@ -1267,7 +1278,7 @@ const [quotations, setQuotations] = useState([])
         org.id,
         {
           id: isExisting ? savedDoc.id : null,
-          client_id: savedDoc.clientId,
+          client_id: resolvedClientId,
           issue_date: savedDoc.issueDate,
           valid_until: savedDoc.dueDate || null,
           status: String(savedDoc.status || 'draft').toLowerCase(),
@@ -2217,11 +2228,10 @@ function DocumentEditorView({
 
   // GST Calculation (Intra-state split or IGST)
   const isInterState = useMemo(() => {
-    if (!clientGstin || clientGstin.length < 2) return false
-    const clientStateCode = clientGstin.substring(0, 2)
-    const companyStateCode = companyProfile.gstin ? companyProfile.gstin.substring(0, 2) : '27'
-    return clientStateCode !== companyStateCode
-  }, [clientGstin, companyProfile.gstin])
+    const sellerState = String(companyProfile.stateCode || companyProfile.gstin?.slice(0, 2) || '').trim()
+    const buyerState = String(clientStateCode || clientGstin?.slice(0, 2) || '').trim()
+    return /^\d{2}$/.test(sellerState) && /^\d{2}$/.test(buyerState) && sellerState !== buyerState
+  }, [clientStateCode, clientGstin, companyProfile.stateCode, companyProfile.gstin])
 
   const totalTaxAmount = useMemo(() => {
     const discountFactor = subtotal > 0 ? taxableAmount / subtotal : 1
@@ -2260,6 +2270,7 @@ function DocumentEditorView({
       clientPhone: clientPhone.trim(),
       clientAddress: clientAddress.trim(),
       clientGstin: clientGstin.trim(),
+      clientStateCode: String(clientStateCode || clientGstin.slice(0, 2) || '').trim(),
       issueDate,
       dueDate,
       paymentTerms,
@@ -2382,8 +2393,16 @@ function DocumentEditorView({
               className="lf-form-input"
               placeholder="e.g. 27AABCR1234F1Z5"
               value={clientGstin}
-              onChange={(e) => setClientGstin(e.target.value.toUpperCase())}
+              onChange={(e) => {
+                const value = e.target.value.toUpperCase()
+                setClientGstin(value)
+                if (/^\d{2}/.test(value)) setClientStateCode(value.slice(0, 2))
+              }}
             />
+          </div>
+          <div className="lf-form-group" style={{ marginBottom: '12px' }}>
+            <label className="lf-form-label">Client State Code (GST place of supply)</label>
+            <input type="text" inputMode="numeric" maxLength={2} className="lf-form-input" placeholder="e.g. 36" value={clientStateCode} onChange={(e) => setClientStateCode(e.target.value.replace(/\D/g, '').slice(0, 2))} />
           </div>
 
           <div className="lf-form-group">
@@ -2527,6 +2546,7 @@ function DocumentEditorView({
                 <th style={{ width: '220px' }}>Product Catalog</th>
                 <th>Item Description *</th>
                 <th style={{ width: '100px' }}>SKU</th>
+                <th style={{ width: '110px' }}>HSN / SAC</th>
                 <th style={{ width: '80px' }}>Qty *</th>
                 <th style={{ width: '110px' }}>Unit Price (&#8377;)</th>
                 <th style={{ width: '90px' }}>GST Rate</th>
@@ -2570,6 +2590,9 @@ function DocumentEditorView({
                       value={item.sku || ''}
                       onChange={(e) => handleItemChange(idx, 'sku', e.target.value)}
                     />
+                  </td>
+                  <td>
+                    <input type="text" className="lf-form-input" placeholder="HSN/SAC" value={item.hsnSac || ''} onChange={(e) => handleItemChange(idx, 'hsnSac', e.target.value)} />
                   </td>
                   <td>
                     <input
@@ -3482,6 +3505,7 @@ function ClientModal({ client, onClose, onSave }) {
   const [email, setEmail] = useState(client?.email || '')
   const [phone, setPhone] = useState(client?.phone || '')
   const [gstin, setGstin] = useState(client?.gstin || '')
+  const [stateCode, setStateCode] = useState(client?.stateCode || String(client?.gstin || '').slice(0, 2))
   const [address, setAddress] = useState(client?.address || '')
 
   const handleSubmit = (e) => {
@@ -3494,6 +3518,7 @@ function ClientModal({ client, onClose, onSave }) {
       email: email.trim(),
       phone: phone.trim(),
       gstin: gstin.trim().toUpperCase(),
+      stateCode: stateCode.trim(),
       address: address.trim()
     })
   }
@@ -3528,6 +3553,10 @@ function ClientModal({ client, onClose, onSave }) {
             <div className="lf-form-group">
               <label className="lf-form-label">GSTIN</label>
               <input type="text" className="lf-form-input" placeholder="e.g. 27AABCR1234F1Z5" value={gstin} onChange={(e) => setGstin(e.target.value.toUpperCase())} />
+            </div>
+            <div className="lf-form-group">
+              <label className="lf-form-label">State Code (GST place of supply)</label>
+              <input type="text" inputMode="numeric" maxLength={2} className="lf-form-input" placeholder="e.g. 36" value={stateCode} onChange={(e) => setStateCode(e.target.value.replace(/\D/g, '').slice(0, 2))} />
             </div>
             <div className="lf-form-group">
               <label className="lf-form-label">Billing Address</label>
