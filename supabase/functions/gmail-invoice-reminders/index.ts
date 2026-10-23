@@ -9,6 +9,17 @@ const corsHeaders = {
 const DAY_MS = 24 * 60 * 60 * 1000;
 const EXCLUDED_STATUSES = new Set(["draft", "cancelled", "paid"]);
 
+function constantTimeSecretEquals(candidate: string, expected: string): boolean {
+  const left = new TextEncoder().encode(candidate);
+  const right = new TextEncoder().encode(expected);
+  let difference = left.length ^ right.length;
+  const length = Math.max(left.length, right.length);
+  for (let index = 0; index < length; index++) {
+    difference |= (left[index] ?? 0) ^ (right[index] ?? 0);
+  }
+  return difference === 0;
+}
+
 async function fetchAllPages<T>(
   buildPage: (from: number, to: number) => any,
 ): Promise<{ data: T[]; error: any }> {
@@ -86,8 +97,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return jsonResponse({ error: "Use POST." }, 405);
   }
 
-  const cronSecret = Deno.env.get("INVOICE_REMINDER_CRON_SECRET");
-  if (!cronSecret || req.headers.get("x-cron-secret") !== cronSecret) {
+  const cronSecret = Deno.env.get("INVOICE_REMINDER_CRON_SECRET") || "";
+  const suppliedCronSecret = req.headers.get("x-cron-secret") || "";
+  if (cronSecret.length < 32 || suppliedCronSecret.length > 512 ||
+      !constantTimeSecretEquals(suppliedCronSecret, cronSecret)) {
     return jsonResponse({ error: "Unauthorized." }, 401);
   }
 
