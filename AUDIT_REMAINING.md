@@ -33,14 +33,14 @@ Last reviewed against GitHub `main` on 2026-10-23. This is a source-code review 
 - [ ] Confirm payment updates cannot bypass integrity checks; migration 005 currently adds a BEFORE INSERT trigger, so review whether direct payment UPDATE/DELETE operations should be restricted or separately validated.
 
 ### P1 — auth, dates and reminder workflows
-- [ ] Test AuthGate during transient Supabase/network errors; a failed org lookup must show a recoverable error, not offer first-time setup or create a duplicate organization.
+- [x] AuthGate now shows a recoverable organization-load error and Retry action instead of treating a failed lookup as first-time setup (source-inspected in `src/AuthGate.jsx`). Network/session recovery still needs browser testing.
 - [ ] Test due dates for all supported terms and date boundaries in Asia/Kolkata, including early-morning IST and month/year rollover.
 - [ ] Test due-today, due-soon and overdue reminders in a non-production environment, including opt-out, duplicate prevention, overlapping runs, failed email/logging and actual delivery.
 - [ ] Check that terms/privacy/security copy reflects the real deployment and is reachable before/without login where required.
 
 ### P2 — UX, reporting and maintainability
 - [ ] Check all remaining report date ranges and fiscal-year labels with fixed test dates, including Q3 Oct–Dec.
-- [ ] Replace any remaining demo/fake notifications, trend percentages, sample business identity or hard-coded financial-year labels.
+- [x] Source search found no former Apex demo identity, fake 14.2% trend, old mojibake strings, or hard-coded 2026–27 financial-year label in current `src/App.jsx`. Notification behavior still needs a browser smoke test.
 - [ ] Check badge styles for every document status, barcode scan recovery after unmatched codes, product stock-zero editing, account-holder persistence and paise-level payment settlement.
 - [x] Added `src/lib/finance.test.js` with unit tests for date rollover, payment terms, discount/tax math, CSV escaping/formula protection and paise wording. These tests were committed but have **not been executed in this environment**.
 - [ ] Add regression tests for invoice/quotation save/edit/payment flows and database integration tests for RPCs/RLS.
