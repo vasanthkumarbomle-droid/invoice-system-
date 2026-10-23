@@ -51,10 +51,16 @@ function Login() {
     setError('')
     setNotice('')
     try {
-      if (mode === 'signin') {
-        await signIn(email, password)
+      if (mode === 'forgot') {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: `${window.location.origin}/reset-password`,
+        })
+        if (resetError) throw resetError
+        setNotice('If an account exists for that email, password-reset instructions will be sent.')
+      } else if (mode === 'signin') {
+        await signIn(email.trim(), password)
       } else {
-        const result = await signUp(email, password)
+        const result = await signUp(email.trim(), password)
         if (result?.user && !result?.session) {
           setNotice('Account created. Check your email for the confirmation link before signing in.')
         } else {
@@ -68,27 +74,61 @@ function Login() {
     }
   }
 
+  const title = mode === 'signin' ? 'Welcome back'
+    : mode === 'signup' ? 'Create your account' : 'Reset your password'
+  const subtitle = mode === 'signin' ? 'Sign in to manage your invoices.'
+    : mode === 'signup' ? 'Start billing in under a minute.'
+      : 'Enter your account email and we will send a secure reset link.'
+
   return (
-    <Layout
-      title={mode === 'signin' ? 'Welcome back' : 'Create your account'}
-      subtitle={mode === 'signin' ? 'Sign in to manage your invoices.' : 'Start billing in under a minute.'}
-    >
+    <Layout title={title} subtitle={subtitle}>
       <form className="auth-form" onSubmit={submit}>
-        <Field label="Email" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        <Field label="Password" type="password" placeholder="At least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} required />
+        <Field label="Email" type="email" autoComplete="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        {mode !== 'forgot' && (
+          <Field
+            label="Password"
+            type="password"
+            autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+            placeholder="At least 6 characters"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            minLength={6}
+            required
+          />
+        )}
         {error && <div className="auth-error" role="alert">{error}</div>}
         {notice && <div className="auth-success" role="status">{notice}</div>}
         <button className="auth-btn" disabled={busy}>
-          {busy ? 'Please wait...' : mode === 'signin' ? 'Sign in' : 'Create account'}
+          {busy ? 'Please wait...' : mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send reset link'}
         </button>
       </form>
-      <button className="auth-toggle" onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError('') }}>
-        {mode === 'signin' ? "New here? Create an account" : 'Already have an account? Sign in'}
-      </button>
+
+      <div className="auth-secondary-actions">
+        {mode === 'signin' && (
+          <button type="button" className="auth-link" onClick={() => { setMode('forgot'); setError(''); setNotice('') }}>
+            Forgot password?
+          </button>
+        )}
+        <button
+          type="button"
+          className="auth-toggle"
+          onClick={() => {
+            setMode(mode === 'signin' || mode === 'forgot' ? 'signup' : 'signin')
+            setError('')
+            setNotice('')
+          }}
+        >
+          {mode === 'signup' ? 'Already have an account? Sign in' : 'New here? Create an account'}
+        </button>
+        {mode === 'forgot' && (
+          <button type="button" className="auth-link" onClick={() => { setMode('signin'); setError(''); setNotice('') }}>
+            Back to sign in
+          </button>
+        )}
+      </div>
     </Layout>
   )
 }
-
 function CreateOrg({ onCreated }) {
   const [form, setForm] = useState({ name: '', gstin: '', state_code: '', phone: '', address: '' })
   const [error, setError] = useState('')
@@ -169,7 +209,7 @@ export default function AuthGate({ children }) {
   }, [session])
 
   // The emailed client portal is public by design; the edge function validates its one-time/expiring token.
-  const isPublicDocumentRoute = typeof window !== 'undefined' && ['/client-document', '/terms'].includes(window.location.pathname)
+  const isPublicDocumentRoute = typeof window !== 'undefined' && ['/client-document', '/terms', '/reset-password'].includes(window.location.pathname)
   if (isPublicDocumentRoute) return children
 
   if (!supabase) {
