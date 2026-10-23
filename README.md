@@ -26,6 +26,8 @@ Required for the frontend:
 - VITE_SUPABASE_URL: the project's HTTPS URL.
 - VITE_SUPABASE_PUBLISHABLE_KEY: the project's publishable key. VITE_SUPABASE_ANON_KEY is also supported for older projects.
 
+For password recovery, add your local and deployed app URLs ending in `/reset-password` to Supabase Dashboard → Authentication → URL Configuration → Redirect URLs. Set the Site URL to the real deployed frontend origin. The recovery email uses the current origin, then returns to this route.
+
 Do not put SUPABASE_SERVICE_ROLE_KEY, GOOGLE_APPS_SCRIPT_SECRET, the reminder cron secret, or other server secrets in frontend variables.
 
 ## Database setup and migrations
@@ -40,8 +42,11 @@ After reviewing the schema and backing up the project, apply the feature migrati
 - supabase/sql/004_quotation_conversion_and_account_holder.sql — accepted quotation conversion and persisted bank account-holder name.
 - supabase/sql/005_payment_integrity.sql — server-side validation that prevents payments against draft/cancelled/paid invoices and amounts above the outstanding balance.
 - supabase/sql/006_due_date_reminders.sql — lets due-today reminders be logged separately from earlier due-soon reminders.
+- supabase/sql/007_read_only_schema_audit.sql — read-only schema/policy diagnostic; it makes no changes.
+- supabase/sql/008_payment_update_integrity.sql — validates payment corrections/moves and recalculates both invoices when a payment changes invoice.
+- supabase/sql/009_document_save_tenant_integrity.sql — explicitly checks organization membership and same-organization client/product references during invoice and quotation saves; restricts client execution of the internal invoice-refresh helper.
 
-Migrations 003–006 were added after the base project schema was already being used. They are not proof that the live database has been migrated. Review the SQL and verify the results in the target project before using the affected workflows.
+For an existing, already-migrated project, review and apply migrations in dependency order: 004, 005, 006, 008, then 009 as appropriate. Migration 007 is read-only and can be run for diagnosis. The migrations are not proof that the live database has been updated; confirm the current schema first, back up important data, and test payment/document workflows with disposable records. The SQL feature migrations do not create the complete core schema.
 
 ## Client document emails and quotation response
 
