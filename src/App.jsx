@@ -3892,6 +3892,8 @@ function RecordPaymentModal({ preselectedDoc, invoices, onClose, onSave, showToa
   const [paymentMethod, setPaymentMethod] = useState('Bank Transfer (NEFT)')
   const [referenceNumber, setReferenceNumber] = useState('')
   const [notes, setNotes] = useState('')
+  const [saving, setSaving] = useState(false)
+  const savingRef = useRef(false)
 
   const activeInvoice = invoices.find((i) => i.id === selectedInvoiceId) || preselectedDoc
 
@@ -3903,8 +3905,9 @@ function RecordPaymentModal({ preselectedDoc, invoices, onClose, onSave, showToa
     }
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
+    if (savingRef.current) return
     const numAmount = Number(amount)
     if (!activeInvoice) {
       showToast('Select an invoice before recording a payment.')
@@ -3919,17 +3922,26 @@ function RecordPaymentModal({ preselectedDoc, invoices, onClose, onSave, showToa
       return
     }
 
-    onSave({
-      invoiceId: activeInvoice.id,
-      invoiceNumber: activeInvoice.documentNumber,
-      clientName: activeInvoice.clientName,
-      amount: numAmount,
-      paymentDate,
-      paymentMethod,
-      referenceNumber: referenceNumber.trim(),
-      status: 'Completed',
-      notes: notes.trim()
-    })
+    savingRef.current = true
+    setSaving(true)
+    try {
+      await onSave({
+        invoiceId: activeInvoice.id,
+        invoiceNumber: activeInvoice.documentNumber,
+        clientName: activeInvoice.clientName,
+        amount: numAmount,
+        paymentDate,
+        paymentMethod,
+        referenceNumber: referenceNumber.trim(),
+        status: 'Completed',
+        notes: notes.trim()
+      })
+    } catch (error) {
+      showToast(error?.message || 'Could not record this payment.')
+    } finally {
+      savingRef.current = false
+      setSaving(false)
+    }
   }
 
   return (
@@ -4026,7 +4038,9 @@ function RecordPaymentModal({ preselectedDoc, invoices, onClose, onSave, showToa
           </div>
           <div className="lf-modal-footer">
             <button type="button" className="lf-btn lf-btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="lf-btn lf-btn-primary">Record Payment</button>
+            <button type="submit" className="lf-btn lf-btn-primary" disabled={saving}>
+              {saving ? 'Recording Payment...' : 'Record Payment'}
+            </button>
           </div>
         </form>
       </div>
