@@ -71,12 +71,14 @@ BEGIN
     LOOP
         INSERT INTO public.invoice_items (
             org_id, invoice_id, position, product_id, description,
-            quantity, unit_price, discount_pct, gst_rate
+            hsn_sac, unit, quantity, unit_price, discount_pct, gst_rate
         )
         VALUES (
             p_org_id, v_id, v_position,
             NULLIF(v_item->>'product_id', '')::uuid,
             COALESCE(v_item->>'description', ''),
+            NULLIF(v_item->>'hsn_sac', ''),
+            COALESCE(NULLIF(v_item->>'unit', ''), 'unit'),
             COALESCE(NULLIF(v_item->>'quantity', '')::numeric, 1),
             COALESCE(NULLIF(v_item->>'unit_price', '')::numeric, 0),
             COALESCE(NULLIF(v_item->>'discount_pct', '')::numeric, 0),
