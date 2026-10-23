@@ -615,7 +615,13 @@ const [quotations, setQuotations] = useState([])
         })
         .catch((e) => showToast(e.message, 'error'))
     } else if (type === 'quotation') {
-      // Delete from Supabase first. Only show success after the database confirms it.
+      const quoteToDelete = quotations.find((quote) => quote.id === id)
+      if (quoteToDelete && quoteToDelete.status !== 'Draft') {
+        setDeleteConfirmModal({ open: false, type: '', id: '', title: '' })
+        showToast('Only draft quotations can be permanently deleted. Issued and answered quotations are retained for audit history.', 'warning')
+        return
+      }
+      // Only drafts may be hard-deleted; issued/answered quotations remain in the audit trail.
       db.deleteQuotation(org.id, id)
         .then(async () => {
           await loadQuotations()
