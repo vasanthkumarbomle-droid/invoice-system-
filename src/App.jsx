@@ -2835,6 +2835,7 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
   }
 
   return (
+    <>
     <div className="lf-modal-backdrop lf-non-printable">
       <div className="lf-modal lf-modal-lg" style={{ maxHeight: '92vh' }}>
         {/* Modal Top Bar */}
@@ -2932,15 +2933,19 @@ function SignaturePadModal({ initialSignature, onClose, onSave }) {
   const canvasRef = useRef(null)
   const drawingRef = useRef(false)
   const hasDrawingRef = useRef(false)
+  const [hasDrawing, setHasDrawing] = useState(Boolean(initialSignature))
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || !initialSignature) return
     const context = canvas.getContext('2d')
     const image = new Image()
-    image.onload = () => context.drawImage(image, 0, 0, canvas.width, canvas.height)
+    image.onload = () => {
+      context.drawImage(image, 0, 0, canvas.width, canvas.height)
+      hasDrawingRef.current = true
+      setHasDrawing(true)
+    }
     image.src = initialSignature
-    hasDrawingRef.current = true
   }, [initialSignature])
 
   const pointFor = (event) => {
@@ -2953,6 +2958,7 @@ function SignaturePadModal({ initialSignature, onClose, onSave }) {
     if (!canvas) return
     drawingRef.current = true
     hasDrawingRef.current = true
+    setHasDrawing(true)
     canvas.setPointerCapture?.(event.pointerId)
     const point = pointFor(event)
     const context = canvas.getContext('2d')
@@ -2973,6 +2979,7 @@ function SignaturePadModal({ initialSignature, onClose, onSave }) {
     const canvas = canvasRef.current
     if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height)
     hasDrawingRef.current = false
+    setHasDrawing(false)
   }
 
   return (
@@ -2994,7 +3001,7 @@ function SignaturePadModal({ initialSignature, onClose, onSave }) {
           <button type="button" className="lf-btn lf-btn-secondary" onClick={clearSignature}>Clear</button>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button type="button" className="lf-btn lf-btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="button" className="lf-btn lf-btn-primary" disabled={!hasDrawingRef.current}
+            <button type="button" className="lf-btn lf-btn-primary" disabled={!hasDrawing}
               onClick={() => { if (hasDrawingRef.current && canvasRef.current) onSave(canvasRef.current.toDataURL('image/png')) }}>
               <Check size={15} /> Save Signature
             </button>
