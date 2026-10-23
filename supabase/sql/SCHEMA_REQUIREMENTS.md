@@ -2,7 +2,7 @@
 
 ## Existing projects
 
-LedgerFlow's original core database schema was created outside this repository. The SQL files numbered `001` through `004` are **additive feature migrations** and are not a substitute for the original core schema. Do not run this project's app against a fresh Supabase database until the core tables, totals/numbering triggers, grants, and organization-scoped RLS policies have been installed and verified.
+LedgerFlow's original core database schema was created outside this repository. The SQL files numbered `001` through `005` are **additive feature migrations** and are not a substitute for the original core schema. Do not run this project's app against a fresh Supabase database until the core tables, totals/numbering triggers, grants, and organization-scoped RLS policies have been installed and verified.
 
 The current app and migrations expect these core tables:
 
@@ -24,12 +24,12 @@ The feature migrations additionally use:
 
 ## Apply migrations in order
 
-For an existing project where migrations 001–003 were already applied successfully, **apply only `004_financial_integrity_and_conversion.sql` next**. Do not rerun migrations that already succeeded.
+For an existing project where migrations 001–003 were already applied successfully, apply `004_quotation_conversion_and_account_holder.sql` and then `005_payment_integrity.sql`. Do not rerun migrations that already succeeded.
 
 1. Open Supabase Dashboard → SQL Editor.
 2. Open `VERIFY_CORE_SCHEMA.sql` and run it. In its first result, check that each required column is available. In the second result, inspect RLS and policy counts; a nonzero count alone does not prove the policies are safe.
 3. Review the actual policies for all organization-scoped tables and confirm a signed-in user can only access rows for organizations where that user is a member. Check insert, update, delete and select separately; also check membership role authorization if some actions should be owner/admin only.
-4. Apply `004_financial_integrity_and_conversion.sql`. It adds the persisted bank account holder column, provides the server-side quotation conversion RPC, and prevents new payment rows from exceeding an invoice's current balance or being added to draft/cancelled/paid invoices.
+4. Apply `004_quotation_conversion_and_account_holder.sql`. It adds the persisted bank account holder column and the server-side quotation conversion RPC. Conversion is restricted to accepted quotations and owner/admin organization members.\n5. Apply `005_payment_integrity.sql`. Its database trigger rejects payment inserts for draft, cancelled or paid invoices, rejects overpayments, and checks the authenticated user's organization membership.\n6. Test against a disposable quotation and invoice before using real business documents.
 5. Test against a disposable quotation and invoice before using real business documents.
 
 ## Database behavior that must exist
