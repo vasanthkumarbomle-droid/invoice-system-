@@ -22,3 +22,9 @@ test('reminder candidate and send-log paths both normalize client relation shape
   assert.match(reminder, /function firstClient\(/)
   assert.equal((reminder.match(/firstClient\(invoice\.clients\)/g) || []).length, 2)
 })
+
+test('issued invoices are protected from edit/cancel actions in the UI', () => {
+  assert.match(app, /doc\.type === 'invoice' && doc\.status !== 'Draft'/)
+  assert.match(app, /Invoices with recorded payments cannot be cancelled/)
+  assert.match(app, /cancel_invoice_if_unpaid/)
+})
