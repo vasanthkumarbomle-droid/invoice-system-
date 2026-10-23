@@ -18,7 +18,6 @@ WITH required_columns(table_name, column_name) AS (
     ('organizations','default_gst_rate'),
     ('organizations','default_payment_terms_days'),
     ('organizations','bank_name'),
-    ('organizations','bank_account_holder'),
     ('organizations','bank_account_no'),
     ('organizations','bank_ifsc'),
     ('organizations','upi_id'),
@@ -155,7 +154,8 @@ WITH business_tables(table_name) AS (
 )
 SELECT
   business_tables.table_name,
-  COALESCE(class.relrowsecurity, false) AS rls_enabled,
+  (class.oid IS NOT NULL) AS table_exists,
+  CASE WHEN class.oid IS NULL THEN NULL ELSE class.relrowsecurity END AS rls_enabled,
   COUNT(policy.policyname)::integer AS policy_count
 FROM business_tables
 LEFT JOIN pg_namespace AS namespace
@@ -167,5 +167,5 @@ LEFT JOIN pg_class AS class
 LEFT JOIN pg_policies AS policy
   ON policy.schemaname = 'public'
  AND policy.tablename = business_tables.table_name
-GROUP BY business_tables.table_name, class.relrowsecurity
+GROUP BY business_tables.table_name, class.oid, class.relrowsecurity
 ORDER BY business_tables.table_name;
