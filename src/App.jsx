@@ -483,14 +483,18 @@ const [quotations, setQuotations] = useState([])
     navigateTo(mode === 'invoice' ? '/invoices/new' : '/quotations/new')
   }
 
-  // Edit Existing Document
+  // Accepted/rejected/converted quotations are immutable; duplicate to create a revised offer.
   const handleEditDoc = (doc) => {
+    if (doc.type === 'quotation' && ['Accepted', 'Rejected', 'Expired', 'Converted'].includes(doc.status)) {
+      showToast('This quotation is closed. Duplicate it to create a new draft revision.', 'warning')
+      return
+    }
     setEditingDoc(doc)
     setEditorMode(doc.type)
     navigateTo(doc.type === 'invoice' ? '/invoices/new' : '/quotations/new')
   }
 
-  // Duplicate Document
+  // Duplicate documents into the database so they persist after refresh/sign-in.
   const handleDuplicateDoc = async (doc) => {
     if (doc.type === 'invoice') {
       try {
@@ -501,18 +505,35 @@ const [quotations, setQuotations] = useState([])
       }
       return
     }
-    const nextNum = `${companyProfile.quotationPrefix}00${quotations.length + 1}`
-    const duplicated = {
-      ...doc,
-      id: `qt-${Date.now()}`,
-      documentNumber: nextNum,
-      issueDate: new Date().toISOString().split('T')[0],
-      status: 'Draft',
-      amountPaid: 0,
-      balanceDue: doc.grandTotal
+
+    try {
+      const items = (doc.items || []).map((item) => ({
+        product_id: item.productId || null,
+        description: item.description || '',
+        hsn_sac: item.hsnSac || null,
+        unit: item.unit || 'unit',
+        quantity: Number(item.quantity) || 1,
+        unit_price: Number(item.unitPrice) || 0,
+        discount_pct: 0,
+        gst_rate: Number(item.gstRate) || 0,
+      }))
+      const newId = await db.saveQuotation(org.id, {
+        id: null,
+        client_id: doc.clientId,
+        issue_date: new Date().toISOString().slice(0, 10),
+        valid_until: doc.dueDate || null,
+        status: 'draft',
+        notes: doc.notes || null,
+        terms: doc.paymentTerms || null,
+      }, items)
+      const rows = await db.listQuotationsFull(org.id)
+      const mapped = rows.map(mapQuotationRecord)
+      setQuotations(mapped)
+      const created = mapped.find((row) => row.id === newId)
+      showToast(created ? `Created draft revision ${created.documentNumber}` : 'Quotation duplicated as a draft', 'success')
+    } catch (e) {
+      showToast(e.message || 'Could not duplicate quotation', 'error')
     }
-    setQuotations((prev) => [duplicated, ...prev])
-    showToast(`Duplicated as new draft ${nextNum}`, 'success')
   }
 
   // Delete Document
@@ -2212,7 +2233,7 @@ function DocumentEditorView({
           <button
             type="button"
             className="lf-btn lf-btn-primary"
-           onClick={() => handleSubmit(isInvoice ? 'Sent' : (existingDoc ? status : 'Sent'))}
+           onClick={() => handleSubmit(isInvoice ? 'Sent' : (status === 'Draft' ? 'Sent' : status))}
           >
             <Check size={16} />
             <span>Save & Issue</span>
