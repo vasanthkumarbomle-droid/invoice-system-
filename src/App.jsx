@@ -8,6 +8,7 @@ import {
   addDaysToDateString,
   calculateDocumentAmounts,
   escapeCsvCell,
+  indianFinancialYearLabel,
   numberToWordsINR,
   paymentTermsDays,
   todayInIndia,
@@ -1462,7 +1463,7 @@ function DashboardView({ invoices, payments, quotations, companyProfile, onNewIn
   const pendingQuotationsValue = useMemo(() => pendingQuotations.reduce((sum, q) => sum + (q.grandTotal || 0), 0), [pendingQuotations])
 
  const chartData = useMemo(() => {
-  const now = new Date()
+  const now = new Date(`${todayInIndia()}T12:00:00`)
 
   const months = Array.from({ length: 6 }, (_, index) => {
     const date = new Date(now.getFullYear(), now.getMonth() - 5 + index, 1)
@@ -1587,7 +1588,7 @@ function DashboardView({ invoices, payments, quotations, companyProfile, onNewIn
               <h3 className="lf-card-title">Invoicing & Collections Trend</h3>
               <p className="lf-card-subtitle">Monthly billed volume vs. payments collected (&#8377;)</p>
             </div>
-            <span className="lf-badge lf-badge-sent">FY {todayInIndia().slice(0, 4)}-{String(Number(todayInIndia().slice(0, 4)) + 1).slice(-2)}</span>
+            <span className="lf-badge lf-badge-sent">{indianFinancialYearLabel()}</span>
           </div>
           <div style={{ width: '100%', height: 260 }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -4039,7 +4040,7 @@ function RecordPaymentModal({ preselectedDoc, invoices, onClose, onSave, showToa
 
 function ReportsView({ invoices, payments }) {
   const [dateRange, setDateRange] = useState('YTD')
-  const today = new Date()
+  const today = new Date(`${todayInIndia()}T12:00:00`)
 
   const rangeStart = (() => {
     if (dateRange === 'YTD') {
