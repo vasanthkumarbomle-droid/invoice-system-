@@ -492,11 +492,7 @@ const [quotations, setQuotations] = useState([])
   const [globalSearch, setGlobalSearch] = useState('')
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
-  const [notifications, setNotifications] = useState([
-    { id: 1, text: 'Invoice INV-2026-003 is overdue by 8 days.', unread: true, time: '2h ago' },
-    { id: 2, text: 'Payment of &#8377;80,240 received for INV-2026-001.', unread: true, time: '1d ago' },
-    { id: 3, text: 'Quotation QT-2026-001 accepted by Wipro Cloud.', unread: false, time: '2d ago' }
-  ])
+  const [notifications, setNotifications] = useState([])
 
   // Active Document Preview / Editor State
   const [editingDoc, setEditingDoc] = useState(null)
@@ -660,7 +656,7 @@ const [quotations, setQuotations] = useState([])
         results.push({
           type: 'Invoice',
           title: inv.documentNumber,
-          subtitle: `${inv.clientName} â€¢ ${formatINR(inv.grandTotal)}`,
+          subtitle: `${inv.clientName} • ${formatINR(inv.grandTotal)}`,
           action: () => {
             setPreviewDoc(inv)
             setGlobalSearch('')
@@ -674,7 +670,7 @@ const [quotations, setQuotations] = useState([])
         results.push({
           type: 'Quotation',
           title: qt.documentNumber,
-          subtitle: `${qt.clientName} â€¢ ${formatINR(qt.grandTotal)}`,
+          subtitle: `${qt.clientName} • ${formatINR(qt.grandTotal)}`,
           action: () => {
             setPreviewDoc(qt)
             setGlobalSearch('')
@@ -688,7 +684,7 @@ const [quotations, setQuotations] = useState([])
         results.push({
           type: 'Client',
           title: c.name,
-          subtitle: `${c.email} â€¢ ${c.phone}`,
+          subtitle: `${c.email} • ${c.phone}`,
           action: () => {
             navigateTo('/clients')
             setGlobalSearch('')
@@ -702,7 +698,7 @@ const [quotations, setQuotations] = useState([])
         results.push({
           type: 'Product',
           title: p.name,
-          subtitle: `SKU: ${p.sku} â€¢ ${formatINR(p.price)}`,
+          subtitle: `SKU: ${p.sku} • ${formatINR(p.price)}`,
           action: () => {
             navigateTo('/products')
             setGlobalSearch('')
@@ -979,9 +975,9 @@ const [quotations, setQuotations] = useState([])
                 onClick={() => setProfileMenuOpen(!profileMenuOpen)}
                 aria-label="User Account Menu"
               >
-                <div className="lf-avatar">AG</div>
+                <div className="lf-avatar">{String(companyProfile.tradeName || companyProfile.companyName || 'LF').trim().split(/\s+/).slice(0, 2).map((part) => part[0] || '').join('').toUpperCase()}</div>
                 <div className="lf-profile-info">
-                  <span className="lf-profile-name">Apex Global</span>
+                  <span className="lf-profile-name">{companyProfile.tradeName || companyProfile.companyName || 'Your Business'}</span>
                   <span className="lf-profile-role">Admin</span>
                 </div>
                 <ChevronDown size={14} style={{ color: 'var(--lf-text-muted)' }} />
@@ -990,8 +986,8 @@ const [quotations, setQuotations] = useState([])
               {profileMenuOpen && (
                 <div className="lf-dropdown-menu">
                   <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--lf-border)' }}>
-                    <div style={{ fontWeight: 600, fontSize: '13px' }}>Apex Global Solutions</div>
-                    <div style={{ fontSize: '11px', color: 'var(--lf-text-muted)' }}>billing@apexenterprise.in</div>
+                    <div style={{ fontWeight: 600, fontSize: '13px' }}>{companyProfile.tradeName || companyProfile.companyName || 'Your Business'}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--lf-text-muted)' }}>{companyProfile.email || 'No business email configured'}</div>
                   </div>
                   <button
                     type="button"
@@ -1029,6 +1025,7 @@ const [quotations, setQuotations] = useState([])
               invoices={invoices}
               payments={payments}
               quotations={quotations}
+              companyProfile={companyProfile}
               onNewInvoice={() => handleStartNewDoc('invoice')}
               onNewQuotation={() => handleStartNewDoc('quotation')}
               onViewDoc={(doc) => setPreviewDoc(doc)}
@@ -1467,10 +1464,11 @@ const [quotations, setQuotations] = useState([])
 // ============================================================================
 // DASHBOARD (OVERVIEW) VIEW
 // ============================================================================
-function DashboardView({ invoices, payments, quotations, onNewInvoice, onNewQuotation, onViewDoc }) {
-  const totalInvoiced = useMemo(() => invoices.reduce((sum, i) => sum + (i.grandTotal || 0), 0), [invoices])
-  const amountReceived = useMemo(() => invoices.reduce((sum, i) => sum + (i.amountPaid || 0), 0), [invoices])
-  const outstandingBalance = useMemo(() => invoices.reduce((sum, i) => sum + (i.balanceDue || 0), 0), [invoices])
+function DashboardView({ invoices, payments, quotations, companyProfile, onNewInvoice, onNewQuotation, onViewDoc }) {
+  const reportableInvoices = useMemo(() => invoices.filter((invoice) => !['Draft', 'Cancelled'].includes(invoice.status)), [invoices])
+  const totalInvoiced = useMemo(() => reportableInvoices.reduce((sum, i) => sum + (Number(i.grandTotal) || 0), 0), [reportableInvoices])
+  const amountReceived = useMemo(() => reportableInvoices.reduce((sum, i) => sum + (Number(i.amountPaid) || 0), 0), [reportableInvoices])
+  const outstandingBalance = useMemo(() => reportableInvoices.reduce((sum, i) => sum + (Number(i.balanceDue) || 0), 0), [reportableInvoices])
   const pendingQuotations = useMemo(() => quotations.filter((q) => q.status === 'Sent' || q.status === 'Draft'), [quotations])
   const pendingQuotationsValue = useMemo(() => pendingQuotations.reduce((sum, q) => sum + (q.grandTotal || 0), 0), [pendingQuotations])
 
@@ -1491,7 +1489,7 @@ function DashboardView({ invoices, payments, quotations, onNewInvoice, onNewQuot
 
   const monthMap = new Map(months.map((month) => [month.key, month]))
 
-  invoices.forEach((invoice) => {
+  reportableInvoices.forEach((invoice) => {
     const key = String(invoice.issueDate || '').slice(0, 7)
     const month = monthMap.get(key)
 
@@ -1514,7 +1512,7 @@ function DashboardView({ invoices, payments, quotations, onNewInvoice, onNewQuot
     Invoiced,
     Received,
   }))
-}, [invoices, payments])
+}, [reportableInvoices, payments])
 
   return (
     <div>
@@ -1523,7 +1521,7 @@ function DashboardView({ invoices, payments, quotations, onNewInvoice, onNewQuot
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--lf-text)', marginBottom: '4px' }}>
-              Welcome back, Apex Enterprise
+              Welcome back, {companyProfile.tradeName || companyProfile.companyName || 'to LedgerFlow'}
             </h2>
             <p style={{ fontSize: '13px', color: 'var(--lf-text-secondary)' }}>
               Here is your financial billing activity, tax calculations, and receivables status.
@@ -1551,7 +1549,7 @@ function DashboardView({ invoices, payments, quotations, onNewInvoice, onNewQuot
           </div>
           <div className="lf-metric-value">{formatINR(totalInvoiced)}</div>
           <div className="lf-metric-subtext">
-            <span className="lf-trend-up">â†‘ 14.2%</span> from last billing cycle
+            <span>Based on issued invoices; drafts and cancelled invoices are excluded.</span>
           </div>
         </div>
 
@@ -1788,15 +1786,15 @@ function DocumentsListView({
             <thead>
               <tr>
                 <th onClick={() => { setSortField('documentNumber'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc') }} style={{ cursor: 'pointer' }}>
-                  Document # {sortField === 'documentNumber' && (sortOrder === 'asc' ? 'â†‘' : 'â†“')}
+                  Document # {sortField === 'documentNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </th>
                 <th>Client Name</th>
                 <th onClick={() => { setSortField('issueDate'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc') }} style={{ cursor: 'pointer' }}>
-                  Issue Date {sortField === 'issueDate' && (sortOrder === 'asc' ? 'â†‘' : 'â†“')}
+                  Issue Date {sortField === 'issueDate' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </th>
                 <th>{isInvoice ? 'Due Date' : 'Valid Until'}</th>
                 <th onClick={() => { setSortField('grandTotal'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc') }} style={{ cursor: 'pointer' }}>
-                  Total Amount (&#8377;) {sortField === 'grandTotal' && (sortOrder === 'asc' ? 'â†‘' : 'â†“')}
+                  Total Amount (&#8377;) {sortField === 'grandTotal' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </th>
                 {isInvoice && <th>Balance Due</th>}
                 <th>Status</th>
@@ -2642,7 +2640,7 @@ function DocumentEditorView({
               BANK PAYMENT DETAILS DISPLAYED ON INVOICE
             </div>
             <div style={{ fontSize: '12px' }}>
-              <strong>{companyProfile.bankName}</strong> â€¢ A/C: {companyProfile.accountNumber} â€¢ IFSC: {companyProfile.ifscCode}
+              <strong>{companyProfile.bankName}</strong> • A/C: {companyProfile.accountNumber} • IFSC: {companyProfile.ifscCode}
             </div>
           </div>
         </div>
@@ -3683,8 +3681,9 @@ function ProductModal({ product, onClose, onSave }) {
   const [barcode, setBarcode] = useState(product?.barcode || '')
   const [category, setCategory] = useState(product?.category || 'Hardware')
   const [price, setPrice] = useState(product?.price || '')
-  const [gstRate, setGstRate] = useState(product?.gstRate || 18)
-  const [stock, setStock] = useState(product?.stock || 10)
+  const [gstRate, setGstRate] = useState(product?.gstRate ?? 18)
+  const [stock, setStock] = useState(product?.stock ?? 10)
+  const [hsnSac, setHsnSac] = useState(product?.hsnSac || '')
   const [description, setDescription] = useState(product?.description || '')
 
   const handleSubmit = (e) => {
@@ -3695,10 +3694,11 @@ function ProductModal({ product, onClose, onSave }) {
       name: name.trim(),
       sku: sku.trim() || `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
       barcode: barcode.trim(),
+      hsnSac: hsnSac.trim(),
       category: category.trim(),
       price: Number(price) || 0,
-      gstRate: Number(gstRate) || 18,
-      stock: Number(stock) || 0,
+      gstRate: Number(gstRate),
+      stock: Number(stock ?? 0),
       description: description.trim()
     })
   }
@@ -3725,6 +3725,10 @@ function ProductModal({ product, onClose, onSave }) {
                 <label className="lf-form-label">Barcode Number (EAN/UPC)</label>
                 <input type="text" className="lf-form-input" placeholder="e.g. 890103080001" value={barcode} onChange={(e) => setBarcode(e.target.value)} />
               </div>
+            </div>
+            <div className="lf-form-group">
+              <label className="lf-form-label">HSN / SAC Code</label>
+              <input type="text" className="lf-form-input" value={hsnSac} onChange={(e) => setHsnSac(e.target.value)} placeholder="Enter applicable HSN/SAC" />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
               <div className="lf-form-group">
@@ -3909,7 +3913,7 @@ function RecordPaymentModal({ preselectedDoc, invoices, onClose, onSave, showToa
                 >
                   {invoices.map((inv) => (
                     <option key={inv.id} value={inv.id}>
-                      {inv.documentNumber} â€¢ {inv.clientName} (Bal: {formatINR(inv.balanceDue)})
+                      {inv.documentNumber} • {inv.clientName} (Bal: {formatINR(inv.balanceDue)})
                     </option>
                   ))}
                 </select>
@@ -4398,7 +4402,7 @@ function NotFoundPage() {
             margin: '0 auto 28px'
           }}
         >
-          The page youâ€™re looking for doesnâ€™t exist, may have moved, or is unavailable in your current session.
+          The page you’re looking for doesn’t exist, may have moved, or is unavailable in your current session.
         </p>
 
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
