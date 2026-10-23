@@ -1527,17 +1527,18 @@ function DashboardView({ invoices, payments, quotations, companyProfile, onNewIn
   return (
     <div>
       {/* Welcome & Primary Actions Bar */}
-      <div className="lf-card" style={{ marginBottom: '24px', background: 'linear-gradient(135deg, #FFFFFF 0%, #FBF8F4 100%)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--lf-text)', marginBottom: '4px' }}>
+      <section className="lf-card lf-dashboard-hero">
+        <div className="lf-dashboard-hero-content">
+          <div className="lf-dashboard-hero-copy">
+            <span className="lf-dashboard-eyebrow">YOUR BUSINESS AT A GLANCE</span>
+            <h2 className="lf-dashboard-hero-title">
               Welcome back, {companyProfile.tradeName || companyProfile.companyName || 'to LedgerFlow'}
             </h2>
-            <p style={{ fontSize: '13px', color: 'var(--lf-text-secondary)' }}>
+            <p className="lf-dashboard-hero-description">
               Here is your financial billing activity, tax calculations, and receivables status.
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div className="lf-dashboard-hero-actions">
             <button type="button" className="lf-btn lf-btn-primary" onClick={onNewInvoice}>
               <Plus size={16} />
               <span>Create Invoice</span>
@@ -1600,7 +1601,7 @@ function DashboardView({ invoices, payments, quotations, companyProfile, onNewIn
       </div>
 
       {/* REVENUE CHART & RECENT INVOICES GRID */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px', marginBottom: '28px' }}>
+      <div className="lf-dashboard-grid">
         {/* Revenue Activity Chart */}
         <div className="lf-card">
           <div className="lf-card-header">
@@ -1610,24 +1611,24 @@ function DashboardView({ invoices, payments, quotations, companyProfile, onNewIn
             </div>
             <span className="lf-badge lf-badge-sent">{indianFinancialYearLabel()}</span>
           </div>
-          <div style={{ width: '100%', height: 260 }}>
+          <div className="lf-chart-wrap">
             <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E6E1DA" />
-                <XAxis dataKey="month" stroke="#7B818B" fontSize={11} tickLine={false} />
-                <YAxis stroke="#7B818B" fontSize={11} tickLine={false} />
+                <XAxis dataKey="month" stroke="#7A8699" fontSize={11} tickLine={false} />
+                <YAxis stroke="#7A8699" fontSize={11} tickLine={false} />
                 <Tooltip
                   formatter={(val) => [formatINR(val), '']}
                   contentStyle={{
                     backgroundColor: '#FFFFFF',
-                    border: '1px solid #E6E1DA',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 12px rgba(37,43,39,0.08)'
+                    border: '1px solid #E3E9F2',
+                    borderRadius: '12px',
+                    boxShadow: '0 12px 30px rgba(23,32,51,0.12)'
                   }}
                 />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-                <Bar dataKey="Invoiced" fill="#B87842" radius={[4, 4, 0, 0]} barSize={20} name="Total Invoiced" />
-                <Bar dataKey="Received" fill="#D9A783" radius={[4, 4, 0, 0]} barSize={20} name="Amount Received" />
+                <Bar dataKey="Invoiced" fill="#2563EB" radius={[5, 5, 0, 0]} maxBarSize={28} name="Total Invoiced" />
+                <Bar dataKey="Received" fill="#F97316" radius={[5, 5, 0, 0]} maxBarSize={28} name="Amount Received" />
               </BarChart>
             </ResponsiveContainer>
           </div>
