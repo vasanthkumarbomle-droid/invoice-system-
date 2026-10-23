@@ -93,7 +93,7 @@ export default function PasswordResetPage() {
           {!supabase ? (
             <div className="auth-error" role="alert">Supabase is not configured for this deployment.</div>
           ) : !ready ? (
-            <div className="auth-loading" role="status">Verifying reset link...</div>
+            <p role="status">Verifying reset link...</p>
           ) : !hasSession ? (
             <>
               <div className="auth-error" role="alert">
