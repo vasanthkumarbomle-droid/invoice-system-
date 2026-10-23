@@ -22,6 +22,7 @@ DECLARE
     v_unit_price numeric;
     v_discount_pct numeric;
     v_gst_rate numeric;
+    v_existing_status text;
     v_position integer := 0;
 BEGIN
     IF auth.uid() IS NULL THEN
@@ -61,16 +62,31 @@ BEGIN
         )
         RETURNING id INTO v_id;
     ELSE
+        SELECT lower(invoice.status::text)
+          INTO v_existing_status
+          FROM public.invoices AS invoice
+         WHERE invoice.id = v_id AND invoice.org_id = p_org_id
+         FOR UPDATE;
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Invoice not found in this organization.';
+        END IF;
+
+        IF v_existing_status <> 'draft' THEN
+            RAISE EXCEPTION 'Only draft invoices can be edited. Duplicate or cancel an unpaid issued invoice before preparing a correction.'
+                USING ERRCODE = '23514';
+        END IF;
+
         UPDATE public.invoices
         SET client_id = v_client_id,
             issue_date = COALESCE(NULLIF(p_invoice->>'issue_date', '')::date, issue_date),
             due_date = NULLIF(p_invoice->>'due_date', '')::date,
             status = COALESCE(NULLIF(p_invoice->>'status', ''), status),
             notes = NULLIF(p_invoice->>'notes', '')
-        WHERE id = v_id AND org_id = p_org_id;
+        WHERE id = v_id AND org_id = p_org_id AND lower(status::text) = 'draft';
 
         IF NOT FOUND THEN
-            RAISE EXCEPTION 'Invoice not found in this organization.';
+            RAISE EXCEPTION 'Only draft invoices can be edited.' USING ERRCODE = '23514';
         END IF;
 
         DELETE FROM public.invoice_items
@@ -117,6 +133,76 @@ BEGIN
     RETURN v_id;
 END;
 $$;
+
+
+CREATE OR REPLACE FUNCTION public.cancel_invoice_if_unpaid(
+    p_org_id uuid,
+    p_invoice_id uuid
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_invoice public.invoices%ROWTYPE;
+    v_total_paid numeric(14,2);
+BEGIN
+    IF auth.uid() IS NULL THEN
+        RAISE EXCEPTION 'Sign in before cancelling an invoice.' USING ERRCODE = '42501';
+    END IF;
+
+    SELECT * INTO v_invoice
+      FROM public.invoices
+     WHERE id = p_invoice_id AND org_id = p_org_id
+     FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Invoice not found in this organization.';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM public.org_members AS member
+        WHERE member.org_id = p_org_id AND member.user_id = auth.uid()
+    ) THEN
+        RAISE EXCEPTION 'You do not belong to this organization.' USING ERRCODE = '42501';
+    END IF;
+
+    IF lower(COALESCE(v_invoice.status::text, '')) = 'cancelled' THEN
+        RAISE EXCEPTION 'Invoice is already cancelled.' USING ERRCODE = '23514';
+    END IF;
+
+    SELECT COALESCE(SUM(payment.amount), 0)
+      INTO v_total_paid
+      FROM public.payments AS payment
+     WHERE payment.invoice_id = v_invoice.id
+       AND payment.org_id = p_org_id;
+
+    IF COALESCE(v_total_paid, 0) > 0
+       OR COALESCE(v_invoice.amount_paid, 0) > 0
+       OR lower(COALESCE(v_invoice.status::text, '')) = 'paid' THEN
+        RAISE EXCEPTION 'Invoices with recorded payments cannot be cancelled. Resolve the payment/refund through the appropriate accounting workflow.'
+            USING ERRCODE = '23514';
+    END IF;
+
+    UPDATE public.invoices
+       SET status = 'cancelled'
+     WHERE id = v_invoice.id
+       AND org_id = p_org_id
+       AND lower(status::text) <> 'cancelled';
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Invoice could not be cancelled because its status changed.' USING ERRCODE = '40001';
+    END IF;
+
+    RETURN v_invoice.id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.cancel_invoice_if_unpaid(uuid, uuid)
+    FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cancel_invoice_if_unpaid(uuid, uuid)
+    TO authenticated;
 
 
 CREATE OR REPLACE FUNCTION public.save_quotation_with_items(
