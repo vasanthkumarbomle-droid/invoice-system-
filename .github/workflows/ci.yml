@@ -25,3 +25,9 @@ jobs:
         run: npm run lint
       - name: Build production bundle
         run: npm run build
+      - name: Set up Deno for Edge Function type-checking
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check client document Edge Function
+        run: deno check supabase/functions/quotation-workflow/index.ts
