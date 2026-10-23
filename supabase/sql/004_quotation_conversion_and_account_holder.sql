@@ -41,8 +41,9 @@ BEGIN
       FROM public.org_members AS member
      WHERE member.org_id = v_quote.org_id
        AND member.user_id = auth.uid()
+       AND lower(COALESCE(member.role, '')) IN ('owner', 'admin')
   ) THEN
-    RAISE EXCEPTION 'You do not have permission to convert this quotation.';
+    RAISE EXCEPTION 'Only business owners or admins can convert quotations.';
   END IF;
 
   IF lower(COALESCE(v_quote.status, '')) <> 'accepted' THEN
