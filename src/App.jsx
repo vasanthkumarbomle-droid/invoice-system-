@@ -1345,7 +1345,7 @@ const [quotations, setQuotations] = useState([])
               const payload = {
                 name: savedClient.name,
                 contact_person: savedClient.contactPerson,
-                 state_code: savedClient.gstin ? savedClient.gstin.substring(0, 2) : null,
+                 state_code: savedClient.stateCode || (savedClient.gstin ? savedClient.gstin.substring(0, 2) : null),
                 email: savedClient.email,
                 phone: savedClient.phone,
                 gstin: savedClient.gstin,
@@ -3150,7 +3150,10 @@ function SignaturePadModal({ initialSignature, onClose, onSave }) {
 // Pure Printable Template Component
 function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', showSignatureControl = false, onRequestSignature }) {
   const isInvoice = doc.type === 'invoice'
-  const isInterState = Boolean(doc.igstAmount && doc.igstAmount > 0)
+  const sellerStateCode = String(companyProfile.stateCode || companyProfile.gstin?.slice(0, 2) || '')
+  const buyerStateCode = String(doc.clientStateCode || doc.clientGstin?.slice(0, 2) || '')
+  const hasPlaceOfSupply = /^\d{2}$/.test(sellerStateCode) && /^\d{2}$/.test(buyerStateCode)
+  const isInterState = Number(doc.igstAmount) > 0 || (hasPlaceOfSupply && sellerStateCode !== buyerStateCode)
 
   return (
     <div style={{ fontFamily: 'Arial, sans-serif', color: '#252B27' }}>
@@ -3219,8 +3222,12 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
             <span style={{ fontWeight: 600 }}>{doc.paymentTerms}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
+            <span style={{ color: '#6B756D' }}>Place of Supply:</span>
+            <span style={{ fontWeight: 600 }}>{buyerStateCode || 'Not specified'}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
             <span style={{ color: '#6B756D' }}>Supply Type:</span>
-            <span style={{ fontWeight: 600 }}>{isInterState ? 'Inter-State (IGST)' : 'Intra-State (CGST+SGST)'}</span>
+            <span style={{ fontWeight: 600 }}>{hasPlaceOfSupply ? (isInterState ? 'Inter-State (IGST)' : 'Intra-State (CGST+SGST)') : 'Verify state codes'}</span>
           </div>
         </div>
       </div>
@@ -3232,6 +3239,7 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
             <th style={{ padding: '8px', textAlign: 'left', width: '30px', color: '#286747' }}>#</th>
             <th style={{ padding: '8px', textAlign: 'left', color: '#286747' }}>Description</th>
             <th style={{ padding: '8px', textAlign: 'left', width: '70px', color: '#286747' }}>SKU</th>
+            <th style={{ padding: '8px', textAlign: 'left', width: '70px', color: '#286747' }}>HSN / SAC</th>
             <th style={{ padding: '8px', textAlign: 'right', width: '50px', color: '#286747' }}>Qty</th>
             <th style={{ padding: '8px', textAlign: 'right', width: '80px', color: '#286747' }}>Rate (&#8377;)</th>
             <th style={{ padding: '8px', textAlign: 'right', width: '60px', color: '#286747' }}>GST</th>
@@ -3244,6 +3252,7 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
               <td style={{ padding: '8px', color: '#6B756D' }}>{idx + 1}</td>
               <td style={{ padding: '8px', fontWeight: 600 }}>{it.description}</td>
               <td style={{ padding: '8px', color: '#6B756D' }}>{it.sku || '-'}</td>
+              <td style={{ padding: '8px', color: '#6B756D' }}>{it.hsnSac || '-'}</td>
               <td style={{ padding: '8px', textAlign: 'right' }}>{it.quantity}</td>
               <td style={{ padding: '8px', textAlign: 'right' }}>{formatINR(it.unitPrice)}</td>
               <td style={{ padding: '8px', textAlign: 'right' }}>{it.gstRate}%</td>
@@ -3348,11 +3357,15 @@ function generatePrintableHtml(doc, profile, signatureData = '') {
     minimumFractionDigits: 2, maximumFractionDigits: 2
   })
   const safeItems = (doc.items || []).map((it, index) => `<tr>
-    <td>${index + 1}</td><td><strong>${esc(it.description)}</strong></td><td>${esc(it.sku || '-')}</td>
+    <td>${index + 1}</td><td><strong>${esc(it.description)}</strong></td><td>${esc(it.sku || '-')}</td><td>${esc(it.hsnSac || '-')}</td>
     <td class="num">${esc(it.quantity)}</td><td class="num">&#8377;${money(it.unitPrice)}</td>
     <td class="num">${esc(it.gstRate)}%</td><td class="num">&#8377;${money(it.total)}</td>
   </tr>`).join('')
   const isInvoice = doc.type === 'invoice'
+  const supplyState = String(doc.clientStateCode || doc.clientGstin?.slice(0, 2) || '')
+  const taxRows = Number(doc.igstAmount) > 0
+    ? `<div class="row"><span>IGST:</span><span>&#8377;${money(doc.igstAmount)}</span></div>`
+    : `<div class="row"><span>CGST:</span><span>&#8377;${money(doc.cgstAmount)}</span></div><div class="row"><span>SGST:</span><span>&#8377;${money(doc.sgstAmount)}</span></div>`
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(doc.documentNumber)} - ${esc(profile.tradeName)}</title>
@@ -3377,13 +3390,13 @@ td{padding:8px;border-bottom:1px solid #e6eae5}.num{text-align:right;white-space
 <div style="font-size:14px;font-weight:700;color:#286747">#${esc(doc.documentNumber)}</div><div class="muted">Date: ${esc(doc.issueDate)}</div></div></div>
 <div class="grid"><div class="box"><strong>Billed To:</strong><br><strong>${esc(doc.clientName)}</strong><br>
 ${esc(doc.clientAddress)}<br>${doc.clientGstin ? 'GSTIN: ' + esc(doc.clientGstin) : ''}<br>${esc(doc.clientEmail)}</div>
-<div class="box"><strong>Payment & Due Details:</strong><br>Due Date: ${esc(doc.dueDate)}<br>Terms: ${esc(doc.paymentTerms)}<br>
+<div class="box"><strong>Payment & Due Details:</strong><br>Due Date: ${esc(doc.dueDate)}<br>Terms: ${esc(doc.paymentTerms)}<br>Place of Supply (state code): ${esc(supplyState || 'Not specified')}<br>
 Bank: ${esc(profile.bankName)} (A/C: ${esc(profile.accountNumber)}, IFSC: ${esc(profile.ifscCode)})<br>UPI: ${esc(profile.upiId)}</div></div>
-<table><thead><tr><th>#</th><th>Description</th><th>SKU</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">GST</th><th class="num">Total</th></tr></thead>
+<table><thead><tr><th>#</th><th>Description</th><th>SKU</th><th>HSN/SAC</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">GST</th><th class="num">Total</th></tr></thead>
 <tbody>${safeItems}</tbody></table>
 <div class="total-box"><div class="row"><span>Subtotal:</span><span>&#8377;${money(doc.subtotal)}</span></div>
 <div class="row"><span>Discount:</span><span>&#8377;${money(doc.discountAmount)}</span></div>
-<div class="row"><span>Tax:</span><span>&#8377;${money(doc.taxAmount)}</span></div>
+${taxRows}
 <div class="row grand"><span>Total:</span><span>&#8377;${money(doc.grandTotal)}</span></div></div>
 <div class="footer">Generated via LedgerFlow.
 <div style="float:right;text-align:center;min-width:170px"><div style="font-weight:700;color:#286747">For ${esc(profile.tradeName || profile.companyName)}</div>
