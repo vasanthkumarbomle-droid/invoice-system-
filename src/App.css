@@ -37,11 +37,11 @@
   --lf-neutral-badge: #EEF0E9;
 
   /* Shadows */
-  --lf-shadow-xs: 0 1px 2px rgba(30, 43, 36, 0.04);
-  --lf-shadow-sm: 0 1px 3px rgba(30, 43, 36, 0.06), 0 1px 2px rgba(30, 43, 36, 0.04);
-  --lf-shadow-md: 0 4px 6px -1px rgba(30, 43, 36, 0.08), 0 2px 4px -2px rgba(30, 43, 36, 0.05);
-  --lf-shadow-lg: 0 10px 15px -3px rgba(30, 43, 36, 0.09), 0 4px 6px -4px rgba(30, 43, 36, 0.05);
-  --lf-shadow-modal: 0 20px 25px -5px rgba(30, 43, 36, 0.13), 0 8px 10px -6px rgba(30, 43, 36, 0.07);
+  --lf-shadow-xs: 0 1px 2px rgba(37, 42, 50, 0.04);
+  --lf-shadow-sm: 0 1px 3px rgba(37, 42, 50, 0.06), 0 1px 2px rgba(37, 42, 50, 0.04);
+  --lf-shadow-md: 0 4px 6px -1px rgba(37, 42, 50, 0.08), 0 2px 4px -2px rgba(37, 42, 50, 0.05);
+  --lf-shadow-lg: 0 10px 15px -3px rgba(37, 42, 50, 0.09), 0 4px 6px -4px rgba(37, 42, 50, 0.05);
+  --lf-shadow-modal: 0 20px 25px -5px rgba(37, 42, 50, 0.13), 0 8px 10px -6px rgba(37, 42, 50, 0.07);
 
   /* Dimensions & Spacing */
   --lf-sidebar-width: 260px;
@@ -1278,7 +1278,7 @@ a:hover {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    border-bottom: 2pt solid #286747;
+    border-bottom: 2pt solid #B87842;
     padding-bottom: 14pt;
     margin-bottom: 18pt;
   }
@@ -1286,13 +1286,13 @@ a:hover {
   .lf-print-company-name {
     font-size: 18pt;
     font-weight: 700;
-    color: #286747;
+    color: #B87842;
   }
 
   .lf-print-doc-title {
     font-size: 20pt;
     font-weight: 800;
-    color: #252B27;
+    color: #252A32;
     text-align: right;
   }
 
@@ -1310,10 +1310,10 @@ a:hover {
   }
 
   .lf-print-table th {
-    background-color: #EEF5F1 !important;
-    color: #286747 !important;
+    background-color: #FBF0E7 !important;
+    color: #B87842 !important;
     font-weight: 700;
-    border-bottom: 1.5pt solid #286747;
+    border-bottom: 1.5pt solid #B87842;
     padding: 6pt 8pt;
     text-align: left;
     font-size: 10pt;
@@ -1321,14 +1321,14 @@ a:hover {
 
   .lf-print-table td {
     padding: 7pt 8pt;
-    border-bottom: 0.5pt solid #E6EAE5;
+    border-bottom: 0.5pt solid #E6E1DA;
     font-size: 10pt;
   }
 
   .lf-print-summary-box {
     margin-left: auto;
     width: 260pt;
-    border: 1pt solid #E6EAE5;
+    border: 1pt solid #E6E1DA;
     border-radius: 4pt;
     padding: 8pt 12pt;
     margin-bottom: 20pt;
@@ -1342,21 +1342,21 @@ a:hover {
   }
 
   .lf-print-grand-total {
-    border-top: 1.5pt solid #286747;
+    border-top: 1.5pt solid #B87842;
     margin-top: 6pt;
     padding-top: 6pt;
     font-weight: 800;
     font-size: 13pt;
-    color: #286747;
+    color: #B87842;
   }
 
   .lf-print-footer {
-    border-top: 1pt solid #E6EAE5;
+    border-top: 1pt solid #E6E1DA;
     padding-top: 12pt;
     display: flex;
     justify-content: space-between;
     font-size: 9pt;
-    color: #6B756D;
+    color: #7B818B;
   }
 }
 
