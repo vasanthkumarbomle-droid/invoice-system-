@@ -4649,7 +4649,7 @@ function TermsConditionsPage() {
               7. Data Storage, Backups, Service Availability, and Technical Limitations
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--lf-text)' }}>
-              In verified local demonstration mode, records are persisted in the browser's local sandbox storage. Users are advised to utilize the built-in backup and export features to prevent data loss resulting from browser clearing or hardware failure.
+              LedgerFlow stores records in the connected Supabase project. Operators must configure database access controls, backups, and retention policies appropriately. Service availability and data recovery depend on the configured hosting and database providers.
             </p>
           </section>
 
@@ -4705,11 +4705,11 @@ function TermsConditionsPage() {
             <p style={{ fontSize: '13px', color: 'var(--lf-text)' }}>
               For legal inquiries, compliance audits, or enterprise deployment agreements, contact:
               <br />
-              <strong>Entity:</strong> Apex Enterprise Technologies Pvt Ltd (LedgerFlow Systems)
+              <strong>Project:</strong> LedgerFlow — Invoice & Quotation Generation System
               <br />
-              <strong>Contact Email:</strong> legal@apexenterprise.in
+              <strong>Contact:</strong> Contact the project administrator
               <br />
-              <strong>Effective Date:</strong> October 21, 2026
+              <strong>Effective Date:</strong> October 23, 2026
             </p>
           </section>
 
