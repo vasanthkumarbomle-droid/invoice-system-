@@ -608,10 +608,10 @@ const [quotations, setQuotations] = useState([])
   const executeDelete = () => {
     const { type, id } = deleteConfirmModal
     if (type === 'invoice') {
-        db.deleteInvoice(org.id, id)
-        .then(() => {
-          loadInvoices()
-          showToast('Invoice deleted successfully', 'success')
+      db.cancelInvoice(org.id, id)
+        .then(async () => {
+          await loadInvoices()
+          showToast('Invoice cancelled and retained for audit history', 'success')
         })
         .catch((e) => showToast(e.message, 'error'))
     } else if (type === 'quotation') {
@@ -1042,6 +1042,10 @@ const [quotations, setQuotations] = useState([])
               onDuplicateDoc={handleDuplicateDoc}
               onDeleteDoc={(doc) => confirmDelete('invoice', doc.id, doc.documentNumber)}
               onRecordPayment={(doc) => {
+                if (['Draft', 'Cancelled', 'Paid'].includes(doc.status) || Number(doc.balanceDue) <= 0) {
+                  showToast('Only issued invoices with an outstanding balance can receive payments.', 'warning')
+                  return
+                }
                 setPaymentDoc(doc)
                 setPaymentModalOpen(true)
               }}
@@ -1393,7 +1397,7 @@ const [quotations, setQuotations] = useState([])
       {paymentModalOpen && (
         <RecordPaymentModal
           preselectedDoc={paymentDoc}
-          invoices={invoices.filter((i) => i.status !== 'Paid' && i.balanceDue > 0)}
+          invoices={invoices.filter((i) => !['Draft', 'Cancelled', 'Paid'].includes(i.status) && Number(i.balanceDue) > 0)}
           onClose={() => {
             setPaymentModalOpen(false)
             setPaymentDoc(null)
@@ -1406,7 +1410,8 @@ const [quotations, setQuotations] = useState([])
                 p.amount,
                 METHOD_TO_DB[p.paymentMethod] || 'other',
                 p.referenceNumber || null,
-                p.paymentDate
+                p.paymentDate,
+                p.notes || null
               )
               await Promise.all([loadInvoices(), loadPayments()])
               setPaymentModalOpen(false)
@@ -1437,7 +1442,9 @@ const [quotations, setQuotations] = useState([])
             </div>
             <div className="lf-modal-body">
               <p style={{ fontSize: '13px', color: 'var(--lf-text)' }}>
-                Are you sure you want to permanently delete <strong>{deleteConfirmModal.title}</strong>? This action cannot be undone.
+                {deleteConfirmModal.type === 'invoice'
+                  ? <>Cancel invoice <strong>{deleteConfirmModal.title}</strong>? Its record will be retained for audit history.</>
+                  : <>Are you sure you want to permanently delete <strong>{deleteConfirmModal.title}</strong>? This action cannot be undone.</>}
               </p>
             </div>
             <div className="lf-modal-footer">
@@ -1453,7 +1460,7 @@ const [quotations, setQuotations] = useState([])
                 className="lf-btn lf-btn-danger"
                 onClick={executeDelete}
               >
-                Delete Permanently
+                {deleteConfirmModal.type === 'invoice' ? 'Cancel Invoice' : 'Delete Permanently'}
               </button>
             </div>
           </div>
@@ -1877,7 +1884,7 @@ function DocumentsListView({
       <span>Convert</span>
     </button>
   )}
-                      {isInvoice && doc.status !== 'Paid' && onRecordPayment && (
+                      {isInvoice && !['Paid', 'Cancelled', 'Draft'].includes(doc.status) && Number(doc.balanceDue) > 0 && onRecordPayment && (
                         <button
                           type="button"
                           className="lf-btn lf-btn-outline-brand lf-btn-sm"
@@ -2427,12 +2434,13 @@ function DocumentEditorView({
           </h4>
 
           <div className="lf-form-group" style={{ marginBottom: '12px' }}>
-            <label className="lf-form-label">Document Number</label>
+            <label className="lf-form-label">Document Number (assigned on save)</label>
             <input
               type="text"
               className="lf-form-input"
-              value={documentNumber}
-              onChange={(e) => setDocumentNumber(e.target.value)}
+              value={existingDoc?.documentNumber || 'Assigned by the database when saved'}
+              disabled
+              readOnly
             />
           </div>
 
@@ -4119,7 +4127,7 @@ function ReportsView({ invoices, payments }) {
   const handleExportCsv = () => {
     const csvCell = (value) => {
       let text = String(value ?? '')
-      if (typeof value === 'string' && /^[\\t\\r ]*[=+@-]/.test(text)) text = `'${text}`
+      if (typeof value === 'string' && /^[\t\r ]*[=+@-]/.test(text)) text = `'${text}`
       return `"${text.replace(/"/g, '""')}"`
     }
     const rows = [
