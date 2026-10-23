@@ -6,6 +6,19 @@ const must = ({ data, error }) => {
   return data
 }
 
+// Supabase/PostgREST caps a single response (commonly at 1,000 rows). Fetch
+// all pages so dashboards and reminder-related screens don't silently truncate.
+const fetchAllPages = async (createQuery, pageSize = 1000) => {
+  const allRows = []
+  for (let offset = 0; ; offset += pageSize) {
+    const rows = await createQuery()
+      .range(offset, offset + pageSize - 1)
+      .then(must)
+    allRows.push(...rows)
+    if (rows.length < pageSize) return allRows
+  }
+}
+
 // ---------- Auth ----------
 export const signUp = (email, password) => supabase.auth.signUp({ email, password }).then(must)
 export const signIn = (email, password) => supabase.auth.signInWithPassword({ email, password }).then(must)
@@ -22,14 +35,16 @@ export const updateOrg = (id, patch) => supabase.from('organizations').update(pa
 
 // ---------- Clients ----------
 export const listClients = (orgId) =>
-  supabase.from('clients').select('*').eq('org_id', orgId).is('deleted_at', null).order('created_at', { ascending: false }).then(must)
+  fetchAllPages(() => supabase.from('clients').select('*').eq('org_id', orgId).is('deleted_at', null)
+    .order('created_at', { ascending: false }).order('id', { ascending: false }))
 export const addClient = (orgId, c) => supabase.from('clients').insert({ ...c, org_id: orgId }).select().single().then(must)
 export const updateClient = (orgId, id, patch) => supabase.from('clients').update(patch).eq('org_id', orgId).eq('id', id).select().single().then(must)
 export const deleteClient = (orgId, id) => supabase.from('clients').update({ deleted_at: new Date().toISOString() }).eq('org_id', orgId).eq('id', id).select('id').single().then(must)
 
 // ---------- Products ----------
 export const listProducts = (orgId) =>
-  supabase.from('products').select('*').eq('org_id', orgId).is('deleted_at', null).order('created_at', { ascending: false }).then(must)
+  fetchAllPages(() => supabase.from('products').select('*').eq('org_id', orgId).is('deleted_at', null)
+    .order('created_at', { ascending: false }).order('id', { ascending: false }))
 export const addProduct = (orgId, p) => supabase.from('products').insert({ ...p, org_id: orgId }).select().single().then(must)
 export const updateProduct = (orgId, id, patch) => supabase.from('products').update(patch).eq('org_id', orgId).eq('id', id).select().single().then(must)
 export const deleteProduct = (orgId, id) => supabase.from('products').update({ deleted_at: new Date().toISOString() }).eq('org_id', orgId).eq('id', id).select('id').single().then(must)
@@ -56,7 +71,8 @@ export const cancelInvoice = (orgId, id) => supabase.from('invoices').update({ s
 
 // ---------- Payments ----------
 export const listPayments = (orgId) =>
-  supabase.from('payments').select('*, invoices(invoice_number, clients(name))').eq('org_id', orgId).order('created_at', { ascending: false }).then(must)
+  fetchAllPages(() => supabase.from('payments').select('*, invoices(invoice_number, clients(name))').eq('org_id', orgId)
+    .order('created_at', { ascending: false }).order('id', { ascending: false }))
 export const recordPayment = (invoiceId, amount, method = 'upi', reference = null) =>
   supabase.from('payments').insert({ invoice_id: invoiceId, amount, method, reference }).select().single().then(must)
 
@@ -109,7 +125,9 @@ export const sendDocumentEmail = async (orgId, documentType, documentId) => {
 
 // ---------- Dashboard ----------
 export const getDashboardStats = async (orgId) => {
-  const inv = await supabase.from('invoices').select('grand_total, amount_paid, balance_due, status').eq('org_id', orgId).neq('status', 'cancelled').then(must)
+  const inv = await fetchAllPages(() => supabase.from('invoices')
+    .select('id, grand_total, amount_paid, balance_due, status').eq('org_id', orgId).neq('status', 'cancelled')
+    .order('id', { ascending: true }))
   const sum = (k) => inv.reduce((a, r) => a + Number(r[k] || 0), 0)
   return {
     totalInvoiced: sum('grand_total'),
@@ -119,7 +137,8 @@ export const getDashboardStats = async (orgId) => {
   }
 }
 export const listInvoicesFull = (orgId) =>
-  supabase.from('invoices').select('*, clients(*), invoice_items(*)').eq('org_id', orgId).order('created_at', { ascending: false }).then(must)
+  fetchAllPages(() => supabase.from('invoices').select('*, clients(*), invoice_items(*)').eq('org_id', orgId)
+    .order('created_at', { ascending: false }).order('id', { ascending: false }))
 
 export const saveInvoice = async (orgId, inv, items) => {
   const fields = {
@@ -150,12 +169,12 @@ export const recordPaymentFull = (orgId, invoiceId, amount, method, reference, p
   }).select().single().then(must)
 
 export const listQuotationsFull = (orgId) =>
-  supabase
+  fetchAllPages(() => supabase
     .from('quotations')
     .select('*, clients(*), quotation_items(*)')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false })
-    .then(must)
+    .order('id', { ascending: false }))
 
 export const saveQuotation = async (orgId, quote, items = []) => {
   const fields = {
