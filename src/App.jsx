@@ -2752,6 +2752,7 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
 
     const startScanner = async () => {
       try {
+        setScannerError(null)
         await scannerInstance.start(
           { facingMode: 'environment' },
           { fps: 10, qrbox: { width: 250, height: 160 }, aspectRatio: 1.777778 },
@@ -2760,8 +2761,21 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
             hasProcessedScanRef.current = true
             try {
               if (scannerInstance.isScanning) await scannerInstance.stop()
-            } catch { /* Camera may already have stopped. */ }
-            if (!cancelled) await onDetectedRef.current(decodedText)
+              if (cancelled) return
+              const added = await onDetectedRef.current(decodedText)
+              if (!cancelled && added === false) {
+                // An unmatched barcode should not force the user to close and
+                // reopen the scanner; allow another attempt after the notice.
+                hasProcessedScanRef.current = false
+                await startScanner()
+              }
+            } catch (err) {
+              if (!cancelled) {
+                setScannerError(err?.message || 'Could not process this barcode. Try again or enter it manually.')
+                hasProcessedScanRef.current = false
+                await startScanner()
+              }
+            }
           },
           () => {}
         )
