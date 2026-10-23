@@ -72,35 +72,14 @@ function todayInIndia() {
 }
 
 function addDaysToDateString(dateString, days) {
-  const match = String(dateString || todayInIndia()).match(/^(\\d{4})-(\\d{2})-(\\d{2})$/)
+  const match = String(dateString || todayInIndia()).match(/^(\d{4})-(\d{2})-(\d{2})$/)
   if (!match) return todayInIndia()
   const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + Number(days || 0)))
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
 }
 
 function paymentTermsDays(value, fallback = 15) {
-  const match = String(value || '').match(/\\d+/)
-  const days = match ? Number(match[0]) : fallback
-  return Number.isFinite(days) && days >= 0 ? days : fallback
-}
-
-function todayInIndia() {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(new Date())
-  const part = (type) => parts.find((entry) => entry.type === type)?.value || ''
-  return `${part('year')}-${part('month')}-${part('day')}`
-}
-
-function addDaysToDateString(dateString, days) {
-  const match = String(dateString || todayInIndia()).match(/^(\\d{4})-(\\d{2})-(\\d{2})$/)
-  if (!match) return todayInIndia()
-  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + Number(days || 0)))
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
-}
-
-function paymentTermsDays(value, fallback = 15) {
-  const match = String(value || '').match(/\\d+/)
+  const match = String(value || '').match(/\d+/)
   const days = match ? Number(match[0]) : fallback
   return Number.isFinite(days) && days >= 0 ? days : fallback
 }
