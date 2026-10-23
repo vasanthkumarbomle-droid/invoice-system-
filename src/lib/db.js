@@ -77,6 +77,24 @@ export const setQuotationStatus = (orgId, id, status) => supabase.from('quotatio
 export const convertQuotation = (id, dueDate = null) =>
   supabase.rpc('convert_quotation_to_invoice', { p_quote_id: id, p_due_date: dueDate }).then(must)
 
+export const saveDocumentSignature = async (orgId, documentType, documentId, signatureData) => {
+  const { data, error } = await supabase.functions.invoke('quotation-workflow', {
+    body: { action: 'save_signature', orgId, documentType, documentId, signatureData },
+  })
+  if (error) throw new Error(error.message || 'Could not save the signature.')
+  if (data?.error) throw new Error(data.error)
+  return data
+}
+
+export const getDocumentSignature = async (orgId, documentType, documentId) => {
+  const { data, error } = await supabase.functions.invoke('quotation-workflow', {
+    body: { action: 'get_signature', orgId, documentType, documentId },
+  })
+  if (error) throw new Error(error.message || 'Could not load the signature.')
+  if (data?.error) throw new Error(data.error)
+  return data
+}
+
 export const sendDocumentEmail = async (orgId, documentType, documentId) => {
   const { data, error } = await supabase.functions.invoke('quotation-workflow', {
     body: { action: 'send', orgId, documentType, documentId },
