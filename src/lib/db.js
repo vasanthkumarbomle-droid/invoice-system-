@@ -1,4 +1,5 @@
 import { supabase } from '../supabase.js'
+import { isPastDueDate } from './finance.js'
 export { supabase }
 
 const must = ({ data, error }) => {
@@ -134,7 +135,7 @@ export const sendDocumentEmail = async (orgId, documentType, documentId) => {
 // ---------- Dashboard ----------
 export const getDashboardStats = async (orgId) => {
   const inv = await fetchAllPages(() => supabase.from('invoices')
-    .select('id, grand_total, amount_paid, balance_due, status').eq('org_id', orgId)
+    .select('id, grand_total, amount_paid, balance_due, status, due_date').eq('org_id', orgId)
     .neq('status', 'cancelled').neq('status', 'draft')
     .order('id', { ascending: true }))
   const sum = (k) => inv.reduce((a, r) => a + Number(r[k] || 0), 0)
@@ -142,7 +143,7 @@ export const getDashboardStats = async (orgId) => {
     totalInvoiced: sum('grand_total'),
     totalReceived: sum('amount_paid'),
     outstanding: sum('balance_due'),
-    overdueCount: inv.filter(r => r.status === 'overdue').length,
+    overdueCount: inv.filter(r => Number(r.balance_due) > 0 && isPastDueDate(r.due_date)).length,
   }
 }
 export const listInvoicesFull = (orgId) =>
