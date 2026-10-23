@@ -1549,7 +1549,7 @@ function DashboardView({ invoices, payments, quotations, companyProfile, onNewIn
             </button>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* METRIC CARDS */}
       <div className="lf-metrics-grid">
