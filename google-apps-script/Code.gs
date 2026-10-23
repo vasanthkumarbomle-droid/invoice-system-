@@ -67,18 +67,23 @@ function ledgerFlowEmail_(item) {
   const total = ledgerFlowMoney_(item.grand_total);
   const days = Number(item.days_until_due);
   const isDueSoon = item.reminder_type === 'due_soon';
-  const subject = isDueSoon
-    ? 'Payment reminder: invoice ' + invoiceNo + ' is due in ' + days + (days === 1 ? ' day' : ' days')
-    : 'Payment overdue: invoice ' + invoiceNo;
-  const lead = isDueSoon
-    ? 'This is a courteous reminder that the invoice below is due in ' + days + (days === 1 ? ' day.' : ' days.')
-    : 'Our records show that the invoice below is overdue by ' + Math.abs(days) + (Math.abs(days) === 1 ? ' day.' : ' days.');
+  const isDueToday = isDueSoon && days === 0;
+  const subject = isDueToday
+    ? 'Payment reminder: invoice ' + invoiceNo + ' is due today'
+    : isDueSoon
+      ? 'Payment reminder: invoice ' + invoiceNo + ' is due in ' + days + (days === 1 ? ' day' : ' days')
+      : 'Payment overdue: invoice ' + invoiceNo;
+  const lead = isDueToday
+    ? 'This is a courteous reminder that the invoice below is due today.'
+    : isDueSoon
+      ? 'This is a courteous reminder that the invoice below is due in ' + days + (days === 1 ? ' day.' : ' days.')
+      : 'Our records show that the invoice below is overdue by ' + Math.abs(days) + (Math.abs(days) === 1 ? ' day.' : ' days.');
   const company = org.legal_name || org.name || 'Accounts Team';
   const e = ledgerFlowEscapeHtml_;
   const htmlBody = '<!doctype html><html><head><meta charset="utf-8"></head>' +
     '<body style="margin:0;background:#f3f6f3;font-family:Arial,Helvetica,sans-serif;color:#252b27">' +
     '<div style="max-width:640px;margin:24px auto;background:#fff;border:1px solid #e2e9e2;border-radius:12px;overflow:hidden">' +
-    '<div style="background:#286747;padding:22px 28px;color:#fff"><div style="font-size:12px;letter-spacing:1.4px;text-transform:uppercase">LedgerFlow · Accounts</div>' +
+    '<div style="background:#286747;padding:22px 28px;color:#fff"><div style="font-size:12px;letter-spacing:1.4px;text-transform:uppercase">' + e(company) + '</div>' +
     '<div style="font-size:22px;font-weight:700;margin-top:7px">Payment ' + (isDueSoon ? 'reminder' : 'follow-up') + '</div></div>' +
     '<div style="padding:28px"><p>Dear ' + e(client) + ',</p><p style="line-height:1.65">' + e(lead) + ' Please review the details below and arrange payment for the outstanding balance.</p>' +
     '<table role="presentation" style="width:100%;border-collapse:collapse;border:1px solid #e2e9e2"><tr><td style="padding:12px;background:#f5f8f5;width:42%">Invoice number</td><td style="padding:12px;font-weight:700">' + e(invoiceNo) + '</td></tr>' +
@@ -93,49 +98,120 @@ function ledgerFlowEmail_(item) {
 }
 
 /** Sends reminders, then asks the server to log each successful send. */
+function ledgerFlowReminderLogKey_(item) {
+  const invoiceId = String(item.invoice_id || '').replace(/[^a-z0-9_-]/ig, '');
+  const reminderType = String(item.reminder_type || '').replace(/[^a-z0-9_-]/ig, '');
+  const referenceDate = String(item.reference_date || '').replace(/[^0-9-]/g, '');
+  return 'LEDGERFLOW_REMINDER_RECEIPT_' + invoiceId + '_' + reminderType + '_' + referenceDate;
+}
+
+/** Sends reminders under a script lock and avoids resending when the send-log call fails.
+ * A stale 'sending' marker is not retried automatically: delivery may have occurred
+ * before an interruption, so an operator should inspect the delivery before clearing it.
+ */
 function runInvoiceReminders() {
-  const result = ledgerFlowCallFunction_({ action: 'pending' });
-  const candidates = result.candidates || [];
-  let remaining = MailApp.getRemainingDailyQuota();
-  let sent = 0;
-  let failed = 0;
-  Logger.log('India date: ' + result.date + '; candidates: ' + candidates.length + '; mail quota remaining: ' + remaining);
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) {
+    Logger.log('A reminder run is already active; skipping this overlapping trigger.');
+    return;
+  }
 
-  for (let i = 0; i < candidates.length; i++) {
-    if (remaining <= 0) {
-      Logger.log('Daily recipient quota reached; remaining candidates will be retried on a later run if still eligible.');
-      break;
-    }
-    const item = candidates[i];
-    try {
-      const mail = ledgerFlowEmail_(item);
-      const message = {
-        to: item.recipient_email,
-        subject: mail.subject,
-        body: mail.body,
-        htmlBody: mail.htmlBody,
-        name: 'LedgerFlow Billing',
-      };
-      if (mail.replyTo) message.replyTo = mail.replyTo;
-      MailApp.sendEmail(message);
-      remaining--;
+  try {
+    const result = ledgerFlowCallFunction_({ action: 'pending' });
+    const candidates = result.candidates || [];
+    let remaining = MailApp.getRemainingDailyQuota();
+    let sent = 0;
+    let failed = 0;
+    const props = PropertiesService.getScriptProperties();
+    Logger.log('India date: ' + result.date + '; candidates: ' + candidates.length + '; mail quota remaining: ' + remaining);
 
-      // Log only after MailApp returns successfully.
-      ledgerFlowCallFunction_({
+    for (let i = 0; i < candidates.length; i++) {
+      if (remaining <= 0) {
+        Logger.log('Daily recipient quota reached; remaining candidates will be retried on a later run if still eligible.');
+        break;
+      }
+      const item = candidates[i];
+      const receiptKey = ledgerFlowReminderLogKey_(item);
+      const logPayload = {
         action: 'log_sent',
         invoice_id: item.invoice_id,
         reminder_type: item.reminder_type,
         reference_date: item.reference_date,
         recipient_email: item.recipient_email,
-      });
-      sent++;
-      Logger.log('Sent and logged: ' + item.invoice_number + ' (' + item.reminder_type + ')');
-    } catch (err) {
-      failed++;
-      Logger.log('Failed for invoice ' + (item.invoice_number || item.invoice_id) + ': ' + String(err && err.message || err));
+      };
+
+      const existingReceipt = props.getProperty(receiptKey);
+      if (existingReceipt) {
+        let receipt;
+        try { receipt = JSON.parse(existingReceipt); }
+        catch (parseError) {
+          failed++;
+          Logger.log('Invalid local delivery receipt for ' + item.invoice_number + '; refusing to resend automatically.');
+          continue;
+        }
+
+        if (receipt.stage === 'sent_waiting_for_log' && receipt.payload) {
+          try {
+            ledgerFlowCallFunction_(receipt.payload);
+            props.deleteProperty(receiptKey);
+            sent++;
+            Logger.log('Recovered reminder log for ' + item.invoice_number + '; email was not resent.');
+          } catch (logError) {
+            failed++;
+            Logger.log('Prior email log is still pending for ' + item.invoice_number + ': ' + String(logError && logError.message || logError));
+          }
+          continue;
+        }
+
+        failed++;
+        Logger.log('Reminder for ' + item.invoice_number + ' has an interrupted sending marker; inspect email delivery before clearing ' + receiptKey + '.');
+        continue;
+      }
+
+      try {
+        const mail = ledgerFlowEmail_(item);
+        const message = {
+          to: item.recipient_email,
+          subject: mail.subject,
+          body: mail.body,
+          htmlBody: mail.htmlBody,
+          name: item.organization && (item.organization.legal_name || item.organization.name) || 'LedgerFlow',
+        };
+        if (mail.replyTo) message.replyTo = mail.replyTo;
+
+        // Persist intent before sending to protect against timeouts between email delivery and logging.
+        props.setProperty(receiptKey, JSON.stringify({
+          stage: 'sending',
+          payload: logPayload,
+          created_at: new Date().toISOString(),
+        }));
+
+        try {
+          MailApp.sendEmail(message);
+          remaining--;
+        } catch (sendError) {
+          props.deleteProperty(receiptKey);
+          throw sendError;
+        }
+
+        props.setProperty(receiptKey, JSON.stringify({
+          stage: 'sent_waiting_for_log',
+          payload: logPayload,
+          created_at: new Date().toISOString(),
+        }));
+        ledgerFlowCallFunction_(logPayload);
+        props.deleteProperty(receiptKey);
+        sent++;
+        Logger.log('Sent and logged: ' + item.invoice_number + ' (' + item.reminder_type + ')');
+      } catch (err) {
+        failed++;
+        Logger.log('Reminder failed for invoice ' + (item.invoice_number || item.invoice_id) + ': ' + String(err && err.message || err));
+      }
     }
+    Logger.log('Reminder run finished. sent/logged=' + sent + ', failed=' + failed + ', candidates=' + candidates.length);
+  } finally {
+    lock.releaseLock();
   }
-  Logger.log('Reminder run finished. sent/logged=' + sent + ', failed=' + failed + ', candidates=' + candidates.length);
 }
 
 /** Run once to install a daily trigger. Project timezone must be Asia/Kolkata. */
