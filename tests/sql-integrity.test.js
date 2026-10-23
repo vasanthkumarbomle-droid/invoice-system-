@@ -9,8 +9,8 @@ const migration = await readFile(
 
 test('invoice and quotation save RPCs require an authenticated organization member', () => {
   assert.ok((migration.match(/IF auth\.uid\(\) IS NULL/g) || []).length >= 2)
-  assert.equal((migration.match(/FROM public\.org_members AS member/g) || []).length, 3)
-  assert.equal((migration.match(/member\.org_id = p_org_id AND member\.user_id = auth\.uid\(\)/g) || []).length, 2)
+  assert.equal((migration.match(/FROM public\.org_members AS member/g) || []).length, 4)
+  assert.equal((migration.match(/member\.org_id = p_org_id AND member\.user_id = auth\.uid\(\)/g) || []).length, 3)
 })
 
 test('document save RPCs and conversion validate organization ownership', () => {
@@ -33,4 +33,13 @@ test('internal invoice refresh helper is not executable by browser roles', () =>
     migration,
     /REVOKE ALL ON FUNCTION public\.invoice_refresh\(uuid\)\s+FROM PUBLIC, anon, authenticated;/,
   )
+})
+
+test('issued invoices cannot be edited and cancellation rejects recorded payments', () => {
+  assert.match(migration, /Only draft invoices can be edited/)
+  assert.match(migration, /WHERE id = v_id AND org_id = p_org_id AND lower\(status::text\) = 'draft'/)
+  assert.match(migration, /CREATE OR REPLACE FUNCTION public\.cancel_invoice_if_unpaid/)
+  assert.match(migration, /FROM public\.invoices[\s\S]*?FOR UPDATE/)
+  assert.match(migration, /SUM\(payment\.amount\)/)
+  assert.match(migration, /Invoices with recorded payments cannot be cancelled/)
 })
