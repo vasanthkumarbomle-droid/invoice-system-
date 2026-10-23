@@ -2186,21 +2186,28 @@ function DocumentEditorView({
   )
 
   // GST Calculation (Intra-state split or IGST)
-  const isInterState = useMemo(() => {
-    const sellerState = String(companyProfile.stateCode || companyProfile.gstin?.slice(0, 2) || '').trim()
-    const buyerState = String(clientStateCode || clientGstin?.slice(0, 2) || '').trim()
-    return /^\d{2}$/.test(sellerState) && /^\d{2}$/.test(buyerState) && sellerState !== buyerState
-  }, [clientStateCode, clientGstin, companyProfile.stateCode, companyProfile.gstin])
+  const sellerStateCode = String(companyProfile.stateCode || companyProfile.gstin?.slice(0, 2) || '').trim()
+  const buyerStateCode = String(clientStateCode || clientGstin?.slice(0, 2) || '').trim()
+  const hasTaxJurisdiction = /^\d{2}$/.test(sellerStateCode) && /^\d{2}$/.test(buyerStateCode)
+  const isInterState = useMemo(
+    () => hasTaxJurisdiction && sellerStateCode !== buyerStateCode,
+    [hasTaxJurisdiction, sellerStateCode, buyerStateCode]
+  )
 
-  const cgstAmount = isInterState ? 0 : totalTaxAmount / 2
-  const sgstAmount = isInterState ? 0 : totalTaxAmount / 2
-  const igstAmount = isInterState ? totalTaxAmount : 0
+  const cgstAmount = hasTaxJurisdiction && !isInterState ? totalTaxAmount / 2 : 0
+  const sgstAmount = hasTaxJurisdiction && !isInterState ? totalTaxAmount / 2 : 0
+  const igstAmount = hasTaxJurisdiction && isInterState ? totalTaxAmount : 0
   const grandTotal = Math.round((taxableAmount + totalTaxAmount) * 100) / 100
 
   // Validation & Save Handler
   const handleSubmit = (finalStatus) => {
     if (!clientName.trim()) {
       showToast('Please specify a client name', 'error')
+      return
+    }
+
+    if (items.some((item) => Number(item.gstRate) > 0) && !hasTaxJurisdiction) {
+      showToast('Set the business state code in Settings and the client state code or GSTIN before issuing a GST document. This is required to choose CGST/SGST versus IGST correctly.', 'error')
       return
     }
 
@@ -2463,13 +2470,17 @@ function DocumentEditorView({
           <div className="lf-form-group">
             <label className="lf-form-label">Place of Supply / Tax Jurisdiction</label>
             <div style={{ padding: '8px 12px', background: '#FFFFFF', border: '1px solid var(--lf-border)', borderRadius: '6px', fontSize: '12px' }}>
-              {isInterState ? (
+              {!hasTaxJurisdiction ? (
+                <span style={{ color: 'var(--lf-danger)', fontWeight: 600 }}>
+                  State codes required: enter the seller state code in Settings and the client state code/GSTIN before issuing GST.
+                </span>
+              ) : isInterState ? (
                 <span style={{ color: 'var(--lf-highlight)', fontWeight: 600 }}>
-                  Inter-State Supply: IGST applies ({clientGstin ? clientGstin.substring(0, 2) : 'Other State'})
+                  Inter-State Supply: IGST applies (buyer state {buyerStateCode})
                 </span>
               ) : (
                 <span style={{ color: 'var(--lf-brand)', fontWeight: 600 }}>
-                  Intra-State Supply: CGST (50%) + SGST (50%) apply
+                  Intra-State Supply: CGST (50%) + SGST (50%) apply (state {sellerStateCode})
                 </span>
               )}
             </div>
