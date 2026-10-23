@@ -137,6 +137,37 @@ Deno.serve(async (req: Request): Promise<Response> => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  if (action === "get_signature") {
+    const authorization = req.headers.get("authorization") || "";
+    const publishableKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+    if (!authorization || !publishableKey) return respondJson({ error: "Sign in before loading a document signature." }, 401);
+
+    const caller = createClient(supabaseUrl, publishableKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: userData, error: authError } = await caller.auth.getUser();
+    const user = userData?.user;
+    if (authError || !user) return respondJson({ error: "Your session is invalid. Sign in again." }, 401);
+
+    const orgId = String(body?.orgId || "");
+    const documentId = String(body?.documentId || "");
+    const documentType = body?.documentType;
+    if (!/^[0-9a-f-]{36}$/i.test(orgId) || !/^[0-9a-f-]{36}$/i.test(documentId) ||
+        !["invoice", "quotation"].includes(documentType)) {
+      return respondJson({ error: "Invalid document request." }, 400);
+    }
+    const { data: membership, error: memberError } = await admin.from("org_members")
+      .select("role").eq("org_id", orgId).eq("user_id", user.id).maybeSingle();
+    if (memberError || !membership) return respondJson({ error: "You do not have permission to view this business signature." }, 403);
+
+    const { data: signatureRow, error: signatureError } = await admin.from("document_signatures")
+      .select("signature_data").eq("org_id", orgId).eq("document_type", documentType)
+      .eq("document_id", documentId).maybeSingle();
+    if (signatureError) return respondJson({ error: "Document signature could not be loaded." }, 500);
+    return respondJson({ success: true, signatureData: signatureRow?.signature_data || "" });
+  }
+
   if (action === "save_signature") {
     const authorization = req.headers.get("authorization") || "";
     const publishableKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
