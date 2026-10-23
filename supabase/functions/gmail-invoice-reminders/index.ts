@@ -9,6 +9,19 @@ const corsHeaders = {
 const DAY_MS = 24 * 60 * 60 * 1000;
 const EXCLUDED_STATUSES = new Set(["draft", "cancelled", "paid"]);
 
+async function fetchAllPages<T>(
+  buildPage: (from: number, to: number) => any,
+): Promise<{ data: T[]; error: any }> {
+  const rows: T[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await buildPage(offset, offset + 999);
+    if (error) return { data: rows, error };
+    const page = (data ?? []) as T[];
+    rows.push(...page);
+    if (page.length < 1000) return { data: rows, error: null };
+  }
+}
+
 type InvoiceRow = {
   id: string;
   org_id: string;
@@ -99,11 +112,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   if (action === "pending") {
     // Fail closed: only companies that opted in AND acknowledged the shared Gmail sender qualify.
-    const { data: enabledRows, error: settingsError } = await supabase
-      .from("organization_reminder_settings")
-      .select("org_id")
-      .eq("enabled", true)
-      .eq("shared_sender_acknowledged", true);
+    const { data: enabledRows, error: settingsError } = await fetchAllPages<{ org_id: string }>((from, to) =>
+      supabase.from("organization_reminder_settings")
+        .select("org_id")
+        .eq("enabled", true)
+        .eq("shared_sender_acknowledged", true)
+        .order("org_id", { ascending: true })
+        .range(from, to)
+    );
 
     if (settingsError) {
       return jsonResponse({
@@ -126,12 +142,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
       });
     }
 
-    const { data: rawInvoices, error: invoiceError } = await supabase
-      .from("invoices")
-      .select("id,org_id,invoice_number,due_date,grand_total,amount_paid,balance_due,status,clients(name,email)")
-      .in("org_id", enabledOrgIds)
-      .gt("balance_due", 0)
-      .not("due_date", "is", null);
+    const { data: rawInvoices, error: invoiceError } = await fetchAllPages<InvoiceRow>((from, to) =>
+      supabase.from("invoices")
+        .select("id,org_id,invoice_number,due_date,grand_total,amount_paid,balance_due,status,clients(name,email)")
+        .in("org_id", enabledOrgIds)
+        .gt("balance_due", 0)
+        .not("due_date", "is", null)
+        .order("due_date", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to)
+    );
 
     if (invoiceError) {
       return jsonResponse({
@@ -145,10 +165,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const organizationsById = new Map<string, OrganizationRow>();
 
     if (invoiceOrgIds.length > 0) {
-      const { data: orgRows, error: orgError } = await supabase
-        .from("organizations")
-        .select("id,name,legal_name,email,phone")
-        .in("id", invoiceOrgIds);
+      const { data: orgRows, error: orgError } = await fetchAllPages<OrganizationRow>((from, to) =>
+        supabase.from("organizations")
+          .select("id,name,legal_name,email,phone")
+          .in("id", invoiceOrgIds)
+          .order("id", { ascending: true })
+          .range(from, to)
+      );
 
       if (orgError) {
         return jsonResponse({
