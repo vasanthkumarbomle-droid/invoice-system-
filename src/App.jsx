@@ -482,8 +482,7 @@ const [quotations, setQuotations] = useState([])
     loadPayments()
   }, [org.id])
 
-  // Sync to localStorage
-, [companyProfile]
+  // Company settings are persisted to Supabase through the Settings form.
 
 
 
@@ -653,7 +652,7 @@ const [quotations, setQuotations] = useState([])
     const results = []
 
     invoices.forEach((inv) => {
-      if (inv.documentNumber.toLowerCase().includes(q) || inv.clientName.toLowerCase().includes(q)) {
+      if (String(inv.documentNumber || '').toLowerCase().includes(q) || inv.clientName.toLowerCase().includes(q)) {
         results.push({
           type: 'Invoice',
           title: inv.documentNumber,
@@ -667,7 +666,7 @@ const [quotations, setQuotations] = useState([])
     })
 
     quotations.forEach((qt) => {
-      if (qt.documentNumber.toLowerCase().includes(q) || qt.clientName.toLowerCase().includes(q)) {
+      if (String(qt.documentNumber || '').toLowerCase().includes(q) || qt.clientName.toLowerCase().includes(q)) {
         results.push({
           type: 'Quotation',
           title: qt.documentNumber,
@@ -1727,7 +1726,7 @@ function DocumentsListView({
     return documents.filter((doc) => {
       const matchesStatus = filterStatus === 'All' || doc.status.toLowerCase() === filterStatus.toLowerCase()
       const matchesSearch =
-        doc.documentNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(doc.documentNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         doc.clientName.toLowerCase().includes(searchQuery.toLowerCase())
       return matchesStatus && matchesSearch
     }).sort((a, b) => {
@@ -1932,12 +1931,9 @@ function DocumentEditorView({
   showToast
 }) {
   const isInvoice = mode === 'invoice'
-  const prefix = isInvoice ? companyProfile.invoicePrefix : companyProfile.quotationPrefix
 
-  // Form State with Lazy Initializers
-  const [documentNumber, setDocumentNumber] = useState(() => {
-    return existingDoc?.documentNumber || `${prefix}${Math.floor(100 + Math.random() * 900)}`
-  })
+  // The database assigns the permanent document number when a new document is saved.
+  const documentNumber = existingDoc?.documentNumber || ''
   const [selectedClientId, setSelectedClientId] = useState(existingDoc?.clientId || '')
   const [clientName, setClientName] = useState(existingDoc?.clientName || '')
   const [clientEmail, setClientEmail] = useState(existingDoc?.clientEmail || '')
@@ -2642,7 +2638,9 @@ function DocumentEditorView({
                     >
                       <option value="0">0%</option>
                       <option value="5">5%</option>
+                      <option value="3">3%</option>
                       <option value="12">12%</option>
+                      <option value="40">40% (classification-specific)</option>
                       <option value="18">18%</option>
                       <option value="28">28%</option>
                     </select>
@@ -3803,7 +3801,9 @@ function ProductModal({ product, onClose, onSave }) {
                 <select className="lf-form-select" value={gstRate} onChange={(e) => setGstRate(Number(e.target.value))}>
                   <option value="0">0%</option>
                   <option value="5">5%</option>
-                  <option value="12">12%</option>
+                  <option value="3">3%</option>
+                      <option value="12">12%</option>
+                      <option value="40">40% (classification-specific)</option>
                   <option value="18">18%</option>
                   <option value="28">28%</option>
                 </select>
