@@ -313,14 +313,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
       expiresAt = new Date(String(record.valid_until).slice(0, 10) + "T23:59:59+05:30").toISOString();
     }
 
-    // Expire older active links for this exact document to avoid stale response links.
-    await admin.from("document_share_tokens")
-      .update({ expires_at: new Date().toISOString() })
-      .eq("org_id", orgId)
-      .eq("document_type", documentType)
-      .eq("document_id", documentId)
-      .is("responded_at", null);
-
     const { data: tokenRow, error: tokenError } = await admin.from("document_share_tokens").insert({
       org_id: orgId,
       document_type: documentType,
@@ -381,6 +373,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
         error: "Google Apps Script could not send the email. Check its Web App deployment and secret configuration.",
         details: mailResponse.details || "The email request was rejected.",
       }, 502);
+    }
+
+    // Only now expire older links: if the provider rejects the email, the previous
+    // delivered link remains valid. Keep the just-emailed token active.
+    const { error: expireOldLinksError } = await admin.from("document_share_tokens")
+      .update({ expires_at: new Date().toISOString() })
+      .eq("org_id", orgId)
+      .eq("document_type", documentType)
+      .eq("document_id", documentId)
+      .is("responded_at", null)
+      .neq("id", tokenRow.id);
+    if (expireOldLinksError) {
+      // The email and new token are already live. Do not turn that into a false
+      // send failure; log the cleanup problem for server-side investigation.
+      console.error("Email accepted, but older document links could not be expired:", expireOldLinksError.message);
     }
 
     // Update only after the email provider accepted it. A provider acceptance is not proof of final delivery.
