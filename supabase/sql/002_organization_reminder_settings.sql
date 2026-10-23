@@ -1,4 +1,4 @@
-﻿CREATE TABLE IF NOT EXISTS public.organization_reminder_settings (
+CREATE TABLE IF NOT EXISTS public.organization_reminder_settings (
     org_id uuid PRIMARY KEY
         REFERENCES public.organizations(id) ON DELETE CASCADE,
     enabled boolean NOT NULL DEFAULT false,
