@@ -2,7 +2,7 @@
 
 ## Existing projects
 
-LedgerFlow's original core database schema was created outside this repository. The SQL files numbered `001` through `005` are **additive feature migrations**; they are not a replacement for the original schema. Do not run the application against a fresh Supabase database until the core tables, totals/numbering triggers, grants, and organization-scoped RLS policies have been installed and verified.
+LedgerFlow's original core database schema was created outside this repository. The SQL files numbered `001` through `006` are **additive feature migrations**; they are not a replacement for the original schema. Do not run the application against a fresh Supabase database until the core tables, totals/numbering triggers, grants, and organization-scoped RLS policies have been installed and verified.
 
 The app expects these core tables:
 
