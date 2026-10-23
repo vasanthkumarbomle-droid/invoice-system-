@@ -28,4 +28,5 @@ test('issued invoices are protected from edit/cancel actions in the UI', () => {
   assert.match(app, /doc\.type === 'invoice' && doc\.status !== 'Draft'/)
   assert.match(app, /Invoices with recorded payments cannot be cancelled/)
   assert.match(db, /cancel_invoice_if_unpaid/)
+  assert.match(app, /doc\.type === 'invoice' && doc\.status !== 'Draft'/)
 })
