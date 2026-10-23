@@ -6,6 +6,7 @@ import {
   escapeCsvCell,
   numberToWordsINR,
   isPastDueDate,
+  indianFinancialYearLabel,
   paymentTermsDays,
 } from '../src/lib/finance.js'
 
@@ -43,6 +44,12 @@ test('a zero-GST product remains zero-rated', () => {
 test('Indian date arithmetic crosses month boundaries without UTC day drift', () => {
   assert.equal(addDaysToDateString('2026-10-23', 30), '2026-11-22')
   assert.equal(addDaysToDateString('2026-10-23', 0), '2026-10-23')
+})
+
+test('Indian financial year label switches on 1 April', () => {
+  assert.equal(indianFinancialYearLabel('2027-01-15'), 'FY 2026-27')
+  assert.equal(indianFinancialYearLabel('2027-03-31'), 'FY 2026-27')
+  assert.equal(indianFinancialYearLabel('2027-04-01'), 'FY 2027-28')
 })
 
 test('dashboard due-date helper handles past, current, future and invalid dates', () => {
