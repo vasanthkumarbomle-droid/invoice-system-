@@ -4,6 +4,14 @@ import ClientDocumentPage from './ClientDocumentPage.jsx'
 import { useOrg } from './OrgContext'
 import * as db from './lib/db'
 import {
+  addDaysToDateString,
+  calculateDocumentAmounts,
+  escapeCsvCell,
+  numberToWordsINR,
+  paymentTermsDays,
+  todayInIndia,
+} from './lib/finance.js'
+import {
   LayoutDashboard,
   FileText,
   FileSpreadsheet,
@@ -61,62 +69,6 @@ function formatINR(amount) {
     currency: 'INR',
     maximumFractionDigits: 2
   }).format(num)
-}
-
-function todayInIndia() {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(new Date())
-  const part = (type) => parts.find((entry) => entry.type === type)?.value || ''
-  return `${part('year')}-${part('month')}-${part('day')}`
-}
-
-function addDaysToDateString(dateString, days) {
-  const match = String(dateString || todayInIndia()).match(/^(\d{4})-(\d{2})-(\d{2})$/)
-  if (!match) return todayInIndia()
-  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + Number(days || 0)))
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
-}
-
-function paymentTermsDays(value, fallback = 15) {
-  if (/due on receipt/i.test(String(value || ''))) return 0
-  const match = String(value || '').match(/\d+/)
-  const days = match ? Number(match[0]) : fallback
-  return Number.isFinite(days) && days >= 0 ? days : fallback
-}
-
-// Convert numbers to Indian Rupees words
-function numberToWordsINR(num) {
-  const cents = Math.round(Math.abs(Number(num) || 0) * 100)
-  const n = Math.floor(cents / 100)
-  const paise = cents % 100
-  const a = [
-    '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
-    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'
-  ]
-  const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
-  const convertLessThanOneThousand = (val) => {
-    let str = ''
-    if (val >= 100) { str += a[Math.floor(val / 100)] + ' Hundred '; val %= 100 }
-    if (val >= 20) { str += b[Math.floor(val / 10)] + ' '; val %= 10 }
-    if (val > 0) str += a[val] + ' '
-    return str.trim()
-  }
-  const convertInteger = (value) => {
-    if (value === 0) return 'Zero'
-    const crore = Math.floor(value / 10000000)
-    const lakh = Math.floor((value % 10000000) / 100000)
-    const thousand = Math.floor((value % 100000) / 1000)
-    const remainder = value % 1000
-    let words = ''
-    if (crore > 0) words += convertLessThanOneThousand(crore) + ' Crore '
-    if (lakh > 0) words += convertLessThanOneThousand(lakh) + ' Lakh '
-    if (thousand > 0) words += convertLessThanOneThousand(thousand) + ' Thousand '
-    if (remainder > 0) words += convertLessThanOneThousand(remainder) + ' '
-    return words.trim()
-  }
-  const paiseWords = paise > 0 ? ` and Paise ${convertLessThanOneThousand(paise)}` : ''
-  return `Rupees ${convertInteger(n)}${paiseWords} Only`
 }
 
 // ============================================================================
@@ -2227,18 +2179,11 @@ function DocumentEditorView({
       return false
     }
   }, [products, showToast, companyProfile.defaultGstRate])
-  // Computed Totals
-  const subtotal = useMemo(() => items.reduce((sum, it) => sum + (it.subtotal || 0), 0), [items])
-
-  const discountAmount = useMemo(() => {
-    const val = Number(discountValue) || 0
-    if (discountType === 'percentage') {
-      return (subtotal * val) / 100
-    }
-    return Math.min(subtotal, val)
-  }, [subtotal, discountType, discountValue])
-
-  const taxableAmount = Math.max(0, subtotal - discountAmount)
+  // Calculate discounts and tax from gross line values exactly once.
+  const { subtotal, discountAmount, taxableAmount, totalTaxAmount } = useMemo(
+    () => calculateDocumentAmounts(items, discountType, discountValue),
+    [items, discountType, discountValue]
+  )
 
   // GST Calculation (Intra-state split or IGST)
   const isInterState = useMemo(() => {
@@ -2246,11 +2191,6 @@ function DocumentEditorView({
     const buyerState = String(clientStateCode || clientGstin?.slice(0, 2) || '').trim()
     return /^\d{2}$/.test(sellerState) && /^\d{2}$/.test(buyerState) && sellerState !== buyerState
   }, [clientStateCode, clientGstin, companyProfile.stateCode, companyProfile.gstin])
-
-  const totalTaxAmount = useMemo(() => {
-    const discountFactor = subtotal > 0 ? taxableAmount / subtotal : 1
-    return items.reduce((sum, it) => sum + (it.taxAmount || 0) * discountFactor, 0)
-  }, [items, subtotal, taxableAmount])
 
   const cgstAmount = isInterState ? 0 : totalTaxAmount / 2
   const sgstAmount = isInterState ? 0 : totalTaxAmount / 2
@@ -4152,12 +4092,7 @@ function ReportsView({ invoices, payments }) {
   )
   // CSV Export
   const handleExportCsv = () => {
-    const csvCell = (value) => {
-      let text = String(value ?? '')
-      const firstNonWhitespace = text.trimStart()[0]
-      if (typeof value === 'string' && ['=', '+', '-', '@'].includes(firstNonWhitespace)) text = "'" + text
-      return '"' + text.replace(/"/g, '""') + '"'
-    }
+    const csvCell = escapeCsvCell
     const rows = [
       ['Invoice Number', 'Client', 'Issue Date', 'Due Date', 'Subtotal', 'Discount', 'Taxable Amount', 'CGST', 'SGST', 'IGST', 'Tax Total', 'Grand Total', 'Status'],
       ...filteredInvoices.map((inv) => [
