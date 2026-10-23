@@ -53,19 +53,23 @@ export const findProductByBarcode = (orgId, barcode) =>
 
 // ---------- Invoices ----------
 export const listInvoices = (orgId) =>
-  supabase.from('invoices').select('*, clients(name, email)').eq('org_id', orgId).order('created_at', { ascending: false }).then(must)
+  fetchAllPages(() => supabase.from('invoices').select('*, clients(name, email)').eq('org_id', orgId)
+    .order('created_at', { ascending: false }).order('id', { ascending: false }))
 export const getInvoice = (orgId, id) =>
   supabase.from('invoices').select('*, clients(*), invoice_items(*), payments(*)').eq('org_id', orgId).eq('id', id).single().then(must)
 
 // items: [{ product_id, description, hsn_sac, unit, quantity, unit_price, discount_pct, gst_rate }]
 // Totals, GST split, number and status are all calculated by the database.
 export const createInvoice = async (orgId, clientId, dueDate, items, notes = null) => {
-  const inv = await supabase.from('invoices')
-    .insert({ org_id: orgId, client_id: clientId, due_date: dueDate, status: 'pending', notes })
-    .select().single().then(must)
-  const rows = items.map((it, i) => ({ ...it, invoice_id: inv.id, org_id: orgId, position: i }))
-  await supabase.from('invoice_items').insert(rows).then(must)
-  return getInvoice(orgId, inv.id)
+  const id = await saveInvoice(orgId, {
+    id: null,
+    client_id: clientId,
+    issue_date: null,
+    due_date: dueDate,
+    status: 'pending',
+    notes,
+  }, items)
+  return getInvoice(orgId, id)
 }
 export const cancelInvoice = (orgId, id) => supabase.from('invoices').update({ status: 'cancelled' }).eq('org_id', orgId).eq('id', id).select('id').single().then(must)
 
@@ -78,16 +82,20 @@ export const recordPayment = (invoiceId, amount, method = 'upi', reference = nul
 
 // ---------- Quotations ----------
 export const listQuotations = (orgId) =>
-  supabase.from('quotations').select('*, clients(name, email)').eq('org_id', orgId).order('created_at', { ascending: false }).then(must)
+  fetchAllPages(() => supabase.from('quotations').select('*, clients(name, email)').eq('org_id', orgId)
+    .order('created_at', { ascending: false }).order('id', { ascending: false }))
 export const getQuotation = (orgId, id) =>
   supabase.from('quotations').select('*, clients(*), quotation_items(*)').eq('org_id', orgId).eq('id', id).single().then(must)
 export const createQuotation = async (orgId, clientId, validUntil, items, notes = null) => {
-  const q = await supabase.from('quotations')
-    .insert({ org_id: orgId, client_id: clientId, valid_until: validUntil, notes })
-    .select().single().then(must)
-  const rows = items.map((it, i) => ({ ...it, quotation_id: q.id, org_id: orgId, position: i }))
-  await supabase.from('quotation_items').insert(rows).then(must)
-  return getQuotation(orgId, q.id)
+  const id = await saveQuotation(orgId, {
+    id: null,
+    client_id: clientId,
+    issue_date: null,
+    valid_until: validUntil,
+    status: 'draft',
+    notes,
+  }, items)
+  return getQuotation(orgId, id)
 }
 export const setQuotationStatus = (orgId, id, status) => supabase.from('quotations').update({ status }).eq('org_id', orgId).eq('id', id).select('id').single().then(must)
 export const convertQuotationToInvoice = (id, dueDate = null) =>
@@ -126,7 +134,8 @@ export const sendDocumentEmail = async (orgId, documentType, documentId) => {
 // ---------- Dashboard ----------
 export const getDashboardStats = async (orgId) => {
   const inv = await fetchAllPages(() => supabase.from('invoices')
-    .select('id, grand_total, amount_paid, balance_due, status').eq('org_id', orgId).neq('status', 'cancelled')
+    .select('id, grand_total, amount_paid, balance_due, status').eq('org_id', orgId)
+    .neq('status', 'cancelled').neq('status', 'draft')
     .order('id', { ascending: true }))
   const sum = (k) => inv.reduce((a, r) => a + Number(r[k] || 0), 0)
   return {
