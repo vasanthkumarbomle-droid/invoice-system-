@@ -3939,8 +3939,6 @@ function RecordPaymentModal({ preselectedDoc, invoices, onClose, onSave, showToa
     }
 
     onSave({
-      id: `pay-${Date.now()}`,
-      paymentNumber: `PAY-2026-${Math.floor(100 + Math.random() * 900)}`,
       invoiceId: activeInvoice.id,
       invoiceNumber: activeInvoice.documentNumber,
       clientName: activeInvoice.clientName,
