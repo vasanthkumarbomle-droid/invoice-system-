@@ -164,3 +164,29 @@ REVOKE ALL ON FUNCTION public.save_invoice_with_items(uuid, uuid, jsonb, jsonb) 
 REVOKE ALL ON FUNCTION public.save_quotation_with_items(uuid, uuid, jsonb, jsonb) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.save_invoice_with_items(uuid, uuid, jsonb, jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.save_quotation_with_items(uuid, uuid, jsonb, jsonb) TO authenticated;
+
+
+-- Optional owner-drawn signature image used in the local print preview and secure client view.
+-- Only the service role may read or write these rows; the Edge Function checks organization membership.
+CREATE TABLE IF NOT EXISTS public.document_signatures (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+    document_type text NOT NULL CHECK (document_type IN ('invoice', 'quotation')),
+    document_id uuid NOT NULL,
+    signature_data text NOT NULL CHECK (
+        signature_data LIKE 'data:image/png;base64,%'
+        AND length(signature_data) <= 1000000
+    ),
+    updated_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT document_signatures_one_per_document
+      UNIQUE (org_id, document_type, document_id)
+);
+
+CREATE INDEX IF NOT EXISTS document_signatures_lookup_idx
+    ON public.document_signatures (org_id, document_type, document_id);
+
+ALTER TABLE public.document_signatures ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.document_signatures FROM PUBLIC, anon, authenticated;
+GRANT ALL ON public.document_signatures TO service_role;
