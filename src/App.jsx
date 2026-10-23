@@ -3215,7 +3215,7 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
           <div style={{ fontSize: '11px', fontWeight: 700, color: '#286747', marginBottom: '6px' }}>
             For {companyProfile.tradeName || companyProfile.companyName}
           </div>
-          <div style={{ position: 'relative', width: '170px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 3px' }}>
+          <div className="lf-signature-area" style={{ position: 'relative', width: '170px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 3px' }}>
             {signatureData ? <img src={signatureData} alt="Authorized signatory signature" style={{ maxWidth: '160px', maxHeight: '42px', objectFit: 'contain' }} /> : <span style={{ display: 'block', width: '160px', height: '38px' }} aria-hidden="true" />}
             {showSignatureControl && <button type="button" className="lf-non-printable lf-signature-pen" onClick={onRequestSignature} title={signatureData ? 'Edit signature' : 'Add signature'} aria-label={signatureData ? 'Edit authorized signature' : 'Add authorized signature'}><PenLine size={14} /></button>}
           </div>
