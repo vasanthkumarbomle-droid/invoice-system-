@@ -984,7 +984,7 @@ const [quotations, setQuotations] = useState([])
                 <div className="lf-avatar">{String(companyProfile.tradeName || companyProfile.companyName || 'LF').trim().split(/\s+/).slice(0, 2).map((part) => part[0] || '').join('').toUpperCase()}</div>
                 <div className="lf-profile-info">
                   <span className="lf-profile-name">{companyProfile.tradeName || companyProfile.companyName || 'Your Business'}</span>
-                  <span className="lf-profile-role">Admin</span>
+                  <span className="lf-profile-role">{String(org.role || 'member').replace(/^\w/, (letter) => letter.toUpperCase())}</span>
                 </div>
                 <ChevronDown size={14} style={{ color: 'var(--lf-text-muted)' }} />
               </button>
