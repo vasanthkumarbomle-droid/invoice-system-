@@ -72,7 +72,10 @@ export const createInvoice = async (orgId, clientId, dueDate, items, notes = nul
   }, items)
   return getInvoice(orgId, id)
 }
-export const cancelInvoice = (orgId, id) => supabase.from('invoices').update({ status: 'cancelled' }).eq('org_id', orgId).eq('id', id).select('id').single().then(must)
+export const cancelInvoice = (orgId, id) => supabase.rpc('cancel_invoice_if_unpaid', {
+  p_org_id: orgId,
+  p_invoice_id: id,
+}).then(must)
 
 // ---------- Payments ----------
 export const listPayments = (orgId) =>
