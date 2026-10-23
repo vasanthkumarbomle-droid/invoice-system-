@@ -1459,7 +1459,7 @@ function DashboardView({ invoices, payments, quotations, companyProfile, onNewIn
   const totalInvoiced = useMemo(() => reportableInvoices.reduce((sum, i) => sum + (Number(i.grandTotal) || 0), 0), [reportableInvoices])
   const amountReceived = useMemo(() => reportableInvoices.reduce((sum, i) => sum + (Number(i.amountPaid) || 0), 0), [reportableInvoices])
   const outstandingBalance = useMemo(() => reportableInvoices.reduce((sum, i) => sum + (Number(i.balanceDue) || 0), 0), [reportableInvoices])
-  const pendingQuotations = useMemo(() => quotations.filter((q) => q.status === 'Sent' || q.status === 'Draft'), [quotations])
+  const pendingQuotations = useMemo(() => quotations.filter((q) => q.status === 'Sent'), [quotations])
   const pendingQuotationsValue = useMemo(() => pendingQuotations.reduce((sum, q) => sum + (q.grandTotal || 0), 0), [pendingQuotations])
 
  const chartData = useMemo(() => {
