@@ -176,6 +176,28 @@ function mapInvoice(r) {
   }
 }
 
+function mapQuotationRecord(q) {
+  const client = q.clients || {}
+  const grandTotal = Number(q.grand_total || 0)
+  const rawStatus = String(q.status || 'draft')
+  const items = (q.quotation_items || []).slice().sort((a, b) => a.position - b.position).map((it) => ({
+    id: it.id, productId: it.product_id, description: it.description || '', sku: '', hsnSac: it.hsn_sac || '',
+    quantity: Number(it.quantity || 0), unitPrice: Number(it.unit_price || 0), gstRate: Number(it.gst_rate || 0),
+    subtotal: Number(it.taxable_amount || 0),
+    taxAmount: Number(it.cgst_amount || 0) + Number(it.sgst_amount || 0) + Number(it.igst_amount || 0),
+    total: Number(it.line_total || 0),
+  }))
+  return {
+    id: q.id, documentNumber: q.quote_number, type: 'quotation', clientId: q.client_id,
+    clientName: client.name || '', clientEmail: client.email || '', clientPhone: client.phone || '',
+    clientAddress: client.address || '', clientGstin: client.gstin || '', issueDate: q.issue_date, dueDate: q.valid_until,
+    paymentTerms: q.terms || '', status: rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1), items,
+    subtotal: Number(q.subtotal || 0), discountType: 'fixed', discountValue: 0, discountAmount: 0,
+    taxableAmount: Number(q.subtotal || 0), cgstAmount: Number(q.cgst_total || 0),
+    sgstAmount: Number(q.sgst_total || 0), igstAmount: Number(q.igst_total || 0), taxAmount: Number(q.tax_total || 0),
+    grandTotal, amountPaid: 0, balanceDue: grandTotal, notes: q.notes || '',
+  }
+}
 function mapPayment(r) {
   return {
     id: r.id,
@@ -338,62 +360,7 @@ const [quotations, setQuotations] = useState([])
     try {
       const rows = await db.listQuotationsFull(org.id)
 
-      setQuotations(
-        rows.map((q) => {
-          const client = q.clients || {}
-          const grandTotal = Number(q.grand_total || 0)
-          const rawStatus = String(q.status || 'draft')
-          const items = (q.quotation_items || [])
-            .sort((a, b) => a.position - b.position)
-            .map((it) => ({
-              id: it.id,
-              productId: it.product_id,
-              description: it.description || '',
-              sku: '',
-              hsnSac: it.hsn_sac || '',
-              quantity: Number(it.quantity || 0),
-              unitPrice: Number(it.unit_price || 0),
-              gstRate: Number(it.gst_rate || 0),
-              subtotal: Number(it.taxable_amount || 0),
-              taxAmount:
-                Number(it.cgst_amount || 0) +
-                Number(it.sgst_amount || 0) +
-                Number(it.igst_amount || 0),
-              total: Number(it.line_total || 0),
-            }))
-
-          return {
-            id: q.id,
-            documentNumber: q.quote_number,
-            type: 'quotation',
-            clientId: q.client_id,
-            clientName: client.name || '',
-            clientEmail: client.email || '',
-            clientPhone: client.phone || '',
-            clientAddress: client.address || '',
-            clientGstin: client.gstin || '',
-            issueDate: q.issue_date,
-            dueDate: q.valid_until,
-            paymentTerms: q.terms || '',
-            status:
-              rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1),
-            items,
-            subtotal: Number(q.subtotal || 0),
-            discountType: 'fixed',
-            discountValue: 0,
-            discountAmount: 0,
-            taxableAmount: Number(q.subtotal || 0),
-            cgstAmount: Number(q.cgst_total || 0),
-            sgstAmount: Number(q.sgst_total || 0),
-            igstAmount: Number(q.igst_total || 0),
-            taxAmount: Number(q.tax_total || 0),
-            grandTotal,
-            amountPaid: 0,
-            balanceDue: grandTotal,
-            notes: q.notes || '',
-          }
-        })
-      )
+      setQuotations(rows.map(mapQuotationRecord))
     } catch (e) {
       console.error('Failed to load quotations:', e)
     }
@@ -2158,6 +2125,8 @@ function DocumentEditorView({
       return
     }
 
+    const workflowManagedStatus = (isInvoice && ['Paid', 'Partially Paid', 'Overdue', 'Cancelled'].includes(status)) ||
+      (!isInvoice && ['Accepted', 'Rejected', 'Expired', 'Converted'].includes(status))
     const savedDoc = {
       id: existingDoc?.id || `${isInvoice ? 'inv' : 'qt'}-${Date.now()}`,
       documentNumber,
@@ -2171,7 +2140,7 @@ function DocumentEditorView({
       issueDate,
       dueDate,
       paymentTerms,
-      status: finalStatus || status,
+      status: workflowManagedStatus && existingDoc ? status : (finalStatus || status),
       items,
       subtotal,
       discountType,
@@ -2359,26 +2328,30 @@ function DocumentEditorView({
               </select>
             </div>
             <div className="lf-form-group">
-              <label className="lf-form-label">Status</label>
-              <select
-                className="lf-form-select"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-              >
-                <option value="Draft">Draft</option>
-                <option value="Sent">Sent / Issued</option>
-                {isInvoice ? (
-                  <>
-                    <option value="Paid">Paid</option>
-                    <option value="Overdue">Overdue</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="Accepted">Accepted</option>
-                    <option value="Rejected">Rejected</option>
-                  </>
-                )}
-              </select>
+              <label className="lf-form-label">{isInvoice ? 'Issue Status' : 'Quotation Status'}</label>
+              {((isInvoice && ['Paid', 'Partially Paid', 'Overdue', 'Cancelled'].includes(status)) ||
+                (!isInvoice && ['Accepted', 'Rejected', 'Expired', 'Converted'].includes(status))) ? (
+                <div className="lf-form-input" role="status" aria-live="polite" style={{ display: 'flex', alignItems: 'center', fontWeight: 700 }}>
+                  {status}
+                  <span style={{ marginLeft: '8px', color: 'var(--lf-text-muted)', fontWeight: 400, fontSize: '11px' }}>
+                    Managed by {isInvoice ? 'payment and due-date activity' : 'the client response workflow'}
+                  </span>
+                </div>
+              ) : (
+                <select
+                  className="lf-form-select"
+                  value={status === 'Draft' ? 'Draft' : 'Sent'}
+                  onChange={(e) => setStatus(e.target.value)}
+                >
+                  <option value="Draft">Draft</option>
+                  <option value="Sent">{isInvoice ? 'Issued / Sent' : 'Issued to client'}</option>
+                </select>
+              )}
+              <small style={{ color: 'var(--lf-text-muted)', display: 'block', marginTop: '5px' }}>
+                {isInvoice
+                  ? 'Paid and overdue states follow recorded payments and the due date.'
+                  : 'Accepted and rejected states are recorded from the client response page.'}
+              </small>
             </div>
           </div>
 
@@ -3614,7 +3587,7 @@ function PaymentsView({ payments, onOpenPaymentModal }) {
   )
 }
 
-function RecordPaymentModal({ preselectedDoc, invoices, onClose, onSave }) {
+function RecordPaymentModal({ preselectedDoc, invoices, onClose, onSave, showToast = (message) => window.alert(message) }) {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(preselectedDoc?.id || (invoices[0]?.id || ''))
   const [amount, setAmount] = useState(preselectedDoc?.balanceDue || invoices[0]?.balanceDue || '')
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0])
@@ -3635,7 +3608,18 @@ function RecordPaymentModal({ preselectedDoc, invoices, onClose, onSave }) {
   const handleSubmit = (e) => {
     e.preventDefault()
     const numAmount = Number(amount)
-    if (!activeInvoice || numAmount <= 0) return
+    if (!activeInvoice) {
+      showToast('Select an invoice before recording a payment.')
+      return
+    }
+    if (!Number.isFinite(numAmount) || numAmount <= 0) {
+      showToast('Enter a payment amount greater than zero.')
+      return
+    }
+    if (numAmount > Number(activeInvoice.balanceDue) + 0.005) {
+      showToast(`Payment cannot exceed the outstanding balance of ${formatINR(activeInvoice.balanceDue)}.`)
+      return
+    }
 
     onSave({
       id: `pay-${Date.now()}`,
@@ -3807,12 +3791,12 @@ function ReportsView({ invoices, payments }) {
     )
   }
 
-  const filteredInvoices = invoices.filter((inv) =>
-    isInRange(inv.issueDate)
-  )
+  const reportableInvoices = invoices.filter((inv) => !['Cancelled', 'Draft'].includes(inv.status))
+  const reportableInvoiceIds = new Set(reportableInvoices.map((inv) => inv.id))
+  const filteredInvoices = reportableInvoices.filter((inv) => isInRange(inv.issueDate))
 
   const filteredPayments = payments.filter((payment) =>
-    isInRange(payment.paymentDate)
+    reportableInvoiceIds.has(payment.invoiceId) && isInRange(payment.paymentDate)
   )
 
   const totalInvoiced = filteredInvoices.reduce(
@@ -3846,10 +3830,15 @@ function ReportsView({ invoices, payments }) {
   )
   // CSV Export
   const handleExportCsv = () => {
-    let csv = 'Invoice Number,Client,Issue Date,Due Date,Subtotal,Tax,Grand Total,Status\n'
-  filteredInvoices.forEach((inv) => {
-      csv += `"${inv.documentNumber}","${inv.clientName}","${inv.issueDate}","${inv.dueDate}",${inv.subtotal},${inv.taxAmount},${inv.grandTotal},"${inv.status}"\n`
-    })
+    const csvCell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`
+    const rows = [
+      ['Invoice Number', 'Client', 'Issue Date', 'Due Date', 'Subtotal', 'Tax', 'Grand Total', 'Status'],
+      ...filteredInvoices.map((inv) => [
+        inv.documentNumber, inv.clientName, inv.issueDate, inv.dueDate,
+        inv.subtotal, inv.taxAmount, inv.grandTotal, inv.status,
+      ]),
+    ]
+    const csv = '\uFEFF' + rows.map((row) => row.map(csvCell).join(',')).join('\r\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
