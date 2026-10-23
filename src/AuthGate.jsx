@@ -42,19 +42,30 @@ function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
 
   const submit = async (e) => {
     e.preventDefault()
     setBusy(true)
     setError('')
+    setNotice('')
     try {
-      if (mode === 'signin') await signIn(email, password)
-      else await signUp(email, password)
+      if (mode === 'signin') {
+        await signIn(email, password)
+      } else {
+        const result = await signUp(email, password)
+        if (result?.user && !result?.session) {
+          setNotice('Account created. Check your email for the confirmation link before signing in.')
+        } else {
+          setNotice('Account created successfully.')
+        }
+      }
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'Authentication failed.')
+    } finally {
+      setBusy(false)
     }
-    setBusy(false)
   }
 
   return (
@@ -65,7 +76,8 @@ function Login() {
       <form className="auth-form" onSubmit={submit}>
         <Field label="Email" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <Field label="Password" type="password" placeholder="At least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} required />
-        {error && <div className="auth-error">{error}</div>}
+        {error && <div className="auth-error" role="alert">{error}</div>}
+        {notice && <div className="auth-success" role="status">{notice}</div>}
         <button className="auth-btn" disabled={busy}>
           {busy ? 'Please wait...' : mode === 'signin' ? 'Sign in' : 'Create account'}
         </button>
@@ -114,6 +126,7 @@ function CreateOrg({ onCreated }) {
 export default function AuthGate({ children }) {
   const [session, setSession] = useState(undefined)
   const [org, setOrg] = useState(undefined)
+  const [orgLoadError, setOrgLoadError] = useState('')
 
   useEffect(() => {
     if (!supabase) {
@@ -136,13 +149,27 @@ export default function AuthGate({ children }) {
   useEffect(() => {
     if (!session) {
       setOrg(undefined)
-      return
+      setOrgLoadError('')
+      return undefined
     }
-    getMyOrg().then(setOrg).catch(() => setOrg(null))
+    let active = true
+    setOrg(undefined)
+    setOrgLoadError('')
+    getMyOrg()
+      .then((value) => {
+        if (active) setOrg(value)
+      })
+      .catch((error) => {
+        if (active) {
+          setOrg(undefined)
+          setOrgLoadError(error?.message || 'Could not load your business details.')
+        }
+      })
+    return () => { active = false }
   }, [session])
 
   // The emailed client portal is public by design; the edge function validates its one-time/expiring token.
-  const isPublicDocumentRoute = typeof window !== 'undefined' && window.location.pathname === '/client-document'
+  const isPublicDocumentRoute = typeof window !== 'undefined' && ['/client-document', '/terms'].includes(window.location.pathname)
   if (isPublicDocumentRoute) return children
 
   if (!supabase) {
@@ -157,6 +184,22 @@ export default function AuthGate({ children }) {
 
   if (session === undefined) return <div className="auth-loading">Loading...</div>
   if (!session) return <Login />
+  if (orgLoadError) {
+    return (
+      <Layout title="Could not load your business" subtitle="Your existing business record was not changed. Check your connection and retry.">
+        <div className="auth-error" role="alert">{orgLoadError}</div>
+        <button className="auth-btn" type="button" onClick={async () => {
+          setOrgLoadError('')
+          setOrg(undefined)
+          try {
+            setOrg(await getMyOrg())
+          } catch (error) {
+            setOrgLoadError(error?.message || 'Could not load your business details.')
+          }
+        }}>Retry loading business</button>
+      </Layout>
+    )
+  }
   if (org === undefined) return <div className="auth-loading">Loading your business...</div>
   if (org === null) return <CreateOrg onCreated={setOrg} />
 
