@@ -295,7 +295,7 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
   defaultPaymentTerms: `Net ${org.default_payment_terms_days || 15}`,
   defaultGstRate: Number(org.default_gst_rate ?? 18),
   bankName: org.bank_name || '',
-  accountHolder: org.legal_name || org.name || '',
+  accountHolder: org.bank_account_holder || org.legal_name || org.name || '',
   accountNumber: org.bank_account_no || '',
   ifscCode: org.bank_ifsc || '',
   upiId: org.upi_id || '',
@@ -1155,7 +1155,8 @@ const [quotations, setQuotations] = useState([])
       legal_name: updated.companyName?.trim() || null,
       gstin: gstin || null,
       pan: updated.pan?.trim() || null,
-      state_code: /^\d{2}/.test(gstin) ? gstin.slice(0, 2) : org.state_code,
+      state_code: /^\d{2}$/.test(String(updated.stateCode || '')) ? String(updated.stateCode) : (gstin.slice(0, 2) || org.state_code || null),
+      bank_account_holder: updated.accountHolder?.trim() || null,
       email: updated.email?.trim() || null,
       phone: updated.phone?.trim() || null,
       address: updated.address?.trim() || null,
@@ -1187,8 +1188,9 @@ const [quotations, setQuotations] = useState([])
       quotationPrefix: saved.quote_prefix || 'QT-',
       defaultPaymentTerms: `Net ${saved.default_payment_terms_days || 15}`,
       defaultGstRate: Number(saved.default_gst_rate ?? 18),
+      stateCode: saved.state_code || String(saved.gstin || '').slice(0, 2),
       bankName: saved.bank_name || '',
-      accountHolder: saved.legal_name || saved.name || '',
+      accountHolder: saved.bank_account_holder || saved.legal_name || saved.name || '',
       accountNumber: saved.bank_account_no || '',
       ifscCode: saved.bank_ifsc || '',
       upiId: saved.upi_id || '',
@@ -1368,6 +1370,7 @@ const [quotations, setQuotations] = useState([])
                 name: savedProduct.name,
                 sku: savedProduct.sku || null,
                 barcode: savedProduct.barcode || null,
+                hsn_sac: savedProduct.hsnSac || null,
                 category: savedProduct.category,
                 price: savedProduct.price,
                 gst_rate: savedProduct.gstRate,
@@ -1609,7 +1612,7 @@ function DashboardView({ invoices, payments, quotations, companyProfile, onNewIn
               <h3 className="lf-card-title">Invoicing & Collections Trend</h3>
               <p className="lf-card-subtitle">Monthly billed volume vs. payments collected (&#8377;)</p>
             </div>
-            <span className="lf-badge lf-badge-accepted">FY 2026-27</span>
+            <span className="lf-badge lf-badge-sent">FY {todayInIndia().slice(0, 4)}-{String(Number(todayInIndia().slice(0, 4)) + 1).slice(-2)}</span>
           </div>
           <div style={{ width: '100%', height: 260 }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -3709,7 +3712,7 @@ function ProductModal({ product, onClose, onSave }) {
   const [sku, setSku] = useState(product?.sku || '')
   const [barcode, setBarcode] = useState(product?.barcode || '')
   const [category, setCategory] = useState(product?.category || 'Hardware')
-  const [price, setPrice] = useState(product?.price || '')
+  const [price, setPrice] = useState(product?.price ?? '')
   const [gstRate, setGstRate] = useState(product?.gstRate ?? 18)
   const [stock, setStock] = useState(product?.stock ?? 10)
   const [hsnSac, setHsnSac] = useState(product?.hsnSac || '')
@@ -3873,7 +3876,7 @@ function PaymentsView({ payments, onOpenPaymentModal }) {
 function RecordPaymentModal({ preselectedDoc, invoices, onClose, onSave, showToast = (message) => window.alert(message) }) {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(preselectedDoc?.id || (invoices[0]?.id || ''))
   const [amount, setAmount] = useState(preselectedDoc?.balanceDue || invoices[0]?.balanceDue || '')
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0])
+  const [paymentDate, setPaymentDate] = useState(todayInIndia())
   const [paymentMethod, setPaymentMethod] = useState('Bank Transfer (NEFT)')
   const [referenceNumber, setReferenceNumber] = useState('')
   const [notes, setNotes] = useState('')
@@ -3954,7 +3957,7 @@ function RecordPaymentModal({ preselectedDoc, invoices, onClose, onSave, showToa
               <input
                 type="number"
                 required
-                min="1"
+                min="0.01"
                 step="0.01"
                 className="lf-form-input"
                 value={amount}
@@ -4039,7 +4042,8 @@ function ReportsView({ invoices, payments }) {
     }
 
     if (dateRange === 'Q3') {
-      return new Date(today.getFullYear(), 9, 1)
+      const q3Year = today.getMonth() >= 9 ? today.getFullYear() : today.getFullYear() - 1
+      return new Date(q3Year, 9, 1)
     }
 
     if (dateRange === '30D') {
@@ -4053,7 +4057,7 @@ function ReportsView({ invoices, payments }) {
   })()
 
   const rangeEnd = dateRange === 'Q3'
-    ? new Date(today.getFullYear(), 12, 1)
+    ? new Date(rangeStart.getFullYear(), 12, 1)
     : (() => {
         const end = new Date(today)
         end.setHours(0, 0, 0, 0)
@@ -4113,12 +4117,16 @@ function ReportsView({ invoices, payments }) {
   )
   // CSV Export
   const handleExportCsv = () => {
-    const csvCell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`
+    const csvCell = (value) => {
+      let text = String(value ?? '')
+      if (typeof value === 'string' && /^[\\t\\r ]*[=+@-]/.test(text)) text = `'${text}`
+      return `"${text.replace(/"/g, '""')}"`
+    }
     const rows = [
-      ['Invoice Number', 'Client', 'Issue Date', 'Due Date', 'Subtotal', 'Tax', 'Grand Total', 'Status'],
+      ['Invoice Number', 'Client', 'Issue Date', 'Due Date', 'Subtotal', 'Discount', 'Taxable Amount', 'CGST', 'SGST', 'IGST', 'Tax Total', 'Grand Total', 'Status'],
       ...filteredInvoices.map((inv) => [
         inv.documentNumber, inv.clientName, inv.issueDate, inv.dueDate,
-        inv.subtotal, inv.taxAmount, inv.grandTotal, inv.status,
+        inv.subtotal, inv.discountAmount, inv.taxableAmount, inv.cgstAmount, inv.sgstAmount, inv.igstAmount, inv.taxAmount, inv.grandTotal, inv.status,
       ]),
     ]
     const csv = '\uFEFF' + rows.map((row) => row.map(csvCell).join(',')).join('\r\n')
@@ -4126,7 +4134,7 @@ function ReportsView({ invoices, payments }) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `ledgerflow_financial_report_${new Date().toISOString().split('T')[0]}.csv`
+    a.download = `ledgerflow_financial_report_${todayInIndia()}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -4149,7 +4157,7 @@ function ReportsView({ invoices, payments }) {
               onChange={(e) => setDateRange(e.target.value)}
             >
               <option value="ALL">All Time</option>
-              <option value="YTD">FY 2026-27 (YTD)</option>
+              <option value="YTD">Current Financial Year (YTD)</option>
               <option value="Q3">Q3 Oct-Dec</option>
               <option value="30D">Last 30 Days</option>
             </select>
@@ -4263,6 +4271,18 @@ function SettingsView({ profile, onSaveProfile }) {
                 className="lf-form-input"
                 value={formData.gstin}
                 onChange={(e) => handleChange('gstin', e.target.value.toUpperCase())}
+              />
+            </div>
+            <div className="lf-form-group">
+              <label className="lf-form-label">State Code (place of supply)</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={2}
+                className="lf-form-input"
+                placeholder="36 for Telangana"
+                value={formData.stateCode || ''}
+                onChange={(e) => handleChange('stateCode', e.target.value.replace(/\D/g, '').slice(0, 2))}
               />
             </div>
             <div className="lf-form-group">
