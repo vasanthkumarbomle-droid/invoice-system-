@@ -5,6 +5,7 @@ import {
   calculateDocumentAmounts,
   escapeCsvCell,
   numberToWordsINR,
+  isPastDueDate,
   paymentTermsDays,
   todayInIndia,
 } from './finance.js'
@@ -16,6 +17,15 @@ test('todayInIndia returns an ISO calendar date', () => {
 test('addDaysToDateString handles month and year rollover', () => {
   assert.equal(addDaysToDateString('2026-12-31', 1), '2027-01-01')
   assert.equal(addDaysToDateString('2026-01-31', 1), '2026-02-01')
+})
+
+
+test('isPastDueDate compares calendar dates without depending on browser timezone', () => {
+  assert.equal(isPastDueDate('2026-10-22', '2026-10-23'), true)
+  assert.equal(isPastDueDate('2026-10-23', '2026-10-23'), false)
+  assert.equal(isPastDueDate('2026-10-24', '2026-10-23'), false)
+  assert.equal(isPastDueDate(null, '2026-10-23'), false)
+  assert.equal(isPastDueDate('not-a-date', '2026-10-23'), false)
 })
 
 test('paymentTermsDays handles receipt and common net terms', () => {
