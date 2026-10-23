@@ -4573,12 +4573,8 @@ function TermsConditionsPage() {
               Terms & Conditions of Service
             </h1>
             <p style={{ fontSize: '12px', color: 'var(--lf-text-muted)' }}>
-              Effective Date: October 21, 2026 | Last Revised: 2026 | Version: 1.0.0-Draft
+              Effective Date: October 21, 2026 | Last Revised: October 2026 | Version: 1.0.0
             </p>
-          </div>
-
-          <div style={{ padding: '12px 16px', background: 'var(--lf-highlight-light)', border: '1px solid var(--lf-highlight-border)', borderRadius: '8px', marginBottom: '28px', fontSize: '12px', color: 'var(--lf-highlight)' }}>
-            <strong>Important Legal Notice:</strong> This document represents an editable draft template intended for demonstration and operational compliance. Business operators must review these terms with qualified legal counsel in their respective jurisdiction.
           </div>
 
           {/* Quick Table of Contents */}
