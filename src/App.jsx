@@ -405,12 +405,21 @@ const [quotations, setQuotations] = useState([])
   const handleSendDocument = async (doc) => {
     if (!isSupabaseConfigured) throw new Error('Connect Supabase before sending a document.')
     if (!doc?.id || !/^[0-9a-f]{8}-/i.test(doc.id)) throw new Error('Save the document to Supabase before sending it.')
-    if (!doc.clientEmail || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(doc.clientEmail.trim())) throw new Error('Add a valid client email address before sending.')
+    if (!doc.clientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(doc.clientEmail.trim())) throw new Error('Add a valid client email address before sending.')
     await db.sendDocumentEmail(org.id, doc.type, doc.id)
     if (doc.type === 'quotation') await loadQuotations()
     else await loadInvoices()
     setPreviewDoc((current) => current?.id === doc.id ? { ...current, status: 'Sent' } : current)
     showToast('Email accepted by the email provider for ' + doc.clientEmail, 'success')
+  }
+
+  const handleSaveDocumentSignature = async (doc, signatureData) => {
+    if (!isSupabaseConfigured) throw new Error('Connect Supabase before saving a signature.')
+    if (!doc?.id || !/^[0-9a-f-]{36}$/i.test(doc.id)) {
+      throw new Error('Save the document to Supabase before adding a reusable signature.')
+    }
+    await db.saveDocumentSignature(org.id, doc.type, doc.id, signatureData)
+    setDocumentSignatures((prev) => ({ ...prev, [doc.id]: signatureData }))
   }
 
     const [payments, setPayments] = useState([])
@@ -450,6 +459,20 @@ const [quotations, setQuotations] = useState([])
   const [editorMode, setEditorMode] = useState(initialMode)
   const [previewDoc, setPreviewDoc] = useState(null)
   const [documentSignatures, setDocumentSignatures] = useState({})
+
+  useEffect(() => {
+    let active = true
+    const documentId = previewDoc?.id
+    if (!documentId || !/^[0-9a-f-]{36}$/i.test(documentId)) return () => { active = false }
+    db.getDocumentSignature(org.id, previewDoc.type, documentId)
+      .then((result) => {
+        if (active && result?.signatureData) {
+          setDocumentSignatures((prev) => ({ ...prev, [documentId]: result.signatureData }))
+        }
+      })
+      .catch((error) => console.warn('Could not load saved document signature:', error))
+    return () => { active = false }
+  }, [org.id, previewDoc?.id, previewDoc?.type])
 
   // Modals State
   const [clientModalOpen, setClientModalOpen] = useState(false)
@@ -1242,7 +1265,7 @@ const [quotations, setQuotations] = useState([])
           }}
           showToast={showToast}
           signatureData={documentSignatures[previewDoc.id] || ''}
-          onSignatureChange={(value) => setDocumentSignatures((prev) => ({ ...prev, [previewDoc.id]: value }))}
+          onSignatureChange={(value) => handleSaveDocumentSignature(previewDoc, value)}
           onSendDocument={handleSendDocument}
         />
       )}
@@ -2940,10 +2963,14 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
       <SignaturePadModal
         initialSignature={signatureData}
         onClose={() => setSignatureModalOpen(false)}
-        onSave={(value) => {
-          onSignatureChange?.(value)
-          setSignatureModalOpen(false)
-          showToast('Signature added to the document', 'success')
+        onSave={async (value) => {
+          try {
+            await onSignatureChange?.(value)
+            setSignatureModalOpen(false)
+            showToast('Signature saved to this document', 'success')
+          } catch (error) {
+            showToast(error.message || 'Could not save the signature', 'error')
+          }
         }}
       />
     )}
