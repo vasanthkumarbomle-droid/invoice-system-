@@ -1434,13 +1434,16 @@ a:hover {
   background: rgba(255,255,255,.92);
   border: 1px solid var(--lf-border);
   border-radius: 6px;
-  opacity: .32;
+  opacity: 0;
+  pointer-events: none;
   cursor: pointer;
   transition: opacity .15s ease, box-shadow .15s ease, transform .15s ease;
 }
-.lf-signature-pen:hover,
+.lf-signature-area:hover .lf-signature-pen,
+.lf-signature-area:focus-within .lf-signature-pen,
 .lf-signature-pen:focus-visible {
   opacity: 1;
+  pointer-events: auto;
   box-shadow: 0 2px 8px rgba(40,103,71,.15);
   transform: translateY(-1px);
   outline: 2px solid rgba(40,103,71,.16);
