@@ -212,11 +212,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
       const due = invoice.due_date.slice(0, 10);
       const days = daysUntilDue(today, due);
-      let reminderType: "due_soon" | "overdue" | null = null;
+      let reminderType: "due_soon" | "due_today" | "overdue" | null = null;
       let referenceDate = today;
 
-      if (days >= 0 && days <= 3) {
+      if (days >= 1 && days <= 3) {
         reminderType = "due_soon";
+        referenceDate = due;
+      } else if (days === 0) {
+        reminderType = "due_today";
         referenceDate = due;
       } else if (days < 0) {
         reminderType = "overdue";
@@ -326,7 +329,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   if (
     !invoiceId ||
-    !["due_soon", "overdue"].includes(reminderType) ||
+    !["due_soon", "due_today", "overdue"].includes(reminderType) ||
     !/^\d{4}-\d{2}-\d{2}$/.test(referenceDate) ||
     !validEmail(recipientEmail)
   ) {
@@ -386,8 +389,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const due = String(invoice.due_date).slice(0, 10);
   const days = daysUntilDue(today, due);
 
-  if (reminderType === "due_soon" && (!(days >= 0 && days <= 3) || referenceDate !== due)) {
-    return jsonResponse({ error: "Invoice is not in the due-today / upcoming-due reminder window." }, 409);
+  if (reminderType === "due_soon" && (!(days >= 1 && days <= 3) || referenceDate !== due)) {
+    return jsonResponse({ error: "Invoice is not in the upcoming-due reminder window." }, 409);
+  }
+  if (reminderType === "due_today" && (days !== 0 || referenceDate !== due)) {
+    return jsonResponse({ error: "Invoice is not due today." }, 409);
   }
   if (reminderType === "overdue" && (!(days < 0) || referenceDate !== today)) {
     return jsonResponse({ error: "Invoice is not currently overdue." }, 409);
