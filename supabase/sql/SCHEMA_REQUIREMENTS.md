@@ -20,14 +20,15 @@ Feature tables include `document_share_tokens` and `document_signatures` (migrat
 
 ## Safe setup sequence
 
-For the existing project where migrations 001–003 have already succeeded, apply **004 and then 005**. Do not rerun migrations that have already succeeded.
+For the existing project where migrations 001–003 have already succeeded, apply **004, then 005, then 006** as needed. Do not rerun migrations that have already succeeded.
 
 1. Open Supabase Dashboard → SQL Editor.
 2. Run `VERIFY_CORE_SCHEMA.sql`. Its first result checks expected columns; the second shows whether RLS is enabled and how many policies exist.
 3. Review actual RLS policy definitions for every organization-scoped table. Verify select, insert, update, and delete policies restrict rows to organizations where the signed-in user is a member. A nonzero policy count does not prove the predicates are correct.
 4. Apply `004_quotation_conversion_and_account_holder.sql`. It adds the separate bank account-holder field and the server-side quotation-to-invoice conversion function. Conversion is restricted to accepted quotations and owner/admin members.
 5. Apply `005_payment_integrity.sql`. The database trigger rejects payments on draft/cancelled/paid invoices, cross-organization payment rows, and payment amounts exceeding the current invoice balance.
-6. Test with disposable records before issuing real documents.
+6. Apply `006_due_date_reminders.sql` before deploying the current invoice-reminder Edge Function. It adds a separate `due_today` log type so a prior due-soon reminder does not suppress the due-date reminder.
+7. Test with disposable records before issuing real documents.
 
 ## Database behavior that must exist
 
