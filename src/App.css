@@ -1417,3 +1417,34 @@ a:hover {
     visibility: hidden !important;
   }
 }
+
+/* Optional pen control appears only in the authorized-signatory space of the document preview. */
+.lf-signature-pen {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 25px;
+  height: 25px;
+  padding: 0;
+  color: var(--lf-brand);
+  background: rgba(255,255,255,.92);
+  border: 1px solid var(--lf-border);
+  border-radius: 6px;
+  opacity: .32;
+  cursor: pointer;
+  transition: opacity .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.lf-signature-pen:hover,
+.lf-signature-pen:focus-visible {
+  opacity: 1;
+  box-shadow: 0 2px 8px rgba(40,103,71,.15);
+  transform: translateY(-1px);
+  outline: 2px solid rgba(40,103,71,.16);
+  outline-offset: 2px;
+}
+.lf-spin { animation: lf-spin 1s linear infinite; }
+@keyframes lf-spin { to { transform: rotate(360deg); } }
