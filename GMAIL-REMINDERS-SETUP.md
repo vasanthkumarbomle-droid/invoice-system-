@@ -42,7 +42,7 @@ WHERE org_id = 'YOUR_ORG_UUID';
 
 Check that exactly the intended organization's row was updated. To disable reminders, set `enabled = false` for that same `org_id`. These settings are managed in Supabase; this repository does not currently provide a reminder-consent screen in the app.
 
-After applying migration 006, deploy the current `gmail-invoice-reminders` Edge Function from the repository. The new migration adds a distinct `due_today` reminder type so a reminder sent 1–3 days early does not suppress the due-date reminder. If your Apps Script is already deployed, copy the updated `google-apps-script/Code.gs` into your existing project without removing your other functions or trigger, save it, then use Deploy → Manage deployments → Edit → New version → Deploy.
+After applying migration 006, deploy the current `gmail-invoice-reminders` Edge Function from the repository. The new migration adds a distinct `due_today` reminder type so a reminder sent 1–3 days early does not suppress the due-date reminder. If your Apps Script project already has the quotation-email `doPost(e)` bridge, **do not replace the whole script with this file**. Preserve `doPost(e)` and your existing trigger; merge the updated `isDueSoon` / `isDueToday` / `isReminder` logic and the email-heading line in `ledgerFlowEmail_` from `google-apps-script/Code.gs` into your reminder code. Then save and use Deploy → Manage deployments → Edit → New version → Deploy.
 
 ## 2. Deploy the Edge Function
 
