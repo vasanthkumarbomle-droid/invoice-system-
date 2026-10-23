@@ -4,7 +4,7 @@ This edition uses Google Apps Script's `MailApp` to send emails from the Google 
 
 ## What it does
 
-- Sends a polite reminder for invoices due in 1–3 days (one successful reminder per invoice due date; the window allows recovery if a scheduled run was missed).
+- Sends a polite reminder for invoices due today or in the next 1–3 days (one successful reminder per invoice due date; the window allows recovery if a scheduled run was missed).
 - Sends an overdue follow-up for an outstanding invoice, then at most once every 7 days.
 - Skips draft, cancelled, and paid invoices, invoices without a client email, and invoices with no outstanding balance.
 - Uses `public.invoice_reminder_log` to record sends and suppress repeat reminders.
@@ -77,9 +77,9 @@ Before sending any real reminders, ensure candidates are expected and recipients
 
 ## 5. Send one controlled test
 
-Use a test invoice due in the next 1–3 days and a client email address you control. Run `runInvoiceReminders` manually. Confirm the message arrived and a row was added to `invoice_reminder_log`.
+Use a test invoice due today or in the next 1–3 days and a client email address you control. Run `runInvoiceReminders` manually. Confirm the message arrived and a row was added to `invoice_reminder_log`.
 
-The script logs after `MailApp.sendEmail` returns successfully. If the email sends but the logging request fails, inspect the execution log before retrying; a duplicate is possible in that failure window. Avoid running multiple reminder jobs concurrently.
+The script uses a script lock to avoid overlapping trigger runs and writes a durable local receipt before sending. If `MailApp.sendEmail` succeeds but the Supabase log request fails, the next run retries the log rather than sending the same reminder again. If an execution is interrupted while a receipt is at the `sending` stage, the script deliberately refuses to resend automatically because it cannot know whether the email was delivered. Inspect the execution log and the recipient's inbox before manually clearing that receipt property. Never clear a `LEDGERFLOW_REMINDER_RECEIPT_...` property without checking delivery first.
 
 ## 6. Enable daily automation
 
@@ -87,7 +87,7 @@ Only after the controlled test succeeds, choose `installDailyReminderTrigger` an
 
 ## Reminder behavior and safety
 
-- Due-soon window: 1–3 calendar days before due date; deduplicated by invoice and due date.
+- Due-soon window: due today through 3 calendar days before the due date; deduplicated by invoice and due date.
 - Overdue: first eligible run after due date; then at most once every seven days while still outstanding.
 - Day calculations use India Standard Time for the server's date.
 - Use only with legitimate invoices and correct recipient addresses. Review candidates first. Apps Script/Gmail sending quotas are limited and can change.
