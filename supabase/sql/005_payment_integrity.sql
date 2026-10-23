@@ -1,5 +1,7 @@
 -- Migration 005: validate received payments at the database boundary.
 -- Apply after the core payments/invoices schema exists. UI validation is convenience only.
+-- Compatible with the existing payment_before() trigger: this function fills a missing
+-- org_id itself, so it does not depend on trigger execution order.
 
 CREATE OR REPLACE FUNCTION public.enforce_invoice_payment_integrity()
 RETURNS trigger
@@ -16,6 +18,7 @@ BEGIN
       USING ERRCODE = '23514';
   END IF;
 
+  -- Lock the invoice row to serialize concurrent payment inserts for this invoice.
   SELECT *
     INTO v_invoice
     FROM public.invoices
@@ -25,6 +28,12 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Invoice not found.'
       USING ERRCODE = '23503';
+  END IF;
+
+  -- The existing payment_before() trigger also sets org_id. Handle a missing value
+  -- here as well, so this migration remains safe regardless of trigger order.
+  IF NEW.org_id IS NULL THEN
+    NEW.org_id := v_invoice.org_id;
   END IF;
 
   IF NEW.org_id IS DISTINCT FROM v_invoice.org_id THEN
