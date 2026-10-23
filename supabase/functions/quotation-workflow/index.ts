@@ -53,6 +53,28 @@ function todayInIndia(): string {
   const part = (type: string) => parts.find((entry) => entry.type === type)?.value ?? "";
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
+async function sendWithGoogleAppsScript(payload: Record<string, unknown>): Promise<{ ok: boolean; details?: string }> {
+  const endpoint = Deno.env.get("GOOGLE_APPS_SCRIPT_URL");
+  const sharedSecret = Deno.env.get("GOOGLE_APPS_SCRIPT_SECRET");
+  if (!endpoint || !sharedSecret) return { ok: false, details: "Missing GOOGLE_APPS_SCRIPT_URL or GOOGLE_APPS_SCRIPT_SECRET." };
+  let parsedEndpoint: URL;
+  try { parsedEndpoint = new URL(endpoint); }
+  catch { return { ok: false, details: "GOOGLE_APPS_SCRIPT_URL is not a valid URL." }; }
+  if (parsedEndpoint.protocol !== "https:" || parsedEndpoint.hostname !== "script.google.com" ||
+      !parsedEndpoint.pathname.startsWith("/macros/s/") || !parsedEndpoint.pathname.endsWith("/exec")) {
+    return { ok: false, details: "GOOGLE_APPS_SCRIPT_URL must be a deployed Google Apps Script Web App URL ending in /exec." };
+  }
+  try {
+    const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, secret: sharedSecret }) });
+    const responseText = (await response.text()).slice(0, 1200);
+    let result: any = null;
+    try { result = JSON.parse(responseText); } catch { /* Surface a short response excerpt below. */ }
+    if (!response.ok || result?.success !== true) return { ok: false, details: String(result?.error || result?.message || responseText || "Google Apps Script did not confirm success.") };
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, details: error instanceof Error ? error.message : "Google Apps Script request failed." };
+  }
+}
 
 function mapPublicDocument(documentType: "invoice" | "quotation", row: any, organization: any) {
   const itemsKey = documentType === "invoice" ? "invoice_items" : "quotation_items";
@@ -269,10 +291,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (!validEmail(recipient)) return respondJson({ error: "Add a valid email address to this client record before sending." }, 422);
 
     const appBase = (Deno.env.get("PUBLIC_APP_URL") || "").replace(/\/+$/, "");
-    const resendKey = Deno.env.get("RESEND_API_KEY");
-    const fromEmail = normalizeFromAddress(Deno.env.get("RESEND_FROM_EMAIL"));
-    if (!/^https?:\/\//i.test(appBase) || !resendKey || !fromEmail) {
-      return respondJson({ error: "Email is not configured. Set PUBLIC_APP_URL, RESEND_API_KEY and a verified RESEND_FROM_EMAIL in Supabase function secrets." }, 503);
+    const scriptUrl = Deno.env.get("GOOGLE_APPS_SCRIPT_URL");
+    const scriptSecret = Deno.env.get("GOOGLE_APPS_SCRIPT_SECRET");
+    if (!/^https:\/\//i.test(appBase) || !scriptUrl || !scriptSecret) {
+      return respondJson({ error: "Email is not configured. Set PUBLIC_APP_URL, GOOGLE_APPS_SCRIPT_URL and GOOGLE_APPS_SCRIPT_SECRET in Supabase function secrets." }, 503);
     }
 
     if (documentType === "quotation" && record.valid_until && String(record.valid_until).slice(0, 10) < todayInIndia()) {
@@ -341,23 +363,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const textBody = "Hello " + (client.name || "there") + ",\n\n" + intro + "\n" + title + ": " + documentNumber + "\nTotal: " + amountText + "\nOpen: " + link;
 
     const emailPayload: Record<string, unknown> = {
-      from: fromEmail,
-      to: [recipient],
+      to: recipient,
       subject: title + " " + documentNumber + " from " + companyName,
-      html,
-      text: textBody,
+      htmlBody: html,
+      body: textBody,
+      senderName: companyName,
     };
-    if (validEmail(organization.data?.email)) emailPayload.reply_to = organization.data.email;
+    if (validEmail(organization.data?.email)) emailPayload.replyTo = organization.data.email;
 
-    const mailResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: "Bearer " + resendKey, "Content-Type": "application/json" },
-      body: JSON.stringify(emailPayload),
-    });
+    const mailResponse = await sendWithGoogleAppsScript(emailPayload);
     if (!mailResponse.ok) {
-      const errorText = (await mailResponse.text()).slice(0, 600);
       await admin.from("document_share_tokens").delete().eq("id", tokenRow.id);
-      return respondJson({ error: "The email provider rejected the message. Check the sender domain and Resend configuration.", details: errorText }, 502);
+      return respondJson({
+        error: "Google Apps Script could not send the email. Check its Web App deployment and secret configuration.",
+        details: mailResponse.details || "The email request was rejected.",
+      }, 502);
     }
 
     // Update only after the email provider accepted it. A provider acceptance is not proof of final delivery.
@@ -427,27 +447,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
         .eq("id", tokenRow.org_id)
         .maybeSingle();
       const ownerEmail = String(business?.email || "").trim();
-      const mailKey = Deno.env.get("RESEND_API_KEY");
-      const fromAddress = normalizeFromAddress(Deno.env.get("RESEND_FROM_EMAIL"));
-      if (validEmail(ownerEmail) && mailKey && fromAddress) {
+      if (validEmail(ownerEmail) && Deno.env.get("GOOGLE_APPS_SCRIPT_URL") && Deno.env.get("GOOGLE_APPS_SCRIPT_SECRET")) {
         try {
           const businessName = business?.name || business?.legal_name || "LedgerFlow business";
           const quoteNumber = quote.quote_number || quote.id;
           const accepted = decision === "accepted";
           const subject = `Quotation ${quoteNumber} was ${accepted ? "accepted" : "rejected"}`;
           const message = "The client " + (quote.clients?.name || "customer") + " has " + (accepted ? "accepted" : "rejected") + " quotation " + quoteNumber + " from " + businessName + ".";
-          const mailResult = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: { Authorization: "Bearer " + mailKey, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              from: fromAddress,
-              to: [ownerEmail],
-              subject,
-              text: message + String.fromCharCode(10, 10) + "Open LedgerFlow to review the recorded response.",
-              html: "<div><h2>" + escapeHtml(subject) + "</h2><p>" + escapeHtml(message) + "</p><p>Open LedgerFlow to review the recorded response.</p></div>",
-            }),
+          const mailResult = await sendWithGoogleAppsScript({
+            to: ownerEmail,
+            subject,
+            body: message + String.fromCharCode(10, 10) + "Open LedgerFlow to review the recorded response.",
+            htmlBody: "<div><h2>" + escapeHtml(subject) + "</h2><p>" + escapeHtml(message) + "</p><p>Open LedgerFlow to review the recorded response.</p></div>",
+            senderName: businessName,
           });
           ownerNotified = mailResult.ok;
+          if (!mailResult.ok) console.error("Quotation response was recorded but owner notification failed:", mailResult.details);
         } catch (notificationError) {
           console.error("Quotation response was recorded but owner notification failed:", notificationError);
         }
