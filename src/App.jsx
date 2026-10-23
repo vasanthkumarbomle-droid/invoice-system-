@@ -233,6 +233,7 @@ function LedgerFlowShell({ activeTab = 'dashboard', initialMode = 'invoice' }) {
 
   // Persistent State in localStorage
    const org = useOrg()
+  const canManageBusiness = ['owner', 'admin'].includes(String(org.role || '').toLowerCase())
 const [companyProfile, setCompanyProfile] = useState(() => ({
   companyName: org.legal_name || org.name || '',
   tradeName: org.name || '',
