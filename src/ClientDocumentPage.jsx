@@ -81,6 +81,10 @@ export default function ClientDocumentPage() {
   const org = payload.organization
   const isQuotation = doc.type === 'quotation'
   const hasResponse = Boolean(payload.responseStatus)
+  const sellerStateCode = String(org.state_code || org.gstin?.slice(0, 2) || '')
+  const buyerStateCode = String(doc.client?.stateCode || doc.client?.gstin?.slice(0, 2) || '')
+  const hasPlaceOfSupply = /^\d{2}$/.test(sellerStateCode) && /^\d{2}$/.test(buyerStateCode)
+  const isInterState = Number(doc.igstAmount) > 0 || (hasPlaceOfSupply && sellerStateCode !== buyerStateCode)
   const validUntil = String(doc.dueDate || '').slice(0, 10)
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
   const canRespond = isQuotation && !hasResponse && String(doc.status || '').toLowerCase() === 'sent' && (!validUntil || validUntil >= today)
@@ -125,17 +129,20 @@ export default function ClientDocumentPage() {
             <span>Issue date: {doc.issueDate || '—'}</span>
             <span>Status: {hasResponse ? payload.responseStatus : (doc.status || 'Issued')}</span>
             {doc.paymentTerms && <span>Terms: {doc.paymentTerms}</span>}
+            <span>Place of supply (state code): {buyerStateCode || 'Not specified'}</span>
+            <span>Supply type: {hasPlaceOfSupply ? (isInterState ? 'Inter-State (IGST)' : 'Intra-State (CGST + SGST)') : 'Verify state codes'}</span>
           </div>
         </div>
 
         <div className="client-table-wrap">
           <table className="client-doc-items">
-            <thead><tr><th>#</th><th>Description</th><th>Qty</th><th>Rate</th><th>GST</th><th className="client-num">Total</th></tr></thead>
+            <thead><tr><th>#</th><th>Description</th><th>HSN/SAC</th><th>Qty</th><th>Rate</th><th>GST</th><th className="client-num">Total</th></tr></thead>
             <tbody>
               {(doc.items || []).map((item, index) => (
                 <tr key={item.id || index}>
                   <td>{index + 1}</td>
                   <td><strong>{item.description || 'Item'}</strong>{item.sku && <small>{item.sku}</small>}</td>
+                  <td>{item.hsnSac || '—'}</td>
                   <td>{item.quantity}</td>
                   <td>{formatINR(item.unitPrice)}</td>
                   <td>{Number(item.gstRate || 0)}%</td>
@@ -153,6 +160,7 @@ export default function ClientDocumentPage() {
               <div className="client-payment-details">
                 <span className="client-label">Payment details</span>
                 {org.bank_name && <span>Bank: {org.bank_name}</span>}
+                {org.bank_account_holder && <span>A/C Name: {org.bank_account_holder}</span>}
                 {org.bank_account_no && <span>A/C: {org.bank_account_no}</span>}
                 {org.bank_ifsc && <span>IFSC: {org.bank_ifsc}</span>}
                 {org.upi_id && <span>UPI: {org.upi_id}</span>}
@@ -162,7 +170,14 @@ export default function ClientDocumentPage() {
           <div className="client-total-box">
             <div><span>Subtotal</span><strong>{formatINR(doc.subtotal)}</strong></div>
             {Number(doc.discountAmount) > 0 && <div><span>Discount</span><strong>−{formatINR(doc.discountAmount)}</strong></div>}
-            <div><span>Tax</span><strong>{formatINR(doc.taxAmount)}</strong></div>
+            {isInterState ? (
+              <div><span>IGST</span><strong>{formatINR(doc.igstAmount)}</strong></div>
+            ) : (
+              <>
+                <div><span>CGST</span><strong>{formatINR(doc.cgstAmount)}</strong></div>
+                <div><span>SGST</span><strong>{formatINR(doc.sgstAmount)}</strong></div>
+              </>
+            )}
             <div className="client-grand-total"><span>Total</span><strong>{formatINR(doc.grandTotal)}</strong></div>
           </div>
         </div>
