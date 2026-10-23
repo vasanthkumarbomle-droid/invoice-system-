@@ -44,7 +44,7 @@ After reviewing the schema and backing up the project, apply the feature migrati
 - supabase/sql/006_due_date_reminders.sql — lets due-today reminders be logged separately from earlier due-soon reminders.
 - supabase/sql/007_read_only_schema_audit.sql — read-only schema/policy diagnostic; it makes no changes.
 - supabase/sql/008_payment_update_integrity.sql — validates payment corrections/moves and recalculates both invoices when a payment changes invoice.
-- supabase/sql/009_document_save_tenant_integrity.sql — explicitly checks organization membership and same-organization client/product references during invoice/quotation saves and quotation conversion; restricts client execution of the internal invoice-refresh helper.
+- supabase/sql/009_document_save_tenant_integrity.sql — explicitly checks organization membership and same-organization client/product references during invoice/quotation saves and quotation conversion; allows editing only draft invoices; blocks cancellation when payments exist; and restricts client execution of the internal invoice-refresh helper.
 
 For an existing, already-migrated project, review and apply migrations in dependency order: 004, 005, 006, 008, then 009 as appropriate. Migration 007 is read-only and can be run for diagnosis. The migrations are not proof that the live database has been updated; confirm the current schema first, back up important data, and test payment/document workflows with disposable records. The SQL feature migrations do not create the complete core schema.
 
