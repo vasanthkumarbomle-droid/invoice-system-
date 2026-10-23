@@ -1653,3 +1653,61 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   .lf-card, .lf-metric-card { border-radius: 14px; }
   .lf-nav-item:hover { transform: none; }
 }
+
+
+/* Sidebar navigation alignment: keep the selection pill centred and steady. */
+.lf-sidebar-nav {
+  padding: 18px 14px;
+  gap: 4px;
+}
+.lf-sidebar-nav > .lf-nav-item {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  line-height: 1.25;
+  text-align: left;
+  transform: none;
+}
+.lf-sidebar-nav > .lf-nav-item:hover {
+  background: rgba(255, 255, 255, .08);
+  color: #FFFFFF;
+  transform: none;
+}
+.lf-sidebar-nav > .lf-nav-item.active {
+  background: #EAF1FF;
+  color: #1D4ED8;
+  box-shadow: inset 3px 0 0 #2563EB, 0 2px 8px rgba(9, 20, 42, .08);
+  font-weight: 700;
+}
+.lf-sidebar-nav > .lf-nav-item.active .lf-nav-icon {
+  color: #2563EB;
+}
+.lf-sidebar-nav > .lf-nav-item.active .lf-nav-badge {
+  color: #1D4ED8;
+  background: #D6E4FF;
+}
+.lf-nav-icon {
+  flex: 0 0 20px;
+}
+.lf-sidebar.collapsed .lf-sidebar-nav {
+  padding-right: 12px;
+  padding-left: 12px;
+}
+.lf-sidebar.collapsed .lf-sidebar-nav > .lf-nav-item {
+  justify-content: center;
+  padding-right: 0;
+  padding-left: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .lf-sidebar-nav > .lf-nav-item {
+    transition: background .16s ease, color .16s ease, box-shadow .16s ease;
+  }
+}
