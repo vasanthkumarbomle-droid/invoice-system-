@@ -84,6 +84,27 @@ function paymentTermsDays(value, fallback = 15) {
   return Number.isFinite(days) && days >= 0 ? days : fallback
 }
 
+function todayInIndia() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date())
+  const part = (type) => parts.find((entry) => entry.type === type)?.value || ''
+  return `${part('year')}-${part('month')}-${part('day')}`
+}
+
+function addDaysToDateString(dateString, days) {
+  const match = String(dateString || todayInIndia()).match(/^(\\d{4})-(\\d{2})-(\\d{2})$/)
+  if (!match) return todayInIndia()
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + Number(days || 0)))
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
+}
+
+function paymentTermsDays(value, fallback = 15) {
+  const match = String(value || '').match(/\\d+/)
+  const days = match ? Number(match[0]) : fallback
+  return Number.isFinite(days) && days >= 0 ? days : fallback
+}
+
 // Convert numbers to Indian Rupees words
 function numberToWordsINR(num) {
   const cents = Math.round(Math.abs(Number(num) || 0) * 100)
@@ -284,6 +305,7 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
   companyName: org.legal_name || org.name || '',
   tradeName: org.name || '',
   gstin: org.gstin || '',
+  stateCode: org.state_code || String(org.gstin || '').slice(0, 2),
   pan: org.pan || '',
   email: org.email || '',
   phone: org.phone || '',
@@ -314,6 +336,7 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
         email: r.email || '',
         phone: r.phone || '',
         gstin: r.gstin || '',
+        stateCode: r.state_code || String(r.gstin || '').slice(0, 2),
         address: r.address || '',
       })))
     } catch (e) {
@@ -338,7 +361,7 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
         category: r.category || 'Hardware',
         price: Number(r.price),
         gstRate: Number(r.gst_rate),
-        hsn: r.hsn_sac || '',
+        hsnSac: r.hsn_sac || '',
         stock: Number(r.stock_qty),
         description: r.description || '',
       })))
@@ -366,7 +389,20 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
   }, [org.id])
 
   const saveInvoiceDoc = async (d) => {
-    if (!d.clientId) throw new Error('Please choose a registered client from the dropdown')
+    let resolvedClientId = d.clientId
+    if (!resolvedClientId) {
+      if (!d.clientName?.trim()) throw new Error('Enter a client name before saving.')
+      const createdClient = await db.addClient(org.id, {
+        name: d.clientName.trim(),
+        email: d.clientEmail?.trim() || null,
+        phone: d.clientPhone?.trim() || null,
+        gstin: d.clientGstin?.trim().toUpperCase() || null,
+        state_code: d.clientStateCode || (d.clientGstin ? d.clientGstin.slice(0, 2) : null),
+        address: d.clientAddress?.trim() || null,
+      })
+      resolvedClientId = createdClient.id
+      await loadClients()
+    }
     const gross = d.items.reduce((s, it) => s + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0), 0)
     const value = Number(d.discountValue) || 0
     const pct = d.discountType === 'percentage' ? value : gross > 0 ? (value / gross) * 100 : 0
@@ -374,6 +410,8 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
     const items = d.items.map((it) => ({
       product_id: it.productId || null,
       description: it.description,
+      hsn_sac: it.hsnSac || null,
+      unit: it.unit || 'unit',
       quantity: Number(it.quantity),
       unit_price: Number(it.unitPrice),
       discount_pct: discountPct,
@@ -382,7 +420,7 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
     const isExisting = /^[0-9a-f]{8}-/i.test(d.id || '')
     await db.saveInvoice(org.id, {
       id: isExisting ? d.id : null,
-      client_id: d.clientId,
+      client_id: resolvedClientId,
       issue_date: d.issueDate,
       due_date: d.dueDate,
       status: STATUS_TO_DB[String(d.status || '').toLowerCase()] || (d.status === 'Draft' ? 'draft' : 'pending'),
@@ -565,13 +603,13 @@ const [quotations, setQuotations] = useState([])
         unit: item.unit || 'unit',
         quantity: Number(item.quantity) || 1,
         unit_price: Number(item.unitPrice) || 0,
-        discount_pct: 0,
+        discount_pct: Number(item.discountPct ?? doc.discountValue ?? 0),
         gst_rate: Number(item.gstRate) || 0,
       }))
       const newId = await db.saveQuotation(org.id, {
         id: null,
         client_id: doc.clientId,
-        issue_date: new Date().toISOString().slice(0, 10),
+        issue_date: todayInIndia(),
         valid_until: doc.dueDate || null,
         status: 'draft',
         notes: doc.notes || null,
@@ -1906,32 +1944,39 @@ function DocumentEditorView({
   const [clientPhone, setClientPhone] = useState(existingDoc?.clientPhone || '')
   const [clientAddress, setClientAddress] = useState(existingDoc?.clientAddress || '')
   const [clientGstin, setClientGstin] = useState(existingDoc?.clientGstin || '')
+  const [clientStateCode, setClientStateCode] = useState(existingDoc?.clientStateCode || '')
 
-  const [issueDate, setIssueDate] = useState(() => {
-    return existingDoc?.issueDate || new Date().toISOString().split('T')[0]
-  })
-  const [dueDate, setDueDate] = useState(() => {
-    return (
-      existingDoc?.dueDate ||
-      new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const [issueDate, setIssueDate] = useState(() => existingDoc?.issueDate || todayInIndia())
+  const [dueDate, setDueDate] = useState(() =>
+    existingDoc?.dueDate || addDaysToDateString(
+      existingDoc?.issueDate || todayInIndia(),
+      paymentTermsDays(existingDoc?.paymentTerms || companyProfile.defaultPaymentTerms)
     )
-  })
+  )
   const [paymentTerms, setPaymentTerms] = useState(existingDoc?.paymentTerms || companyProfile.defaultPaymentTerms)
   const [status, setStatus] = useState(existingDoc?.status || 'Draft')
   const [notes, setNotes] = useState(existingDoc?.notes || companyProfile.notes)
 
   // Line Items
   const [items, setItems] = useState(() => {
-    if (existingDoc?.items?.length) return existingDoc.items
+    if (existingDoc?.items?.length) return existingDoc.items.map((item) => {
+      const quantity = Number(item.quantity) || 0
+      const unitPrice = Number(item.unitPrice) || 0
+      const gstRate = Number(item.gstRate) || 0
+      const subtotal = quantity * unitPrice
+      const taxAmount = subtotal * gstRate / 100
+      return { ...item, subtotal, taxAmount, total: subtotal + taxAmount }
+    })
     return [
       {
         id: `item-${Date.now()}`,
         productId: '',
         description: '',
         sku: '',
+        hsnSac: '',
         quantity: 1,
         unitPrice: 0,
-        gstRate: companyProfile.defaultGstRate || 18,
+        gstRate: Number(companyProfile.defaultGstRate ?? 18),
         subtotal: 0,
         taxAmount: 0,
         total: 0
@@ -1956,6 +2001,7 @@ function DocumentEditorView({
       setClientPhone(client.phone)
       setClientAddress(client.address)
       setClientGstin(client.gstin)
+      setClientStateCode(client.stateCode || String(client.gstin || '').slice(0, 2))
     }
   }
 
@@ -1968,7 +2014,7 @@ function DocumentEditorView({
       const updated = [...prev]
       const qty = updated[index].quantity || 1
       const price = product.price
-      const gst = product.gstRate || 18
+      const gst = Number(product.gstRate ?? 18)
       const subtotal = qty * price
       const taxAmount = (subtotal * gst) / 100
 
@@ -1977,6 +2023,7 @@ function DocumentEditorView({
         productId: product.id,
         description: product.name,
         sku: product.sku,
+        hsnSac: product.hsnSac || '',
         unitPrice: price,
         gstRate: gst,
         subtotal,
@@ -2018,9 +2065,10 @@ function DocumentEditorView({
         productId: '',
         description: '',
         sku: '',
+        hsnSac: '',
         quantity: 1,
         unitPrice: 0,
-        gstRate: companyProfile.defaultGstRate || 18,
+        gstRate: Number(companyProfile.defaultGstRate ?? 18),
         subtotal: 0,
         taxAmount: 0,
         total: 0
