@@ -62,6 +62,14 @@
   background: #fdecec; color: #b42318; border-radius: 10px;
   padding: 10px 14px; font-size: 13.5px;
 }
+.auth-success {
+  background: #eaf7ef;
+  color: #17663a;
+  border: 1px solid #b6e4c7;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13.5px;
+}
 .auth-toggle {
   margin-top: 20px; width: 100%; background: none; border: 0;
   color: #1f5e41; font-size: 14px; font-weight: 600; cursor: pointer;
