@@ -5,26 +5,26 @@
    ========================================================================== */
 
 :root {
-  /* Brand Palette — premium graphite, warm ivory and copper */
-  --lf-bg: #F6F4F0;
+  /* LedgerFlow visual identity — crisp white, electric blue, vivid tangerine */
+  --lf-bg: #F4F7FB;
   --lf-card: #FFFFFF;
-  --lf-card-hover: #FBF8F4;
-  --lf-brand: #344054;
-  --lf-brand-hover: #263445;
-  --lf-brand-light: #EEF1F5;
-  --lf-brand-subtle: #D9DEE7;
-  --lf-accent: #C77D4A;
-  --lf-highlight: #B87842;
-  --lf-highlight-light: #FBF0E7;
-  --lf-highlight-border: #E9CBB5;
+  --lf-card-hover: #F8FAFF;
+  --lf-brand: #2563EB;
+  --lf-brand-hover: #1D4ED8;
+  --lf-brand-light: #EAF1FF;
+  --lf-brand-subtle: #C9DAFF;
+  --lf-accent: #F97316;
+  --lf-highlight: #EA580C;
+  --lf-highlight-light: #FFF1E8;
+  --lf-highlight-border: #FED7AA;
 
   /* Neutrals & Typography */
-  --lf-text: #252A32;
-  --lf-text-secondary: #5D6470;
-  --lf-text-muted: #7B818B;
-  --lf-border: #E6E1DA;
-  --lf-border-strong: #CFC7BD;
-  --lf-border-focus: #B87842;
+  --lf-text: #172033;
+  --lf-text-secondary: #526078;
+  --lf-text-muted: #7A8699;
+  --lf-border: #E3E9F2;
+  --lf-border-strong: #C8D2E1;
+  --lf-border-focus: #2563EB;
 
   /* Status Colors */
   --lf-success: #526A78;
@@ -1491,4 +1491,165 @@ a:hover {
 
 @media (hover: none) {
   .lf-signature-pen { opacity: 1; pointer-events: auto; }
+}
+
+
+/* ==========================================================================
+   LEDGERFLOW SIGNATURE REFRESH — editorial type, confident hierarchy, calm canvas
+   ========================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --lf-radius-sm: 8px;
+  --lf-radius-md: 12px;
+  --lf-radius-lg: 18px;
+  --lf-shadow-xs: 0 1px 2px rgba(23, 32, 51, .035);
+  --lf-shadow-sm: 0 2px 8px rgba(23, 32, 51, .045);
+  --lf-shadow-md: 0 8px 24px rgba(23, 32, 51, .065);
+  --lf-shadow-lg: 0 18px 48px rgba(23, 32, 51, .12);
+}
+
+html { background: #F4F7FB; }
+body {
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--lf-text);
+  letter-spacing: -0.012em;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea { font: inherit; }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 3px solid rgba(37, 99, 235, .24);
+  outline-offset: 2px;
+}
+.lf-shell { background: var(--lf-bg); }
+.lf-sidebar {
+  background: #172033;
+  color: #E8EDF6;
+  border-right: 1px solid rgba(255,255,255,.06);
+  box-shadow: 8px 0 30px rgba(23,32,51,.035);
+}
+.lf-sidebar-header { border-bottom-color: rgba(255,255,255,.09); }
+.lf-brand-title { font-family: 'Manrope', sans-serif; font-weight: 800; letter-spacing: -.045em; }
+.lf-brand-subtitle { color: #9EACC2; letter-spacing: .13em; }
+.lf-nav-item {
+  margin: 3px 10px;
+  border-radius: 10px;
+  transition: background .18s ease, color .18s ease, transform .18s ease;
+}
+.lf-nav-item:hover { background: rgba(255,255,255,.075); transform: translateX(2px); }
+.lf-nav-item.active, .lf-nav-item[aria-current="page"] {
+  background: #2563EB;
+  color: #FFFFFF;
+  box-shadow: 0 5px 14px rgba(37,99,235,.24);
+}
+.lf-main-wrapper { background: var(--lf-bg); }
+.lf-top-nav {
+  background: rgba(255,255,255,.88);
+  border-bottom: 1px solid var(--lf-border);
+  backdrop-filter: blur(16px);
+}
+.lf-page-title, h1, h2, h3, .lf-card-title, .lf-modal-title {
+  font-family: 'Manrope', 'DM Sans', sans-serif;
+  color: var(--lf-text);
+  letter-spacing: -.04em;
+}
+.lf-page-title { font-weight: 800; }
+.lf-content-viewport { background: var(--lf-bg); }
+.lf-card, .lf-metric-card {
+  background: var(--lf-card);
+  border: 1px solid var(--lf-border);
+  border-radius: var(--lf-radius-lg);
+  box-shadow: var(--lf-shadow-xs);
+  transition: box-shadow .2s ease, border-color .2s ease, transform .2s ease;
+}
+.lf-card:hover, .lf-metric-card:hover {
+  border-color: #D2DDF0;
+  box-shadow: var(--lf-shadow-sm);
+}
+.lf-card-header { border-bottom-color: #EDF1F7; }
+.lf-card-title { font-weight: 750; letter-spacing: -.025em; }
+.lf-card-subtitle { color: var(--lf-text-muted); }
+.lf-btn {
+  border-radius: 10px;
+  font-weight: 650;
+  letter-spacing: -.01em;
+  transition: transform .16s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease;
+}
+.lf-btn:active { transform: translateY(1px) scale(.99); }
+.lf-btn-primary {
+  background: var(--lf-brand);
+  border-color: var(--lf-brand);
+  box-shadow: 0 3px 8px rgba(37,99,235,.18);
+}
+.lf-btn-primary:hover {
+  background: var(--lf-brand-hover);
+  border-color: var(--lf-brand-hover);
+  box-shadow: 0 5px 14px rgba(37,99,235,.23);
+}
+.lf-btn-accent {
+  background: #F97316;
+  border-color: #F97316;
+  color: #FFFFFF;
+}
+.lf-btn-accent:hover { background: #EA580C; border-color: #EA580C; }
+.lf-btn-secondary, .lf-btn-outline-brand {
+  background: #FFFFFF;
+  border-color: var(--lf-border-strong);
+  color: var(--lf-text);
+}
+.lf-btn-secondary:hover, .lf-btn-outline-brand:hover {
+  background: #F7F9FD;
+  border-color: #9EB9F5;
+}
+.lf-icon-btn {
+  border-radius: 10px;
+  transition: background .16s ease, color .16s ease;
+}
+.lf-icon-btn:hover { background: var(--lf-brand-light); color: var(--lf-brand); }
+.lf-table-container {
+  border: 1px solid var(--lf-border);
+  border-radius: 14px;
+  background: #FFFFFF;
+  overflow-x: auto;
+}
+.lf-table { border-collapse: separate; border-spacing: 0; }
+.lf-table thead th {
+  background: #F7F9FC;
+  color: #65728A;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--lf-border);
+}
+.lf-table tbody tr { transition: background .15s ease; }
+.lf-table tbody tr:hover { background: #F7F9FF; }
+.lf-table td { border-bottom-color: #EDF1F7; }
+.lf-empty-state {
+  border: 1px dashed #CCD6E5;
+  border-radius: 16px;
+  background: rgba(255,255,255,.7);
+}
+.lf-modal {
+  border: 1px solid rgba(200,210,225,.8);
+  border-radius: 20px;
+  box-shadow: 0 28px 90px rgba(23,32,51,.2);
+}
+.lf-modal-header { border-bottom-color: var(--lf-border); }
+.lf-modal-footer { border-top-color: var(--lf-border); }
+.lf-toast { border-radius: 12px; box-shadow: var(--lf-shadow-lg); }
+::selection { background: #DCE8FF; color: #172033; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}
+@media (max-width: 768px) {
+  .lf-card, .lf-metric-card { border-radius: 14px; }
+  .lf-nav-item:hover { transform: none; }
 }
