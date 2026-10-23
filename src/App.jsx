@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
+import ClientDocumentPage from './ClientDocumentPage.jsx'
 import { useOrg } from './OrgContext'
 import * as db from './lib/db'
 import {
@@ -32,7 +33,10 @@ import {
   HelpCircle,
   Eye,
   Receipt,
-  FileDown
+  FileDown,
+  PenLine,
+  Send,
+  LoaderCircle
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -145,6 +149,11 @@ function mapInvoice(r) {
     }
   })
   const taxable = Number(r.subtotal)
+  const rawStatus = String(r.status || 'draft').toLowerCase()
+  const balanceDue = Number(r.balance_due) || 0
+  const amountPaid = Number(r.amount_paid) || 0
+  const todayIndia = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
+  const status = rawStatus === 'cancelled' ? 'Cancelled' : rawStatus === 'draft' ? 'Draft' : balanceDue <= 0 ? 'Paid' : amountPaid > 0 ? 'Partially Paid' : ((r.due_date && String(r.due_date).slice(0, 10) < todayIndia) || rawStatus === 'overdue') ? 'Overdue' : 'Sent'
   return {
     id: r.id,
     documentNumber: r.invoice_number,
@@ -158,7 +167,7 @@ function mapInvoice(r) {
     issueDate: r.issue_date,
     dueDate: r.due_date,
     paymentTerms: 'Net 15',
-    status: STATUS_FROM_DB[r.status] || 'Draft',
+    status,
     items,
     subtotal: gross,
     discountType: 'percentage',
@@ -170,8 +179,8 @@ function mapInvoice(r) {
     igstAmount: Number(r.igst_total),
     taxAmount: Number(r.tax_total),
     grandTotal: Number(r.grand_total),
-    amountPaid: Number(r.amount_paid),
-    balanceDue: Number(r.balance_due),
+    amountPaid,
+    balanceDue,
     notes: r.notes || '',
   }
 }
@@ -227,6 +236,7 @@ export default function App() {
         <Route path="/payments" element={<LedgerFlowShell activeTab="payments" />} />
         <Route path="/reports" element={<LedgerFlowShell activeTab="reports" />} />
         <Route path="/settings" element={<LedgerFlowShell activeTab="settings" />} />
+        <Route path="/client-document" element={<ClientDocumentPage />} />
         <Route path="/terms" element={<TermsConditionsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
@@ -391,6 +401,18 @@ const [quotations, setQuotations] = useState([])
     showToast(e.message || 'Failed to convert quotation', 'error')
   }
 }
+
+  const handleSendDocument = async (doc) => {
+    if (!isSupabaseConfigured) throw new Error('Connect Supabase before sending a document.')
+    if (!doc?.id || !/^[0-9a-f]{8}-/i.test(doc.id)) throw new Error('Save the document to Supabase before sending it.')
+    if (!doc.clientEmail || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(doc.clientEmail.trim())) throw new Error('Add a valid client email address before sending.')
+    await db.sendDocumentEmail(org.id, doc.type, doc.id)
+    if (doc.type === 'quotation') await loadQuotations()
+    else await loadInvoices()
+    setPreviewDoc((current) => current?.id === doc.id ? { ...current, status: 'Sent' } : current)
+    showToast('Email accepted by the email provider for ' + doc.clientEmail, 'success')
+  }
+
     const [payments, setPayments] = useState([])
 
   const loadPayments = async () => {
@@ -427,6 +449,7 @@ const [quotations, setQuotations] = useState([])
   const [editingDoc, setEditingDoc] = useState(null)
   const [editorMode, setEditorMode] = useState(initialMode)
   const [previewDoc, setPreviewDoc] = useState(null)
+  const [documentSignatures, setDocumentSignatures] = useState({})
 
   // Modals State
   const [clientModalOpen, setClientModalOpen] = useState(false)
@@ -1196,13 +1219,16 @@ const [quotations, setQuotations] = useState([])
             handleEditDoc(docToEdit)
           }}
           showToast={showToast}
+          signatureData={documentSignatures[previewDoc.id] || ''}
+          onSignatureChange={(value) => setDocumentSignatures((prev) => ({ ...prev, [previewDoc.id]: value }))}
+          onSendDocument={handleSendDocument}
         />
       )}
 
       {/* DEDICATED A4 PRINT CONTAINER (ALWAYS IN DOM, PRINTED ONLY VIA WINDOW.PRINT) */}
       {previewDoc && (
         <div id="ledgerflow-printable-document" className="lf-printable-document">
-          <PrintableInvoiceTemplate doc={previewDoc} companyProfile={companyProfile} />
+          <PrintableInvoiceTemplate doc={previewDoc} companyProfile={companyProfile} signatureData={documentSignatures[previewDoc.id] || ''} />
         </div>
       )}
 
@@ -2775,8 +2801,18 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
 // DOCUMENT PREVIEW MODAL & A4 PRINT TEMPLATE
 // ============================================================================
 
-function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast }) {
+function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast, signatureData = '', onSignatureChange, onSendDocument }) {
   const isInvoice = doc.type === 'invoice'
+  const [signatureModalOpen, setSignatureModalOpen] = useState(false)
+  const [sending, setSending] = useState(false)
+
+  const handleSendDocument = async () => {
+    if (!onSendDocument) return
+    setSending(true)
+    try { await onSendDocument(doc) }
+    catch (error) { showToast(error.message || 'Could not send document', 'error') }
+    finally { setSending(false) }
+  }
 
   // Print Action
   const handlePrint = () => {
@@ -2785,7 +2821,7 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast 
 
   // Download Standalone Self-Contained HTML Invoice
   const handleDownloadHtml = () => {
-    const htmlContent = generatePrintableHtml(doc, companyProfile)
+    const htmlContent = generatePrintableHtml(doc, companyProfile, signatureData)
     const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -2820,7 +2856,17 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast 
               title="Print document or Save as PDF"
             >
               <Printer size={15} />
-              <span>Print / Save as PDF</span>
+              <span>Download / Save PDF</span>
+            </button>
+            <button
+              type="button"
+              className="lf-btn lf-btn-secondary lf-btn-sm"
+              disabled={sending || !doc.clientEmail}
+              title={!doc.clientEmail ? 'Add a valid client email first' : 'Send a secure document link to the client'}
+              onClick={handleSendDocument}
+            >
+              {sending ? <LoaderCircle size={15} className="lf-spin" /> : <Send size={15} />}
+              <span>{sending ? 'Sending…' : 'Send to Client'}</span>
             </button>
             <button
               type="button"
@@ -2853,7 +2899,7 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast 
               padding: '40px'
             }}
           >
-            <PrintableInvoiceTemplate doc={doc} companyProfile={companyProfile} />
+            <PrintableInvoiceTemplate doc={doc} companyProfile={companyProfile} signatureData={signatureData} showSignatureControl onRequestSignature={() => setSignatureModalOpen(true)} />
           </div>
         </div>
 
@@ -2867,11 +2913,100 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast 
         </div>
       </div>
     </div>
+    {signatureModalOpen && (
+      <SignaturePadModal
+        initialSignature={signatureData}
+        onClose={() => setSignatureModalOpen(false)}
+        onSave={(value) => {
+          onSignatureChange?.(value)
+          setSignatureModalOpen(false)
+          showToast('Signature added to the document', 'success')
+        }}
+      />
+    )}
+    </>
+  )
+}
+
+function SignaturePadModal({ initialSignature, onClose, onSave }) {
+  const canvasRef = useRef(null)
+  const drawingRef = useRef(false)
+  const hasDrawingRef = useRef(false)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !initialSignature) return
+    const context = canvas.getContext('2d')
+    const image = new Image()
+    image.onload = () => context.drawImage(image, 0, 0, canvas.width, canvas.height)
+    image.src = initialSignature
+    hasDrawingRef.current = true
+  }, [initialSignature])
+
+  const pointFor = (event) => {
+    const canvas = canvasRef.current
+    const rect = canvas.getBoundingClientRect()
+    return { x: (event.clientX - rect.left) * canvas.width / rect.width, y: (event.clientY - rect.top) * canvas.height / rect.height }
+  }
+  const startDrawing = (event) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    drawingRef.current = true
+    hasDrawingRef.current = true
+    canvas.setPointerCapture?.(event.pointerId)
+    const point = pointFor(event)
+    const context = canvas.getContext('2d')
+    context.beginPath()
+    context.moveTo(point.x, point.y)
+    context.lineWidth = 3
+    context.lineCap = 'round'
+    context.lineJoin = 'round'
+  }
+  const draw = (event) => {
+    if (!drawingRef.current || !canvasRef.current) return
+    const point = pointFor(event)
+    const context = canvasRef.current.getContext('2d')
+    context.lineTo(point.x, point.y)
+    context.stroke()
+  }
+  const clearSignature = () => {
+    const canvas = canvasRef.current
+    if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height)
+    hasDrawingRef.current = false
+  }
+
+  return (
+    <div className="lf-modal-backdrop lf-non-printable" role="presentation">
+      <div className="lf-modal" role="dialog" aria-modal="true" aria-labelledby="lf-signature-title">
+        <div className="lf-modal-header">
+          <h3 className="lf-modal-title" id="lf-signature-title">Add authorized signature</h3>
+          <button type="button" className="lf-icon-btn" onClick={onClose} aria-label="Close signature pad"><X size={16} /></button>
+        </div>
+        <div className="lf-modal-body">
+          <p style={{ marginTop: 0, color: 'var(--lf-text-muted)', fontSize: '12px' }}>Draw with a mouse, trackpad or touchscreen. The signature is embedded in the printable document.</p>
+          <canvas ref={canvasRef} width={680} height={180} aria-label="Signature drawing area"
+            onPointerDown={startDrawing} onPointerMove={draw}
+            onPointerUp={() => { drawingRef.current = false }} onPointerCancel={() => { drawingRef.current = false }}
+            onPointerLeave={() => { drawingRef.current = false }}
+            style={{ display: 'block', width: '100%', height: 'auto', border: '1px dashed var(--lf-border-strong)', borderRadius: '8px', background: '#fff', touchAction: 'none', cursor: 'crosshair' }} />
+        </div>
+        <div className="lf-modal-footer" style={{ justifyContent: 'space-between' }}>
+          <button type="button" className="lf-btn lf-btn-secondary" onClick={clearSignature}>Clear</button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button type="button" className="lf-btn lf-btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="button" className="lf-btn lf-btn-primary" disabled={!hasDrawingRef.current}
+              onClick={() => { if (hasDrawingRef.current && canvasRef.current) onSave(canvasRef.current.toDataURL('image/png')) }}>
+              <Check size={15} /> Save Signature
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
 // Pure Printable Template Component
-function PrintableInvoiceTemplate({ doc, companyProfile }) {
+function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', showSignatureControl = false, onRequestSignature }) {
   const isInvoice = doc.type === 'invoice'
   const isInterState = Boolean(doc.igstAmount && doc.igstAmount > 0)
 
@@ -3047,13 +3182,15 @@ function PrintableInvoiceTemplate({ doc, companyProfile }) {
         <div style={{ fontSize: '9px', color: '#8F9991' }}>
           This is a computer generated document. Generated via LedgerFlow Financial Suite.
         </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#286747', marginBottom: '32px' }}>
+        <div style={{ textAlign: 'center', minWidth: '170px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#286747', marginBottom: '6px' }}>
             For {companyProfile.tradeName || companyProfile.companyName}
           </div>
-          <div style={{ fontSize: '9px', borderTop: '1px solid #252B27', paddingTop: '3px', width: '160px' }}>
-            Authorized Signatory
+          <div style={{ position: 'relative', width: '170px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 3px' }}>
+            {signatureData ? <img src={signatureData} alt="Authorized signatory signature" style={{ maxWidth: '160px', maxHeight: '42px', objectFit: 'contain' }} /> : <span style={{ display: 'block', width: '160px', height: '38px' }} aria-hidden="true" />}
+            {showSignatureControl && <button type="button" className="lf-non-printable lf-signature-pen" onClick={onRequestSignature} title={signatureData ? 'Edit signature' : 'Add signature'} aria-label={signatureData ? 'Edit authorized signature' : 'Add authorized signature'}><PenLine size={14} /></button>}
           </div>
+          <div style={{ fontSize: '9px', borderTop: '1px solid #252B27', paddingTop: '3px', width: '160px', margin: '0 auto' }}>Authorized Signatory</div>
         </div>
       </div>
     </div>
@@ -3061,7 +3198,7 @@ function PrintableInvoiceTemplate({ doc, companyProfile }) {
 }
 
 // Generate Standalone HTML Document. Escape every user/database value before inserting it into HTML.
-function generatePrintableHtml(doc, profile) {
+function generatePrintableHtml(doc, profile, signatureData = '') {
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[char])
@@ -3087,7 +3224,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:24px;font-size:12px}th{b
 td{padding:8px;border-bottom:1px solid #e6eae5}.num{text-align:right;white-space:nowrap}
 .total-box{margin-left:auto;width:280px;max-width:100%;border:1px solid #e6eae5;border-radius:4px;padding:12px;font-size:12px}
 .row{display:flex;justify-content:space-between;gap:12px;padding:3px 0}.grand{border-top:2px solid #286747;margin-top:6px;padding-top:6px;font-size:15px;font-weight:800;color:#286747}
-.footer{margin-top:36px;border-top:1px solid #e6eae5;padding-top:12px;font-size:11px;color:#6b756d}
+.footer{margin-top:36px;border-top:1px solid #e6eae5;padding-top:12px;font-size:11px;color:#6b756d}.signature-image{display:block;max-width:160px;max-height:42px;object-fit:contain;margin:0 auto 4px}
 @media(max-width:600px){body{margin:14px}.header{flex-direction:column}.grid{grid-template-columns:1fr}table{font-size:10px}th,td{padding:5px}}
 @media print{body{margin:0}.no-print{display:none}}
 </style></head><body>
@@ -3106,8 +3243,11 @@ Bank: ${esc(profile.bankName)} (A/C: ${esc(profile.accountNumber)}, IFSC: ${esc(
 <div class="row"><span>Discount:</span><span>&#8377;${money(doc.discountAmount)}</span></div>
 <div class="row"><span>Tax:</span><span>&#8377;${money(doc.taxAmount)}</span></div>
 <div class="row grand"><span>Total:</span><span>&#8377;${money(doc.grandTotal)}</span></div></div>
-<div class="footer">Generated via LedgerFlow. <span style="float:right">Authorized Signatory: ${esc(profile.tradeName || profile.companyName)}</span>
-<div style="margin-top:8px;white-space:pre-wrap">${esc(doc.notes)}</div></div>
+<div class="footer">Generated via LedgerFlow.
+<div style="float:right;text-align:center;min-width:170px"><div style="font-weight:700;color:#286747">For ${esc(profile.tradeName || profile.companyName)}</div>
+${signatureData ? `<img class="signature-image" src="${esc(signatureData)}" alt="Authorized signatory signature">` : '<div style="height:42px"></div>'}
+<div style="border-top:1px solid #252b27;padding-top:3px">Authorized Signatory</div></div>
+<div style="margin-top:8px;white-space:pre-wrap;clear:both">${esc(doc.notes)}</div></div>
 </body></html>`
 }
 
