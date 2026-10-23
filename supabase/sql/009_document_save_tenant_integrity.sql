@@ -180,7 +180,7 @@ BEGIN
 
     IF COALESCE(v_total_paid, 0) > 0
        OR COALESCE(v_invoice.amount_paid, 0) > 0
-       OR lower(COALESCE(v_invoice.status::text, '')) = 'paid' THEN
+       OR lower(COALESCE(v_invoice.status::text, '')) IN ('paid', 'partially_paid') THEN
         RAISE EXCEPTION 'Invoices with recorded payments cannot be cancelled. Resolve the payment/refund through the appropriate accounting workflow.'
             USING ERRCODE = '23514';
     END IF;
