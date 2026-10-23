@@ -67,7 +67,8 @@ function ledgerFlowEmail_(item) {
   const total = ledgerFlowMoney_(item.grand_total);
   const days = Number(item.days_until_due);
   const isDueSoon = item.reminder_type === 'due_soon';
-  const isDueToday = isDueSoon && days === 0;
+  const isDueToday = item.reminder_type === 'due_today' || (isDueSoon && days === 0);
+  const isReminder = isDueSoon || isDueToday;
   const subject = isDueToday
     ? 'Payment reminder: invoice ' + invoiceNo + ' is due today'
     : isDueSoon
@@ -84,7 +85,7 @@ function ledgerFlowEmail_(item) {
     '<body style="margin:0;background:#f3f6f3;font-family:Arial,Helvetica,sans-serif;color:#252b27">' +
     '<div style="max-width:640px;margin:24px auto;background:#fff;border:1px solid #e2e9e2;border-radius:12px;overflow:hidden">' +
     '<div style="background:#286747;padding:22px 28px;color:#fff"><div style="font-size:12px;letter-spacing:1.4px;text-transform:uppercase">' + e(company) + '</div>' +
-    '<div style="font-size:22px;font-weight:700;margin-top:7px">Payment ' + (isDueSoon ? 'reminder' : 'follow-up') + '</div></div>' +
+    '<div style="font-size:22px;font-weight:700;margin-top:7px">Payment ' + (isReminder ? 'reminder' : 'follow-up') + '</div></div>' +
     '<div style="padding:28px"><p>Dear ' + e(client) + ',</p><p style="line-height:1.65">' + e(lead) + ' Please review the details below and arrange payment for the outstanding balance.</p>' +
     '<table role="presentation" style="width:100%;border-collapse:collapse;border:1px solid #e2e9e2"><tr><td style="padding:12px;background:#f5f8f5;width:42%">Invoice number</td><td style="padding:12px;font-weight:700">' + e(invoiceNo) + '</td></tr>' +
     '<tr><td style="padding:12px;border-top:1px solid #e2e9e2;background:#f5f8f5">Due date</td><td style="padding:12px;border-top:1px solid #e2e9e2">' + e(dueDate) + '</td></tr>' +
