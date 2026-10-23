@@ -155,8 +155,6 @@ export const saveInvoice = async (orgId, inv, items) => {
     p_items: items || [],
   }).then(must)
 }
-export const deleteInvoice = (orgId, id) => supabase.from('invoices').delete().eq('org_id', orgId).eq('id', id).select('id').single().then(must)
-
 export const recordPaymentFull = (orgId, invoiceId, amount, method, reference, paidAt, notes = null) =>
   supabase.from('payments').insert({
     org_id: orgId,
