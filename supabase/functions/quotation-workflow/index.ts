@@ -484,8 +484,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .eq("document_id", tokenRow.document_id)
       .maybeSingle();
     if (signatureError) return respondJson({ error: "Document signature could not be loaded." }, 500);
-    const publicDocument = mapPublicDocument(tokenRow.document_type, record, organization);
-    publicDocument.signatureData = signatureRow?.signature_data || "";
+    const publicDocument = {
+      ...mapPublicDocument(tokenRow.document_type, record, organization),
+      signatureData: signatureRow?.signature_data || "",
+    };
 
     return respondJson({
       documentType: tokenRow.document_type,
