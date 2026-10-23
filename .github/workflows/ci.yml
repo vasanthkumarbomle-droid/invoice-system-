@@ -31,3 +31,5 @@ jobs:
           deno-version: v2.x
       - name: Type-check client document Edge Function
         run: deno check supabase/functions/quotation-workflow/index.ts
+      - name: Type-check invoice reminder Edge Function
+        run: deno check supabase/functions/gmail-invoice-reminders/index.ts
