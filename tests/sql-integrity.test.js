@@ -35,6 +35,12 @@ test('internal invoice refresh helper is not executable by browser roles', () =>
   )
 })
 
+test('save RPCs cannot forge workflow-only financial/document statuses', () => {
+  assert.match(migration, /Invoice status must be draft or pending when saving/)
+  assert.match(migration, /Quotation status must be draft or sent when saving/)
+  assert.match(migration, /Closed quotations cannot be edited; duplicate them to create a revision/)
+})
+
 test('issued invoices cannot be edited and cancellation rejects recorded payments', () => {
   assert.match(migration, /Only draft invoices can be edited/)
   assert.match(migration, /WHERE id = v_id AND org_id = p_org_id AND lower\(status::text\) = 'draft'/)
