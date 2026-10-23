@@ -24,6 +24,14 @@ function validEmail(value: unknown): value is string {
   return typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
+function normalizeFromAddress(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const source = value.trim();
+  const named = source.match(/^(.+?)\s*<([^<>]+)>$/);
+  if (named && validEmail(named[2])) return source;
+  return validEmail(source) ? source : null;
+}
+
 function titleCase(value: unknown): string {
   return String(value || "").replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
@@ -180,8 +188,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const appBase = (Deno.env.get("PUBLIC_APP_URL") || "").replace(/\/+$/, "");
     const resendKey = Deno.env.get("RESEND_API_KEY");
-    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL");
-    if (!/^https?:\/\//i.test(appBase) || !resendKey || !validEmail(fromEmail)) {
+    const fromEmail = normalizeFromAddress(Deno.env.get("RESEND_FROM_EMAIL"));
+    if (!/^https?:\/\//i.test(appBase) || !resendKey || !fromEmail) {
       return respondJson({ error: "Email is not configured. Set PUBLIC_APP_URL, RESEND_API_KEY and a verified RESEND_FROM_EMAIL in Supabase function secrets." }, 503);
     }
 
