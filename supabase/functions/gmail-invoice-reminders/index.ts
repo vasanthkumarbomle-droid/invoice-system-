@@ -357,7 +357,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return jsonResponse({ error: "Invoice is no longer eligible for reminders." }, 409);
   }
 
-  const actualEmail = String(invoice.clients?.email || "").trim().toLowerCase();
+  // PostgREST can infer one-to-many relationships as arrays even for a
+  // single invoice. Normalize both response shapes before reading the email.
+  const invoiceClientRelation: unknown = invoice.clients;
+  const invoiceClient = Array.isArray(invoiceClientRelation)
+    ? invoiceClientRelation[0] as { email?: string | null } | undefined
+    : invoiceClientRelation as { email?: string | null } | null;
+  const actualEmail = String(invoiceClient?.email || "").trim().toLowerCase();
   if (!actualEmail || actualEmail !== recipientEmail.toLowerCase()) {
     return jsonResponse({
       error: "Recipient does not match the invoice client's current email.",
