@@ -74,8 +74,11 @@ export const createQuotation = async (orgId, clientId, validUntil, items, notes 
   return getQuotation(orgId, q.id)
 }
 export const setQuotationStatus = (orgId, id, status) => supabase.from('quotations').update({ status }).eq('org_id', orgId).eq('id', id).select('id').single().then(must)
-export const convertQuotation = (id, dueDate = null) =>
+export const convertQuotationToInvoice = (id, dueDate = null) =>
   supabase.rpc('convert_quotation_to_invoice', { p_quote_id: id, p_due_date: dueDate }).then(must)
+
+// Backward-compatible alias for older callers.
+export const convertQuotation = convertQuotationToInvoice
 
 export const saveDocumentSignature = async (orgId, documentType, documentId, signatureData) => {
   const { data, error } = await supabase.functions.invoke('quotation-workflow', {
@@ -135,8 +138,16 @@ export const saveInvoice = async (orgId, inv, items) => {
 }
 export const deleteInvoice = (orgId, id) => supabase.from('invoices').delete().eq('org_id', orgId).eq('id', id).select('id').single().then(must)
 
-export const recordPaymentFull = (orgId, invoiceId, amount, method, reference, paidAt) =>
-  supabase.from('payments').insert({ org_id: orgId, invoice_id: invoiceId, amount, method, reference, ...(paidAt ? { paid_at: paidAt } : {}) }).select().single().then(must)
+export const recordPaymentFull = (orgId, invoiceId, amount, method, reference, paidAt, notes = null) =>
+  supabase.from('payments').insert({
+    org_id: orgId,
+    invoice_id: invoiceId,
+    amount,
+    method,
+    reference,
+    notes: String(notes || '').trim() || null,
+    ...(paidAt ? { paid_at: paidAt } : {}),
+  }).select().single().then(must)
 
 export const listQuotationsFull = (orgId) =>
   supabase
