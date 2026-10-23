@@ -337,7 +337,46 @@ Deno.serve(async (req: Request): Promise<Response> => {
         return respondJson({ error: "This quotation was updated elsewhere. Refresh the page to see the latest status." }, 409);
       }
 
-      return respondJson({ success: true, responseStatus: decision, respondedAt: new Date().toISOString() });
+      // Notify the business contact after the decision is committed. A failed notification
+      // must never undo the client's recorded decision.
+      let ownerNotified = false;
+      const { data: business } = await admin.from("organizations")
+        .select("name,legal_name,email")
+        .eq("id", tokenRow.org_id)
+        .maybeSingle();
+      const ownerEmail = String(business?.email || "").trim();
+      const mailKey = Deno.env.get("RESEND_API_KEY");
+      const fromAddress = normalizeFromAddress(Deno.env.get("RESEND_FROM_EMAIL"));
+      if (validEmail(ownerEmail) && mailKey && fromAddress) {
+        try {
+          const businessName = business?.name || business?.legal_name || "LedgerFlow business";
+          const quoteNumber = quote.quote_number || quote.id;
+          const accepted = decision === "accepted";
+          const subject = `Quotation ${quoteNumber} was ${accepted ? "accepted" : "rejected"}`;
+          const message = `The client ${quote.clients?.name || "customer"} has ${accepted ? "accepted" : "rejected"} quotation ${quoteNumber}.`;
+          const mailResult = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { Authorization: "Bearer " + mailKey, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              from: fromAddress,
+              to: [ownerEmail],
+              subject,
+              text: message + "\\n\\nOpen LedgerFlow to review the recorded response.",
+              html: "<div style=\\"font-family:Arial,sans-serif;color:#202b24\\"><h2>" + escapeHtml(subject) + "</h2><p>" + escapeHtml(message) + "</p><p>Open LedgerFlow to review the recorded response.</p></div>",
+            }),
+          });
+          ownerNotified = mailResult.ok;
+        } catch (notificationError) {
+          console.error("Quotation response was recorded but owner notification failed:", notificationError);
+        }
+      }
+
+      return respondJson({
+        success: true,
+        responseStatus: decision,
+        respondedAt: new Date().toISOString(),
+        ownerNotified,
+      });
     }
 
     let record: any;
