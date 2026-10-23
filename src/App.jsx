@@ -258,7 +258,7 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
 
   const [clients, setClients] = useState([])
 
-  const loadClients = async () => {
+  const loadClients = useCallback(async () => {
     try {
       const rows = await db.listClients(org.id)
       setClients(rows.map((r) => ({
@@ -272,17 +272,17 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
         address: r.address || '',
       })))
     } catch (e) {
-      console.error(e)
+      console.error('Failed to load clients:', e)
     }
-  }
+  }, [org.id])
 
   useEffect(() => {
     loadClients()
-  }, [org.id])
+  }, [loadClients])
 
     const [products, setProducts] = useState([])
 
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     try {
       const rows = await db.listProducts(org.id)
       setProducts(rows.map((r) => ({
@@ -298,27 +298,27 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
         description: r.description || '',
       })))
     } catch (e) {
-      console.error(e)
+      console.error('Failed to load products:', e)
     }
-  }
+  }, [org.id])
 
   useEffect(() => {
     loadProducts()
-  }, [org.id])
+  }, [loadProducts])
    const [invoices, setInvoices] = useState([])
 
-  const loadInvoices = async () => {
+  const loadInvoices = useCallback(async () => {
     try {
       const rows = await db.listInvoicesFull(org.id)
       setInvoices(rows.map(mapInvoice))
     } catch (e) {
-      console.error(e)
+      console.error('Failed to load invoices:', e)
     }
-  }
+  }, [org.id])
 
   useEffect(() => {
     loadInvoices()
-  }, [org.id])
+  }, [loadInvoices])
 
   const saveInvoiceDoc = async (d) => {
     let resolvedClientId = d.clientId
@@ -363,19 +363,18 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
 
 const [quotations, setQuotations] = useState([])
 
-  const loadQuotations = async () => {
+  const loadQuotations = useCallback(async () => {
     try {
       const rows = await db.listQuotationsFull(org.id)
-
       setQuotations(rows.map(mapQuotationRecord))
     } catch (e) {
       console.error('Failed to load quotations:', e)
     }
-  }
+  }, [org.id])
 
   useEffect(() => {
     loadQuotations()
-  }, [org.id])
+  }, [loadQuotations])
 
  const handleConvertQuotation = async (quote) => {
   if (!quote?.id || String(quote.status).toLowerCase() !== 'accepted') {
@@ -421,18 +420,18 @@ const [quotations, setQuotations] = useState([])
 
     const [payments, setPayments] = useState([])
 
-  const loadPayments = async () => {
+  const loadPayments = useCallback(async () => {
     try {
       const rows = await db.listPayments(org.id)
       setPayments(rows.map(mapPayment))
     } catch (e) {
-      console.error(e)
+      console.error('Failed to load payments:', e)
     }
-  }
+  }, [org.id])
 
   useEffect(() => {
     loadPayments()
-  }, [org.id])
+  }, [loadPayments])
 
   // Company settings are persisted to Supabase through the Settings form.
 
@@ -1492,7 +1491,7 @@ function DashboardView({ invoices, payments, quotations, companyProfile, onNewIn
     Invoiced,
     Received,
   }))
-}, [reportableInvoices, payments])
+}, [reportableInvoices, reportableInvoiceIds, payments])
 
   return (
     <div>
