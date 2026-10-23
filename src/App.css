@@ -936,6 +936,24 @@ a:hover {
   border: 1px solid var(--lf-danger-border);
 }
 
+.lf-badge-partially-paid {
+  background-color: var(--lf-highlight-light);
+  color: var(--lf-highlight);
+  border: 1px solid var(--lf-highlight-border);
+}
+
+.lf-badge-cancelled, .lf-badge-expired {
+  background-color: var(--lf-danger-bg);
+  color: var(--lf-danger);
+  border: 1px solid var(--lf-danger-border);
+}
+
+.lf-badge-converted {
+  background-color: var(--lf-brand-light);
+  color: var(--lf-brand);
+  border: 1px solid var(--lf-brand-subtle);
+}
+
 /* Empty States */
 .lf-empty-state {
   display: flex;
