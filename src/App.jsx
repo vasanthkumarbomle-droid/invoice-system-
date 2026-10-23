@@ -460,10 +460,11 @@ const [quotations, setQuotations] = useState([])
   const [paymentDoc, setPaymentDoc] = useState(null)
   const [deleteConfirmModal, setDeleteConfirmModal] = useState({ open: false, type: '', id: '', title: '' })
 
-  // Toast System
+  // Toast System. A monotonic ref provides stable unique toast IDs inside event handlers.
   const [toasts, setToasts] = useState([])
+  const toastSequence = useRef(0)
   const showToast = (message, type = 'success') => {
-    const id = Date.now() + Math.random()
+    const id = ++toastSequence.current
     setToasts((prev) => [...prev, { id, message, type }])
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id))
