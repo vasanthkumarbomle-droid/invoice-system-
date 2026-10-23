@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
 const app = await readFile(new URL('../src/App.jsx', import.meta.url), 'utf8')
+const db = await readFile(new URL('../src/lib/db.js', import.meta.url), 'utf8')
 const reminder = await readFile(
   new URL('../supabase/functions/gmail-invoice-reminders/index.ts', import.meta.url),
   'utf8',
@@ -26,5 +27,5 @@ test('reminder candidate and send-log paths both normalize client relation shape
 test('issued invoices are protected from edit/cancel actions in the UI', () => {
   assert.match(app, /doc\.type === 'invoice' && doc\.status !== 'Draft'/)
   assert.match(app, /Invoices with recorded payments cannot be cancelled/)
-  assert.match(app, /cancel_invoice_if_unpaid/)
+  assert.match(db, /cancel_invoice_if_unpaid/)
 })
