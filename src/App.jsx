@@ -63,45 +63,59 @@ function formatINR(amount) {
   }).format(num)
 }
 
+function todayInIndia() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date())
+  const part = (type) => parts.find((entry) => entry.type === type)?.value || ''
+  return `${part('year')}-${part('month')}-${part('day')}`
+}
+
+function addDaysToDateString(dateString, days) {
+  const match = String(dateString || todayInIndia()).match(/^(\\d{4})-(\\d{2})-(\\d{2})$/)
+  if (!match) return todayInIndia()
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + Number(days || 0)))
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
+}
+
+function paymentTermsDays(value, fallback = 15) {
+  const match = String(value || '').match(/\\d+/)
+  const days = match ? Number(match[0]) : fallback
+  return Number.isFinite(days) && days >= 0 ? days : fallback
+}
+
 // Convert numbers to Indian Rupees words
 function numberToWordsINR(num) {
-  const n = Math.floor(Math.abs(Number(num) || 0))
-  if (n === 0) return 'Rupees Zero Only'
-
+  const cents = Math.round(Math.abs(Number(num) || 0) * 100)
+  const n = Math.floor(cents / 100)
+  const paise = cents % 100
   const a = [
     '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
     'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'
   ]
   const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
-
   const convertLessThanOneThousand = (val) => {
     let str = ''
-    if (val >= 100) {
-      str += a[Math.floor(val / 100)] + ' Hundred '
-      val %= 100
-    }
-    if (val >= 20) {
-      str += b[Math.floor(val / 10)] + ' '
-      val %= 10
-    }
-    if (val > 0) {
-      str += a[val] + ' '
-    }
+    if (val >= 100) { str += a[Math.floor(val / 100)] + ' Hundred '; val %= 100 }
+    if (val >= 20) { str += b[Math.floor(val / 10)] + ' '; val %= 10 }
+    if (val > 0) str += a[val] + ' '
     return str.trim()
   }
-
-  let words = ''
-  const crore = Math.floor(n / 10000000)
-  const lakh = Math.floor((n % 10000000) / 100000)
-  const thousand = Math.floor((n % 100000) / 1000)
-  const remainder = n % 1000
-
-  if (crore > 0) words += convertLessThanOneThousand(crore) + ' Crore '
-  if (lakh > 0) words += convertLessThanOneThousand(lakh) + ' Lakh '
-  if (thousand > 0) words += convertLessThanOneThousand(thousand) + ' Thousand '
-  if (remainder > 0) words += convertLessThanOneThousand(remainder) + ' '
-
-  return `Rupees ${words.trim()} Only`
+  const convertInteger = (value) => {
+    if (value === 0) return 'Zero'
+    const crore = Math.floor(value / 10000000)
+    const lakh = Math.floor((value % 10000000) / 100000)
+    const thousand = Math.floor((value % 100000) / 1000)
+    const remainder = value % 1000
+    let words = ''
+    if (crore > 0) words += convertLessThanOneThousand(crore) + ' Crore '
+    if (lakh > 0) words += convertLessThanOneThousand(lakh) + ' Lakh '
+    if (thousand > 0) words += convertLessThanOneThousand(thousand) + ' Thousand '
+    if (remainder > 0) words += convertLessThanOneThousand(remainder) + ' '
+    return words.trim()
+  }
+  const paiseWords = paise > 0 ? ` and Paise ${convertLessThanOneThousand(paise)}` : ''
+  return `Rupees ${convertInteger(n)}${paiseWords} Only`
 }
 
 // ============================================================================
@@ -123,87 +137,100 @@ const METHOD_FROM_DB = {
 }
 
 function mapInvoice(r) {
-  const rows = (r.invoice_items || []).slice().sort((a, b) => a.position - b.position)
-  const gross = rows.reduce((sum, it) =>
-    sum + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0), 0)
+  const rows = (r.invoice_items || []).slice().sort((a, b) => Number(a.position || 0) - Number(b.position || 0))
+  const gross = rows.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0), 0)
   const items = rows.map((it) => {
     const qty = Number(it.quantity) || 0
     const price = Number(it.unit_price) || 0
     const gst = Number(it.gst_rate) || 0
     const lineGross = qty * price
     const discountPct = Math.max(0, Math.min(100, Number(it.discount_pct) || 0))
-    const taxableLine = it.taxable_amount != null
-      ? Number(it.taxable_amount)
-      : lineGross * (1 - discountPct / 100)
-    const hasStoredGst = it.cgst_amount != null || it.sgst_amount != null || it.igst_amount != null
+    const taxableLine = it.taxable_amount != null ? Number(it.taxable_amount) : lineGross * (1 - discountPct / 100)
     const storedTax = Number(it.cgst_amount || 0) + Number(it.sgst_amount || 0) + Number(it.igst_amount || 0)
-    const tax = hasStoredGst
+    const tax = it.cgst_amount != null || it.sgst_amount != null || it.igst_amount != null
       ? storedTax
-      : it.tax_amount != null
-        ? Number(it.tax_amount)
-        : taxableLine * gst / 100
+      : it.tax_amount != null ? Number(it.tax_amount) : taxableLine * gst / 100
     const total = it.line_total != null ? Number(it.line_total) : taxableLine + tax
     return {
-      id: it.id, productId: it.product_id || '', description: it.description, sku: '',
+      id: it.id, productId: it.product_id || '', description: it.description || '', sku: it.sku || '',
+      hsnSac: it.hsn_sac || '', unit: it.unit || 'unit', discountPct,
       quantity: qty, unitPrice: price, gstRate: gst, subtotal: taxableLine, taxAmount: tax, total,
     }
   })
-  const taxable = Number(r.subtotal)
+  const taxable = Number(r.subtotal ?? gross) || 0
   const rawStatus = String(r.status || 'draft').toLowerCase()
   const balanceDue = Number(r.balance_due) || 0
   const amountPaid = Number(r.amount_paid) || 0
-  const todayIndia = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
-  const status = rawStatus === 'cancelled' ? 'Cancelled' : rawStatus === 'draft' ? 'Draft' : balanceDue <= 0 ? 'Paid' : amountPaid > 0 ? 'Partially Paid' : ((r.due_date && String(r.due_date).slice(0, 10) < todayIndia) || rawStatus === 'overdue') ? 'Overdue' : 'Sent'
+  const status = rawStatus === 'cancelled' ? 'Cancelled'
+    : rawStatus === 'draft' ? 'Draft'
+      : balanceDue <= 0 ? 'Paid'
+        : amountPaid > 0 ? 'Partially Paid'
+          : ((r.due_date && String(r.due_date).slice(0, 10) < todayInIndia()) || rawStatus === 'overdue') ? 'Overdue' : 'Sent'
+  const clientGstin = r.clients?.gstin || ''
   return {
     id: r.id,
-    documentNumber: r.invoice_number,
+    documentNumber: String(r.invoice_number || `INV-${String(r.id || '').slice(0, 8).toUpperCase()}`),
     type: 'invoice',
     clientId: r.client_id,
     clientName: r.clients?.name || '',
     clientEmail: r.clients?.email || '',
     clientPhone: r.clients?.phone || '',
     clientAddress: r.clients?.address || '',
-    clientGstin: r.clients?.gstin || '',
+    clientGstin,
+    clientStateCode: r.clients?.state_code || String(clientGstin).slice(0, 2),
     issueDate: r.issue_date,
     dueDate: r.due_date,
-    paymentTerms: 'Net 15',
-    status,
-    items,
-    subtotal: gross,
+    paymentTerms: r.payment_terms || 'Net 15',
+    status, items, subtotal: gross,
     discountType: 'percentage',
-    discountValue: rows.length ? Number(rows[0].discount_pct) : 0,
+    discountValue: rows.length ? Number(rows[0].discount_pct) || 0 : 0,
     discountAmount: Math.max(0, gross - taxable),
     taxableAmount: taxable,
-    cgstAmount: Number(r.cgst_total),
-    sgstAmount: Number(r.sgst_total),
-    igstAmount: Number(r.igst_total),
-    taxAmount: Number(r.tax_total),
-    grandTotal: Number(r.grand_total),
-    amountPaid,
-    balanceDue,
-    notes: r.notes || '',
+    cgstAmount: Number(r.cgst_total) || 0,
+    sgstAmount: Number(r.sgst_total) || 0,
+    igstAmount: Number(r.igst_total) || 0,
+    taxAmount: Number(r.tax_total) || 0,
+    grandTotal: Number(r.grand_total) || 0,
+    amountPaid, balanceDue, notes: r.notes || '',
   }
 }
 
 function mapQuotationRecord(q) {
   const client = q.clients || {}
+  const rows = (q.quotation_items || []).slice().sort((a, b) => Number(a.position || 0) - Number(b.position || 0))
+  const gross = rows.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0), 0)
+  const taxable = Number(q.subtotal ?? gross) || 0
   const grandTotal = Number(q.grand_total || 0)
   const rawStatus = String(q.status || 'draft')
-  const items = (q.quotation_items || []).slice().sort((a, b) => a.position - b.position).map((it) => ({
-    id: it.id, productId: it.product_id, description: it.description || '', sku: '', hsnSac: it.hsn_sac || '',
-    quantity: Number(it.quantity || 0), unitPrice: Number(it.unit_price || 0), gstRate: Number(it.gst_rate || 0),
-    subtotal: Number(it.taxable_amount || 0),
-    taxAmount: Number(it.cgst_amount || 0) + Number(it.sgst_amount || 0) + Number(it.igst_amount || 0),
-    total: Number(it.line_total || 0),
-  }))
+  const items = rows.map((it) => {
+    const quantity = Number(it.quantity || 0)
+    const unitPrice = Number(it.unit_price || 0)
+    const gstRate = Number(it.gst_rate || 0)
+    const lineGross = quantity * unitPrice
+    const discountPct = Math.max(0, Math.min(100, Number(it.discount_pct) || 0))
+    const lineTax = Number(it.cgst_amount || 0) + Number(it.sgst_amount || 0) + Number(it.igst_amount || 0)
+    const lineTaxable = it.taxable_amount != null ? Number(it.taxable_amount) : lineGross * (1 - discountPct / 100)
+    return {
+      id: it.id, productId: it.product_id || '', description: it.description || '', sku: it.sku || '',
+      hsnSac: it.hsn_sac || '', unit: it.unit || 'unit', discountPct,
+      quantity, unitPrice, gstRate, subtotal: lineTaxable,
+      taxAmount: lineTax || lineTaxable * gstRate / 100,
+      total: Number(it.line_total ?? (lineTaxable * (1 + gstRate / 100))),
+    }
+  })
+  const clientGstin = client.gstin || ''
   return {
-    id: q.id, documentNumber: q.quote_number, type: 'quotation', clientId: q.client_id,
+    id: q.id, documentNumber: String(q.quote_number || `QT-${String(q.id || '').slice(0, 8).toUpperCase()}`),
+    type: 'quotation', clientId: q.client_id,
     clientName: client.name || '', clientEmail: client.email || '', clientPhone: client.phone || '',
-    clientAddress: client.address || '', clientGstin: client.gstin || '', issueDate: q.issue_date, dueDate: q.valid_until,
-    paymentTerms: q.terms || '', status: rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1), items,
-    subtotal: Number(q.subtotal || 0), discountType: 'fixed', discountValue: 0, discountAmount: 0,
-    taxableAmount: Number(q.subtotal || 0), cgstAmount: Number(q.cgst_total || 0),
-    sgstAmount: Number(q.sgst_total || 0), igstAmount: Number(q.igst_total || 0), taxAmount: Number(q.tax_total || 0),
+    clientAddress: client.address || '', clientGstin, clientStateCode: client.state_code || String(clientGstin).slice(0, 2),
+    issueDate: q.issue_date, dueDate: q.valid_until, paymentTerms: q.terms || '',
+    status: rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1), items,
+    subtotal: gross, discountType: 'percentage',
+    discountValue: rows.length ? Number(rows[0].discount_pct) || 0 : 0,
+    discountAmount: Math.max(0, gross - taxable), taxableAmount: taxable,
+    cgstAmount: Number(q.cgst_total || 0), sgstAmount: Number(q.sgst_total || 0),
+    igstAmount: Number(q.igst_total || 0), taxAmount: Number(q.tax_total || 0),
     grandTotal, amountPaid: 0, balanceDue: grandTotal, notes: q.notes || '',
   }
 }
