@@ -173,7 +173,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
     const { data: membership, error: memberError } = await admin.from("org_members")
       .select("role").eq("org_id", orgId).eq("user_id", user.id).maybeSingle();
-    if (memberError || !membership) return respondJson({ error: "You do not have permission to view this business signature." }, 403);
+    if (memberError || !membership || !["owner", "admin"].includes(String(membership.role || "").toLowerCase())) {
+      return respondJson({ error: "Only business owners or admins can view the saved document signature." }, 403);
+    }
 
     const { data: signatureRow, error: signatureError } = await admin.from("document_signatures")
       .select("signature_data").eq("org_id", orgId).eq("document_type", documentType)
@@ -209,7 +211,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const { data: membership, error: memberError } = await admin.from("org_members")
       .select("role").eq("org_id", orgId).eq("user_id", user.id).maybeSingle();
-    if (memberError || !membership) return respondJson({ error: "You do not have permission to sign documents for this business." }, 403);
+    if (memberError || !membership || !["owner", "admin"].includes(String(membership.role || "").toLowerCase())) {
+      return respondJson({ error: "Only business owners or admins can save document signatures." }, 403);
+    }
 
     try {
       await getDocument(admin, documentType, documentId, orgId);
@@ -261,7 +265,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .eq("org_id", orgId)
       .eq("user_id", user.id)
       .maybeSingle();
-    if (memberError || !membership) return respondJson({ error: "You do not have permission to send documents for this business." }, 403);
+    if (memberError || !membership || !["owner", "admin"].includes(String(membership.role || "").toLowerCase())) {
+      return respondJson({ error: "Only business owners or admins can send client documents." }, 403);
+    }
 
     let record: any;
     try {
