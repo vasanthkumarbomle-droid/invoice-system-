@@ -33,7 +33,7 @@ export function getSupabaseConfigStatus() {
     return {
       configured: true,
       source: 'environment',
-      url: activeUrl ? \`\${activeUrl.slice(0, 24)}...\` : '',
+      url: activeUrl ? `${activeUrl.slice(0, 24)}...` : '',
       message: 'Supabase Cloud Connected',
     }
   }
