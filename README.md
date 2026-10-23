@@ -38,9 +38,10 @@ After reviewing the schema and backing up the project, apply the feature migrati
 - supabase/sql/002_organization_reminder_settings.sql — reminder opt-in settings.
 - supabase/sql/003_client_document_workflow.sql — secure client links, signatures, and transactional save RPCs.
 - supabase/sql/004_quotation_conversion_and_account_holder.sql — accepted quotation conversion and persisted bank account-holder name.
-- supabase/sql/005_payment_integrity.sql — server-side validation that prevents payments against draft/cancelled invoices and amounts above the outstanding balance.
+- supabase/sql/005_payment_integrity.sql — server-side validation that prevents payments against draft/cancelled/paid invoices and amounts above the outstanding balance.
+- supabase/sql/006_due_date_reminders.sql — lets due-today reminders be logged separately from earlier due-soon reminders.
 
-Migrations 003–005 were added after the base project schema was already being used. They are not proof that the live database has been migrated. Review the SQL and verify the results in the target project before using the affected workflows.
+Migrations 003–006 were added after the base project schema was already being used. They are not proof that the live database has been migrated. Review the SQL and verify the results in the target project before using the affected workflows.
 
 ## Client document emails and quotation response
 
