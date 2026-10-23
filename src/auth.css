@@ -87,3 +87,30 @@
   .auth-page { grid-template-columns: 1fr; }
   .auth-brand { display: none; }
 }
+
+
+.auth-secondary-actions {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  margin-top: 16px;
+}
+.auth-secondary-actions .auth-toggle {
+  margin-top: 4px;
+}
+.auth-link {
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: #1f5e41;
+  font-size: 13.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.auth-link:hover { text-decoration: underline; }
+.auth-link:focus-visible,
+.auth-toggle:focus-visible,
+.auth-btn:focus-visible {
+  outline: 3px solid rgba(31, 94, 65, 0.35);
+  outline-offset: 3px;
+}
