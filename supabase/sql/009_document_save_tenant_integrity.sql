@@ -364,7 +364,7 @@ RETURNS uuid
 LANGUAGE plpgsql
 SECURITY INVOKER
 SET search_path = public, pg_temp
-AS $
+AS $$
 DECLARE
   v_quote public.quotations%ROWTYPE;
   v_item record;
@@ -476,7 +476,7 @@ BEGIN
 
   RETURN v_invoice_id;
 END;
-$;
+$$;
 
 REVOKE ALL ON FUNCTION public.convert_quotation_to_invoice(uuid, date)
   FROM PUBLIC, anon;
