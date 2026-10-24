@@ -15,6 +15,7 @@ Use the Vercel preview for branch ui-ux-overhaul, not production.
 - [ ] Confirm cancelled invoice balances show —, zero overdue is neutral, and No Barcode is neutral.
 - [ ] Press Ctrl+K; try Go to reports and Show overdue.
 - [ ] Try Invoice Ravi Traders 3 keyboards 18% due in 15 days using existing client/product records; inspect every prefilled field before saving.
+- [ ] Open the invoice editor and confirm the paper preview updates while client, line items, dates and totals change; click the missing-seller warning and confirm it opens Settings.
 
 ## Accounting and security regression checks before merge
 - [ ] Create/edit draft invoice and quotation.
