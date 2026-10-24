@@ -19,9 +19,6 @@ import {
   FileSpreadsheet,
   Users,
   Package,
-  ClipboardList,
-  Truck,
-  PackageCheck,
   CreditCard,
   BarChart3,
   Settings,
@@ -240,7 +237,6 @@ export default function App() {
         <Route path="/invoices" element={<LedgerFlowShell activeTab="invoices" />} />
         <Route path="/invoices/new" element={<LedgerFlowShell activeTab="editor" initialMode="invoice" />} />
         <Route path="/quotations" element={<LedgerFlowShell activeTab="quotations" />} />
-        <Route path="/orders" element={<LedgerFlowShell activeTab="orders" />} />
         <Route path="/quotations/new" element={<LedgerFlowShell activeTab="editor" initialMode="quotation" />} />
         <Route path="/clients" element={<LedgerFlowShell activeTab="clients" />} />
         <Route path="/products" element={<LedgerFlowShell activeTab="products" />} />
@@ -404,20 +400,6 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
   }
 
 const [quotations, setQuotations] = useState([])
-  const [salesOrders, setSalesOrders] = useState([])
-
-  const loadSalesOrders = useCallback(async () => {
-    try {
-      const rows = await db.listSalesOrdersFull(org.id)
-      setSalesOrders(rows)
-    } catch (e) {
-      console.error('Failed to load sales orders:', e)
-    }
-  }, [org.id])
-
-  useEffect(() => {
-    loadSalesOrders()
-  }, [loadSalesOrders])
 
   const loadQuotations = useCallback(async () => {
     try {
@@ -453,59 +435,6 @@ const [quotations, setQuotations] = useState([])
     showToast(e.message || 'Failed to convert quotation', 'error')
   }
 }
-
-  const handleSalesOrderAction = async (order, task, options = {}) => {
-    if (!canManageBusiness) {
-      showToast('Only business owners or admins can manage sales orders.', 'error')
-      return
-    }
-    try {
-      if (task === 'resend_invoice') {
-        if (!order.invoice?.id) throw new Error('No invoice is linked to this sales order yet.')
-        await db.sendDocumentEmail(org.id, 'invoice', order.invoice.id)
-        await Promise.all([loadSalesOrders(), loadInvoices()])
-        showToast('Invoice email accepted by the provider for ' + (order.clients?.email || 'the client') + '.', 'success')
-        return
-      }
-
-      const result = await db.salesOrderAction(org.id, order.id, task, options)
-
-      if (task === 'generate_invoice') {
-        await Promise.all([loadSalesOrders(), loadInvoices(), loadQuotations(), loadProducts()])
-        try {
-          await db.sendDocumentEmail(org.id, 'invoice', result.invoiceId)
-          await Promise.all([loadSalesOrders(), loadInvoices()])
-          showToast('Tax invoice ' + (result.invoiceNumber || '') + ' generated and email accepted by the provider.', 'success')
-          navigateTo('/invoices')
-        } catch (emailError) {
-          await Promise.all([loadSalesOrders(), loadInvoices()])
-          showToast(
-            'Invoice ' + (result.invoiceNumber || '') + ' was generated and stock was deducted, but email failed: ' +
-            (emailError?.message || 'Please retry from Sales Orders.'),
-            'warning'
-          )
-        }
-        return
-      }
-
-      if (task === 'send_proforma') {
-        showToast('Advance payment instructions accepted for sending to ' + (result.recipient || order.clients?.email || 'the client') + '.', 'success')
-      } else {
-        const messages = {
-          confirm_stock: 'Stock checked and available quantities reserved.',
-          mark_advance_paid: 'Advance payment marked as received.',
-          start_packing: 'Packing started.',
-          mark_packed: 'Order marked packed. Print its delivery challan and assign a tracking number.',
-          dispatch: 'Dispatch recorded with carrier and tracking number.',
-          cancel_order: 'Sales order cancelled and reservations released.',
-        }
-        showToast(messages[task] || 'Sales order updated.', 'success')
-      }
-      await Promise.all([loadSalesOrders(), loadProducts(), loadInvoices(), loadQuotations()])
-    } catch (error) {
-      showToast(error?.message || 'Could not update the sales order.', 'error')
-    }
-  }
 
   const handleSendDocument = async (doc) => {
     if (!isSupabaseConfigured) throw new Error('Connect Supabase before sending a document.')
@@ -872,19 +801,6 @@ const [quotations, setQuotations] = useState([])
 
           <button
             type="button"
-            className={`lf-nav-item ${activeTab === 'orders' ? 'active' : ''}`}
-            onClick={() => navigateTo('/orders')}
-            title="Sales Orders & Fulfillment"
-          >
-            <span className="lf-nav-icon"><ClipboardList size={18} /></span>
-            {!sidebarCollapsed && <span>Sales Orders</span>}
-            {!sidebarCollapsed && salesOrders.filter((order) => !['invoiced','cancelled'].includes(String(order.status || '').toLowerCase())).length > 0 && (
-              <span className="lf-nav-badge">{salesOrders.filter((order) => !['invoiced','cancelled'].includes(String(order.status || '').toLowerCase())).length}</span>
-            )}
-          </button>
-
-          <button
-            type="button"
             className={`lf-nav-item ${activeTab === 'clients' ? 'active' : ''}`}
             onClick={() => navigateTo('/clients')}
             title="Clients"
@@ -973,7 +889,6 @@ const [quotations, setQuotations] = useState([])
                 {activeTab === 'dashboard' && 'Financial Overview'}
                 {activeTab === 'invoices' && 'Invoices'}
                 {activeTab === 'quotations' && 'Quotations & Estimates'}
-                {activeTab === 'orders' && 'Sales Orders & Fulfillment'}
                 {activeTab === 'clients' && 'Client Directory'}
                 {activeTab === 'products' && 'Product Catalogue & Inventory'}
                 {activeTab === 'payments' && 'Payment Transactions'}
@@ -1163,14 +1078,6 @@ const [quotations, setQuotations] = useState([])
               onEditDoc={handleEditDoc}
               onDuplicateDoc={handleDuplicateDoc}
               onDeleteDoc={(doc) => confirmDelete('quotation', doc.id, doc.documentNumber)}
-            />
-          )}
-
-          {activeTab === 'orders' && (
-            <SalesOrdersView
-              orders={salesOrders}
-              companyProfile={companyProfile}
-              onAction={handleSalesOrderAction}
             />
           )}
 
@@ -1614,329 +1521,6 @@ const [quotations, setQuotations] = useState([])
           </div>
         ))}
       </div>
-    </div>
-  )
-}
-
-// ============================================================================
-// SALES ORDERS & FULFILLMENT
-// ============================================================================
-
-function SalesOrdersView({ orders = [], companyProfile = {}, onAction }) {
-  const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState('All')
-  const [shippingInputs, setShippingInputs] = useState({})
-
-  const summary = useMemo(() => ({
-    awaiting: orders.filter((order) => order.status === 'awaiting_stock').length,
-    active: orders.filter((order) => ['reserved', 'packing'].includes(order.status)).length,
-    dispatch: orders.filter((order) => ['packed', 'dispatched'].includes(order.status)).length,
-    invoiced: orders.filter((order) => order.status === 'invoiced').length,
-  }), [orders])
-
-  const filteredOrders = useMemo(() => orders.filter((order) => {
-    const needle = search.trim().toLowerCase()
-    const matchesSearch = !needle || [
-      order.order_number,
-      order.quotations?.quote_number,
-      order.clients?.name,
-      order.clients?.email,
-      order.tracking_number,
-    ].some((value) => String(value || '').toLowerCase().includes(needle))
-    const matchesFilter = filter === 'All' ||
-      (filter === 'Needs stock check' && order.status === 'awaiting_stock') ||
-      (filter === 'In progress' && ['reserved', 'packing'].includes(order.status)) ||
-      (filter === 'Ready / dispatched' && ['packed', 'dispatched'].includes(order.status)) ||
-      (filter === 'Invoiced' && order.status === 'invoiced') ||
-      (filter === 'Cancelled' && order.status === 'cancelled')
-    return matchesSearch && matchesFilter
-  }).sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))), [orders, search, filter])
-
-  const dateLabel = (value) => value
-    ? new Date(value).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })
-    : '—'
-  const statusLabel = (status) => ({
-    awaiting_stock: 'Awaiting stock check',
-    reserved: 'Stock reserved',
-    packing: 'Packing',
-    packed: 'Packed',
-    dispatched: 'Dispatched',
-    invoiced: 'Invoiced',
-    cancelled: 'Cancelled',
-  }[status] || String(status || 'Awaiting stock').replace(/_/g, ' '))
-  const stockLabel = (status) => ({
-    reserved: 'Reserved',
-    backorder: 'Backorder / restock needed',
-    manual_check: 'Manual stock check required',
-    deducted: 'Deducted from stock ledger',
-    released: 'Reservation released',
-  }[status] || String(status || '').replace(/_/g, ' '))
-  const paymentLabel = (type) => ({
-    advance: '100% advance',
-    cod: 'Cash on delivery',
-    credit: 'Credit / net terms',
-  }[type] || 'Credit / net terms')
-  const amountFor = (order) => {
-    const quoteTotal = Number(order.quotations?.grand_total)
-    if (Number.isFinite(quoteTotal) && quoteTotal > 0) return quoteTotal
-    return (order.sales_order_items || []).reduce((sum, item) => {
-      const taxable = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0) *
-        (1 - Math.min(100, Math.max(0, Number(item.discount_pct) || 0)) / 100)
-      return sum + taxable * (1 + Math.max(0, Number(item.gst_rate) || 0) / 100)
-    }, 0)
-  }
-  const getShippingValue = (order, field) =>
-    shippingInputs[order.id]?.[field] ?? order[field] ?? ''
-  const setShippingValue = (orderId, field, value) =>
-    setShippingInputs((current) => ({
-      ...current,
-      [orderId]: { ...(current[orderId] || {}), [field]: value },
-    }))
-
-  const printChallan = (order) => {
-    const popup = window.open('', '_blank', 'width=900,height=700')
-    if (!popup) {
-      window.alert('Allow pop-ups to print the delivery challan.')
-      return
-    }
-    const safe = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[char]))
-    const items = (order.sales_order_items || []).map((item, index) =>
-      '<tr><td>' + (index + 1) + '</td><td>' + safe(item.description) +
-      (item.sku ? '<br><small>SKU: ' + safe(item.sku) + '</small>' : '') +
-      (item.hsn_sac ? '<br><small>HSN/SAC: ' + safe(item.hsn_sac) + '</small>' : '') +
-      '</td><td>' + safe(item.quantity) + '</td><td>' + safe(item.unit || 'pcs') + '</td></tr>'
-    ).join('')
-    const business = safe(companyProfile.tradeName || companyProfile.companyName || 'Business')
-    const html = '<!doctype html><html><head><meta charset="utf-8"><title>Delivery Challan ' + safe(order.order_number) +
-      '</title><style>body{font:14px Arial,sans-serif;color:#18212a;margin:32px}h1{margin:0 0 4px}small,.muted{color:#64748b}header{display:flex;justify-content:space-between;border-bottom:2px solid #222;padding-bottom:18px;margin-bottom:24px}table{width:100%;border-collapse:collapse;margin-top:24px}th,td{border:1px solid #d7dde5;padding:10px;text-align:left}th{background:#f3f6f9}.signatures{display:flex;justify-content:space-between;margin-top:90px}.signatures div{border-top:1px solid #333;padding-top:8px;min-width:220px} @media print{button{display:none}}</style></head><body>' +
-      '<header><div><h1>' + business + '</h1><div class="muted">Delivery Challan / Packing Slip</div></div><div><strong>' +
-      safe(order.order_number) + '</strong><p>Date: ' + safe(dateLabel(new Date())) + '</p><p>Quotation: ' + safe(order.quotations?.quote_number || '—') + '</p></div></header>' +
-      '<h3>Ship to</h3><p><strong>' + safe(order.clients?.name || 'Client') + '</strong><br>' +
-      safe(order.clients?.address || '') + '<br>' + safe(order.clients?.phone || '') + '</p>' +
-      '<p><strong>Carrier:</strong> ' + safe(order.carrier || 'To be assigned') +
-      ' &nbsp; <strong>Tracking number:</strong> ' + safe(order.tracking_number || 'To be assigned') +
-      (order.tracking_url && /^https:\/\//i.test(order.tracking_url) ? '<br><strong>Tracking link:</strong> ' + safe(order.tracking_url) : '') + '</p>' +
-      '<table><thead><tr><th>#</th><th>Product description</th><th>Quantity</th><th>Unit</th></tr></thead><tbody>' + items +
-      '</tbody></table><p class="muted">Packing/dispatch document only. Prices and tax amounts are intentionally omitted.</p>' +
-      '<div class="signatures"><div>Prepared by</div><div>Received by</div></div><p><button onclick="window.print()">Print challan</button></p></body></html>'
-    popup.document.open()
-    popup.document.write(html)
-    popup.document.close()
-    popup.focus()
-    popup.print()
-  }
-
-  return (
-    <div className="lf-card" style={{ gap: 18 }}>
-      <div className="lf-card-header">
-        <div>
-          <h2 className="lf-card-title">Sales Orders & Fulfillment</h2>
-          <p className="lf-card-subtitle">Accepted quotations, reserved stock, packing, dispatch and final tax invoices.</p>
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: 12 }}>
-        {[
-          ['Needs stock check', summary.awaiting, 'Review inventory and reserve stock.'],
-          ['In progress', summary.active, 'Stock reserved or packing.'],
-          ['Ready / dispatched', summary.dispatch, 'Packed or awaiting final invoice.'],
-          ['Invoiced', summary.invoiced, 'Tax invoice generated.'],
-        ].map(([label, value, note]) => (
-          <div key={label} className="lf-card" style={{ padding: 14, minWidth: 0, background: 'var(--lf-bg)', boxShadow: 'none' }}>
-            <div style={{ fontSize: 12, color: 'var(--lf-text-muted)', fontWeight: 700 }}>{label}</div>
-            <div style={{ fontSize: 26, fontWeight: 800, margin: '6px 0' }}>{value}</div>
-            <div style={{ fontSize: 11, lineHeight: 1.45, color: 'var(--lf-text-muted)' }}>{note}</div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) minmax(0, auto)', gap: 12, alignItems: 'center' }}>
-        <input
-          className="lf-form-input"
-          aria-label="Search sales orders"
-          placeholder="Search order, quotation, client or tracking..."
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-        <select className="lf-form-select" aria-label="Filter sales orders" value={filter} onChange={(event) => setFilter(event.target.value)}>
-          {['All', 'Needs stock check', 'In progress', 'Ready / dispatched', 'Invoiced', 'Cancelled'].map((value) => <option key={value}>{value}</option>)}
-        </select>
-      </div>
-
-      {filteredOrders.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '44px 16px', color: 'var(--lf-text-muted)' }}>
-          <ClipboardList size={30} style={{ margin: '0 auto 10px' }} />
-          <h3 style={{ margin: '0 0 6px', color: 'var(--lf-text)' }}>No sales orders yet</h3>
-          <p style={{ margin: 0, fontSize: 13 }}>When a client accepts a quotation, the sales order will appear here. No tax invoice is created at acceptance.</p>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gap: 14 }}>
-          {filteredOrders.map((order) => {
-            const items = order.sales_order_items || []
-            const invoice = order.invoice
-            const isAdvance = order.payment_type === 'advance'
-            const stockNeedsCheck = order.status === 'awaiting_stock'
-            const isOpen = !['cancelled', 'invoiced'].includes(order.status)
-            const badgeStyle = {
-              display: 'inline-flex', alignItems: 'center', borderRadius: 99, padding: '5px 10px',
-              fontSize: 11, fontWeight: 750, background: order.status === 'invoiced' ? '#dcfce7' :
-                order.status === 'awaiting_stock' ? '#fff7ed' : order.status === 'cancelled' ? '#fee2e2' : '#eaf1ff',
-              color: order.status === 'invoiced' ? '#166534' :
-                order.status === 'awaiting_stock' ? '#9a3412' : order.status === 'cancelled' ? '#991b1b' : '#1d4ed8',
-            }
-            return (
-              <article key={order.id} className="lf-card" style={{ padding: 16, gap: 14, boxShadow: 'none', border: '1px solid var(--lf-border)', minWidth: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <h3 style={{ fontSize: 16, margin: 0 }}>{order.order_number}</h3>
-                      <span style={badgeStyle}>{statusLabel(order.status)}</span>
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--lf-text-muted)', marginTop: 5 }}>
-                      From quotation {order.quotations?.quote_number || '—'} · Accepted {dateLabel(order.created_at)}
-                    </div>
-                    <div style={{ fontWeight: 700, marginTop: 10 }}>{order.clients?.name || 'Client'}</div>
-                    <div style={{ fontSize: 12, color: 'var(--lf-text-muted)', overflowWrap: 'anywhere' }}>{order.clients?.email || 'No client email'}</div>
-                  </div>
-                  <div style={{ textAlign: 'right', minWidth: 125 }}>
-                    <div style={{ fontSize: 11, color: 'var(--lf-text-muted)' }}>Order total reference</div>
-                    <div style={{ fontWeight: 800, fontSize: 18 }}>{formatINR(amountFor(order))}</div>
-                    <div style={{ fontSize: 11, color: 'var(--lf-text-muted)', marginTop: 4 }}>{paymentLabel(order.payment_type)}</div>
-                    {order.payment_terms && <div style={{ fontSize: 11, color: 'var(--lf-text-muted)', marginTop: 3 }}>{order.payment_terms}</div>}
-                  </div>
-                </div>
-
-                <div style={{ background: 'var(--lf-bg)', borderRadius: 10, padding: 12, minWidth: 0 }}>
-                  <div style={{ fontWeight: 750, fontSize: 12, marginBottom: 8 }}>Products / stock reservation</div>
-                  <div style={{ display: 'grid', gap: 8 }}>
-                    {items.map((item) => (
-                      <div key={item.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 10, alignItems: 'start', minWidth: 0 }}>
-                        <div style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
-                          <div style={{ fontSize: 13, fontWeight: 650 }}>{item.description || 'Product'}{item.sku ? ' · ' + item.sku : ''}</div>
-                          <div style={{ fontSize: 11, color: 'var(--lf-text-muted)' }}>
-                            Qty {item.quantity} {item.unit || 'pcs'} · {item.product_id ? (item.stock_status === 'reserved' ? 'Reserved ' + item.reserved_qty : item.stock_status === 'deducted' ? 'Stock deducted' : stockLabel(order.stock_status)) : (item.stock_status === 'manual_confirmed' ? 'Manually verified, no SKU stock tracking' : 'Manual stock check required')}
-                          </div>
-                        </div>
-                        <div style={{ fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>{formatINR((Number(item.quantity) || 0) * (Number(item.unit_price) || 0) * (1 - (Number(item.discount_pct) || 0) / 100) * (1 + (Number(item.gst_rate) || 0) / 100))}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ borderTop: '1px solid var(--lf-border)', paddingTop: 9, marginTop: 10, display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', fontSize: 12 }}>
-                    <span><strong>Stock status:</strong> {stockLabel(order.stock_status)}</span>
-                    {order.stock_reserved_at && <span>Reserved {dateLabel(order.stock_reserved_at)}</span>}
-                  </div>
-                </div>
-
-                {(order.carrier || order.tracking_number || order.tracking_url) && (
-                  <div style={{ fontSize: 12, color: 'var(--lf-text-muted)', overflowWrap: 'anywhere' }}>
-                    <strong>Dispatch:</strong> {order.carrier || 'Carrier pending'} {order.tracking_number ? '· Tracking ' + order.tracking_number : ''}
-                    {order.tracking_url && /^https:\/\//i.test(order.tracking_url) && <> · <a href={order.tracking_url} target="_blank" rel="noreferrer" style={{ color: 'var(--lf-brand)', fontWeight: 700 }}>Track shipment</a></>}
-                  </div>
-                )}
-                {invoice && (
-                  <div style={{ padding: 11, borderRadius: 9, background: invoice.status === 'draft' ? '#fff7ed' : '#f0fdf4', fontSize: 12 }}>
-                    <strong>Tax invoice:</strong> {invoice.invoice_number || 'Invoice created'} · {String(invoice.status || '').replace(/_/g, ' ')}
-                    {invoice.status === 'draft' && <span> — created, but not yet confirmed as emailed. Use Retry Invoice Email below.</span>}
-                  </div>
-                )}
-
-                {isOpen && order.status === 'packed' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-                    <input
-                      className="lf-form-input"
-                      aria-label={'Carrier for ' + order.order_number}
-                      placeholder="Courier / carrier"
-                      value={getShippingValue(order, 'carrier')}
-                      onChange={(event) => setShippingValue(order.id, 'carrier', event.target.value)}
-                    />
-                    <input
-                      className="lf-form-input"
-                      aria-label={'Tracking number for ' + order.order_number}
-                      placeholder="Tracking / waybill number"
-                      value={getShippingValue(order, 'tracking_number')}
-                      onChange={(event) => setShippingValue(order.id, 'tracking_number', event.target.value)}
-                    />
-                    <input
-                      className="lf-form-input"
-                      aria-label={'HTTPS tracking URL for ' + order.order_number}
-                      placeholder="HTTPS tracking link (optional)"
-                      type="url"
-                      value={getShippingValue(order, 'tracking_url')}
-                      onChange={(event) => setShippingValue(order.id, 'tracking_url', event.target.value)}
-                    />
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                  {stockNeedsCheck && (
-                    <button type="button" className="lf-btn lf-btn-primary" onClick={() => onAction(order, 'confirm_stock')}>
-                      <PackageCheck size={15} /> Confirm Stock & Reserve
-                    </button>
-                  )}
-                  {isAdvance && !order.advance_paid && ['reserved', 'awaiting_stock'].includes(order.status) && (
-                    <button type="button" className="lf-btn lf-btn-secondary" onClick={() => onAction(order, 'send_proforma')}>
-                      <CreditCard size={15} /> Send Advance Payment Instructions
-                    </button>
-                  )}
-                  {isAdvance && order.status === 'reserved' && !order.advance_paid && (
-                    <button type="button" className="lf-btn lf-btn-secondary" onClick={() => onAction(order, 'mark_advance_paid')}>
-                      <CheckCircle2 size={15} /> Mark Advance Received
-                    </button>
-                  )}
-                  {order.status === 'reserved' && (
-                    <button type="button" className="lf-btn lf-btn-primary" disabled={isAdvance && !order.advance_paid} onClick={() => onAction(order, 'start_packing')}>
-                      <Package size={15} /> {isAdvance && !order.advance_paid ? 'Advance Required Before Packing' : 'Start Packing'}
-                    </button>
-                  )}
-                  {order.status === 'packing' && (
-                    <button type="button" className="lf-btn lf-btn-primary" onClick={() => onAction(order, 'mark_packed')}>
-                      <PackageCheck size={15} /> Mark Packed
-                    </button>
-                  )}
-                  {['packed', 'dispatched', 'invoiced'].includes(order.status) && (
-                    <button type="button" className="lf-btn lf-btn-secondary" onClick={() => printChallan(order)}>
-                      <PrintIcon size={15} /> Print Delivery Challan
-                    </button>
-                  )}
-                  {order.status === 'packed' && (
-                    <button
-                      type="button"
-                      className="lf-btn lf-btn-primary"
-                      onClick={() => onAction(order, 'dispatch', {
-                        carrier: getShippingValue(order, 'carrier'),
-                        trackingNumber: getShippingValue(order, 'tracking_number'),
-                        trackingUrl: getShippingValue(order, 'tracking_url'),
-                      })}
-                    >
-                      <Truck size={15} /> Record Dispatch
-                    </button>
-                  )}
-                  {order.status === 'dispatched' && !invoice && (
-                    <button type="button" className="lf-btn lf-btn-primary" onClick={() => onAction(order, 'generate_invoice')}>
-                      <FileText size={15} /> Generate & Send Tax Invoice
-                    </button>
-                  )}
-                  {order.status === 'invoiced' && invoice?.status === 'draft' && (
-                    <button type="button" className="lf-btn lf-btn-primary" onClick={() => onAction(order, 'resend_invoice')}>
-                      <Send size={15} /> Retry Invoice Email
-                    </button>
-                  )}
-                  {['awaiting_stock', 'reserved'].includes(order.status) && (
-                    <button type="button" className="lf-btn lf-btn-secondary" onClick={() => onAction(order, 'cancel_order')}>
-                      Cancel Order
-                    </button>
-                  )}
-                  {order.status === 'invoiced' && invoice?.status !== 'draft' && (
-                    <span style={{ fontSize: 12, color: '#166534', fontWeight: 750 }}>Tax invoice issued</span>
-                  )}
-                </div>
-              </article>
-            )
-          })}
-        </div>
-      )}
     </div>
   )
 }
