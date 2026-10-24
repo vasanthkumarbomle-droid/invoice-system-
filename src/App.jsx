@@ -510,8 +510,10 @@ const [quotations, setQuotations] = useState([])
       showToast('Issued invoices are not editable. Duplicate the invoice to prepare a corrected draft; cancel an unpaid issued invoice only when appropriate.', 'warning')
       return
     }
-    if (doc.type === 'quotation' && ['Accepted', 'Rejected', 'Expired', 'Converted'].includes(doc.status)) {
-      showToast('This quotation is closed. Duplicate it to create a new draft revision.', 'warning')
+    if (doc.type === 'quotation' && doc.status !== 'Draft') {
+      showToast(doc.status === 'Sent'
+        ? 'Issued quotations cannot be edited after sending. Duplicate it to create a new draft revision.'
+        : 'This quotation is closed. Duplicate it to create a new draft revision.', 'warning')
       return
     }
     setEditingDoc(doc)
