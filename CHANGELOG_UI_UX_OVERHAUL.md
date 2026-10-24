@@ -2,6 +2,23 @@
 
 Branch: ui-ux-overhaul
 
+
+## Authentication redesign tracking — branch \`auth-redesign\`
+
+This work is in a separate review branch. It does not mark unrelated P0/P1/P2 items below as complete.
+
+- [x] Shared login/sign-up/forgot/reset visual system and narrow-screen header.
+- [x] Login/password visibility, Caps Lock indicator, Remember me storage choice, non-enumerating credential/reset messages, client cooldown and destination preservation.
+- [x] Signup name/company fields, password strength rules, Terms checkbox, confirmation/resend cooldown, magic-link option and opt-in Google OAuth button.
+- [x] Protected-route behavior, expired-session notice, company profile onboarding with optional GSTIN/state/logo.
+- [x] Reduced-motion invoice preview with page-visibility pause and two fake sample clients.
+- [x] Wrote \`AUTH_REDESIGN_TEST_PLAN.md\` with ten end-to-end manual scenarios, responsive review, and dashboard configuration.
+- [x] No SQL or database migrations run; no existing Supabase Auth user records were edited.
+- [ ] Automated CI and Vercel Preview must be verified after the auth PR is opened.
+- [ ] Live email confirmation, magic-link, reset delivery and Google OAuth must be verified with a dedicated test account after dashboard setup.
+- [ ] Logo uploads need a \`company-logos\` Storage bucket and authenticated upload policy configured in the dashboard.
+
+
 This PR is an incremental, reviewable first pass. Unchecked items are not complete.
 
 ## P0 — Bugs, compliance and trust
