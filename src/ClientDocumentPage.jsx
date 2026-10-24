@@ -3,6 +3,42 @@ import { CheckCircle2, Download, LoaderCircle, MailCheck, XCircle } from 'lucide
 import { supabase, isSupabaseConfigured } from './supabase'
 import './client-document.css'
 
+// Supabase's invoke() can expose only a generic non-2xx message unless we
+// explicitly read the Response carried by FunctionsHttpError.context.
+async function getFunctionErrorMessage(invokeError, data, fallback) {
+  const bodyMessage = (body) => {
+    const message = String(body?.error || body?.message || body?.msg || '').trim()
+    const details = String(body?.details || '').trim()
+    return [message, details].filter(Boolean).join(' — ')
+  }
+  if (data?.error) return bodyMessage(data) || String(data.error)
+
+  const context = invokeError?.context
+  if (context && typeof context.clone === 'function') {
+    const response = context.clone()
+    const status = Number(response.status) || null
+    const rawText = typeof response.text === 'function'
+      ? await response.text().catch(() => '')
+      : ''
+    if (rawText) {
+      try {
+        const message = bodyMessage(JSON.parse(rawText))
+        if (message) return message
+      } catch {
+        // Non-JSON responses are handled by status below without exposing HTML.
+      }
+    }
+    if (status === 400 || status === 404) {
+      return 'This secure quotation link is invalid, expired, or was replaced by a newer email. Open the newest quotation email or ask the sender to resend it.'
+    }
+    if (status === 409) {
+      return 'This quotation has already been answered or is no longer awaiting a response. Refresh the page to see its latest status.'
+    }
+    if (status) return `${fallback} (HTTP ${status}). Please try again or ask the sender to resend the quotation.`
+  }
+  return invokeError?.message || fallback
+}
+
 const formatINR = (value) => new Intl.NumberFormat('en-IN', {
   style: 'currency',
   currency: 'INR',
@@ -19,31 +55,32 @@ export default function ClientDocumentPage() {
   const loadDocument = useCallback(async () => {
     setLoading(true)
     setError('')
-    if (!token) {
-      setError('This document link is missing its secure token.')
+    try {
+      if (!token) {
+        setError('This document link is missing its secure token.')
+        return
+      }
+      if (!isSupabaseConfigured || !supabase) {
+        setError('The secure document portal is not configured. Please contact the sender.')
+        return
+      }
+      const { data, error: invokeError } = await supabase.functions.invoke('quotation-workflow', {
+        body: { action: 'view', token },
+      })
+      if (invokeError || data?.error) {
+        setError(await getFunctionErrorMessage(invokeError, data, 'Could not open this document.'))
+        return
+      }
+      if (!data?.document || !data?.organization) {
+        setError('The server did not return the quotation details. Ask the sender to resend the quotation.')
+        return
+      }
+      setPayload(data)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Could not open this document. Please ask the sender to resend it.')
+    } finally {
       setLoading(false)
-      return
     }
-    if (!isSupabaseConfigured || !supabase) {
-      setError('The secure document portal is not configured. Please contact the sender.')
-      setLoading(false)
-      return
-    }
-    const { data, error: invokeError } = await supabase.functions.invoke('quotation-workflow', {
-      body: { action: 'view', token },
-    })
-    if (invokeError || data?.error) {
-      setError(data?.error || invokeError?.message || 'Could not open this document.')
-      setLoading(false)
-      return
-    }
-    if (!data?.document || !data?.organization) {
-      setError('This document link is invalid or has expired.')
-      setLoading(false)
-      return
-    }
-    setPayload(data)
-    setLoading(false)
   }, [token])
 
   useEffect(() => { loadDocument() }, [loadDocument])
@@ -52,20 +89,25 @@ export default function ClientDocumentPage() {
     if (!supabase || submitting) return
     setSubmitting(true)
     setError('')
-    const { data, error: invokeError } = await supabase.functions.invoke('quotation-workflow', {
-      body: { action: 'respond', token, decision },
-    })
-    if (invokeError || data?.error) {
-      setError(data?.error || invokeError?.message || 'Could not record your response.')
-    } else {
-      setPayload((current) => current ? {
-        ...current,
-        responseStatus: decision,
-        ownerNotified: Boolean(data?.ownerNotified),
-        document: { ...current.document, status: decision },
-      } : current)
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('quotation-workflow', {
+        body: { action: 'respond', token, decision },
+      })
+      if (invokeError || data?.error) {
+        setError(await getFunctionErrorMessage(invokeError, data, 'Could not record your response.'))
+      } else {
+        setPayload((current) => current ? {
+          ...current,
+          responseStatus: decision,
+          ownerNotified: Boolean(data?.ownerNotified),
+          document: { ...current.document, status: decision },
+        } : current)
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Could not record your response. Please refresh and try again.')
+    } finally {
+      setSubmitting(false)
     }
-    setSubmitting(false)
   }
 
   if (loading) {
