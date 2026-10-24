@@ -1,58 +1,69 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
-/* ==========================================================================
-   LEDGERFLOW DESIGN SYSTEM — REFINED LIGHT THEME
-   Strict Colour Palette: Graphite, Warm Ivory, Copper, Muted Slate.
-   Strictly Zero Purple, Zero Green, Zero Indigo, Zero Navy.
-   ========================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
+/* LedgerFlow shared design tokens */
 :root {
-  /* LedgerFlow visual identity — crisp white, electric blue, vivid tangerine */
-  --lf-bg: #F4F7FB;
+  color-scheme: light;
+  --lf-bg: #F8FAFC;
   --lf-card: #FFFFFF;
-  --lf-card-hover: #F8FAFF;
+  --lf-card-hover: #F1F5F9;
   --lf-brand: #2563EB;
   --lf-brand-hover: #1D4ED8;
-  --lf-brand-light: #EAF1FF;
-  --lf-brand-subtle: #C9DAFF;
-  --lf-accent: #F97316;
-  --lf-highlight: #EA580C;
-  --lf-highlight-light: #FFF1E8;
-  --lf-highlight-border: #FED7AA;
-
-  /* Neutrals & Typography */
-  --lf-text: #172033;
-  --lf-text-secondary: #526078;
-  --lf-text-muted: #7A8699;
-  --lf-border: #E3E9F2;
-  --lf-border-strong: #C8D2E1;
+  --lf-brand-light: #EFF6FF;
+  --lf-brand-subtle: #BFDBFE;
+  --lf-accent: #D97706;
+  --lf-highlight: #D97706;
+  --lf-highlight-light: #FFFBEB;
+  --lf-highlight-border: #FDE68A;
+  --lf-text: #0F172A;
+  --lf-text-secondary: #334155;
+  --lf-text-muted: #64748B;
+  --lf-border: #E2E8F0;
+  --lf-border-strong: #CBD5E1;
   --lf-border-focus: #2563EB;
-
-  /* Status Colors */
-  --lf-success: #526A78;
-  --lf-success-bg: #EDF1F3;
-  --lf-warning: #A66C13;
-  --lf-warning-bg: #FBF3E2;
-  --lf-danger: #B83A3A;
-  --lf-danger-bg: #FDF3F3;
-  --lf-danger-border: #F5C6C6;
-  --lf-neutral-badge: #EEF0E9;
-
-  /* Shadows */
-  --lf-shadow-xs: 0 1px 2px rgba(37, 42, 50, 0.04);
-  --lf-shadow-sm: 0 1px 3px rgba(37, 42, 50, 0.06), 0 1px 2px rgba(37, 42, 50, 0.04);
-  --lf-shadow-md: 0 4px 6px -1px rgba(37, 42, 50, 0.08), 0 2px 4px -2px rgba(37, 42, 50, 0.05);
-  --lf-shadow-lg: 0 10px 15px -3px rgba(37, 42, 50, 0.09), 0 4px 6px -4px rgba(37, 42, 50, 0.05);
-  --lf-shadow-modal: 0 20px 25px -5px rgba(37, 42, 50, 0.13), 0 8px 10px -6px rgba(37, 42, 50, 0.07);
-
-  /* Dimensions & Spacing */
+  --lf-success: #16A34A;
+  --lf-success-bg: #F0FDF4;
+  --lf-warning: #D97706;
+  --lf-warning-bg: #FFFBEB;
+  --lf-danger: #DC2626;
+  --lf-danger-bg: #FEF2F2;
+  --lf-danger-border: #FECACA;
+  --lf-neutral-badge: #F1F5F9;
+  --lf-sidebar-bg: #0F172A;
+  --lf-sidebar-text: #CBD5E1;
+  --lf-sidebar-muted: #94A3B8;
+  --lf-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --lf-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --lf-shadow-md: 0 4px 8px rgba(15, 23, 42, 0.06);
+  --lf-shadow-lg: 0 10px 24px rgba(15, 23, 42, 0.08);
+  --lf-shadow-modal: 0 20px 48px rgba(15, 23, 42, 0.16);
   --lf-sidebar-width: 260px;
   --lf-sidebar-collapsed-width: 76px;
   --lf-header-height: 68px;
-  --lf-radius-sm: 6px;
-  --lf-radius-md: 10px;
-  --lf-radius-lg: 14px;
+  --lf-radius-sm: 8px;
+  --lf-radius-md: 8px;
+  --lf-radius-lg: 12px;
   --lf-radius-full: 9999px;
-  --lf-transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  --lf-transition: all 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Dark tokens are available to the shell when a theme toggle is enabled. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --lf-bg: #0B1220;
+  --lf-card: #111C2E;
+  --lf-card-hover: #17243A;
+  --lf-text: #F8FAFC;
+  --lf-text-secondary: #CBD5E1;
+  --lf-text-muted: #94A3B8;
+  --lf-border: #263449;
+  --lf-border-strong: #3A4A61;
+  --lf-brand-light: #172B52;
+  --lf-brand-subtle: #27477D;
+  --lf-success-bg: #10291B;
+  --lf-warning-bg: #30230F;
+  --lf-danger-bg: #351719;
+  --lf-danger-border: #6B252B;
+  --lf-neutral-badge: #1E293B;
 }
 
 /* Base Reset & Typography */
@@ -66,7 +77,7 @@ html, body {
   min-height: 100%;
   background-color: var(--lf-bg);
   color: var(--lf-text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -1944,4 +1955,26 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   .lf-metrics-grid { grid-template-columns: minmax(0, 1fr); }
   .lf-metric-card { padding: 18px; }
   .lf-dashboard-grid > .lf-card { padding: 15px; }
+}
+
+
+/* Global accessibility and premium interaction defaults */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid #93C5FD;
+  outline-offset: 2px;
+}
+.lf-card, .lf-metric-card, .lf-modal, .lf-table-container {
+  border-radius: var(--lf-radius-lg);
+}
+.lf-form-input, .lf-form-select, .lf-form-textarea, .lf-search-input {
+  font-size: 14px;
+}
+.lf-form-label, .lf-table th, .lf-badge, .lf-metric-subtext, .lf-profile-role {
+  font-size: max(12px, 1em);
+}
+.lf-nav-item { color: var(--lf-sidebar-text); }
+.lf-nav-item:hover:not(.active) { background: rgba(203, 213, 225, 0.10); color: #FFFFFF; }
+.lf-nav-item.active { background: #DBEAFE; color: #1D4ED8; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
 }
