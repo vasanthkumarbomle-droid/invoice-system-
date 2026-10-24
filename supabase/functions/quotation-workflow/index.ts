@@ -447,9 +447,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       : "";
     const trackingText = linkedSalesOrder
       ? "Sales order: " + linkedSalesOrder.order_number +
-        (linkedSalesOrder.carrier ? "\\nCarrier: " + linkedSalesOrder.carrier : "") +
-        (linkedSalesOrder.tracking_number ? "\\nTracking number: " + linkedSalesOrder.tracking_number : "") +
-        (safeTrackingUrl ? "\\nTrack shipment: " + safeTrackingUrl : "")
+        (linkedSalesOrder.carrier ? "\nCarrier: " + linkedSalesOrder.carrier : "") +
+        (linkedSalesOrder.tracking_number ? "\nTracking number: " + linkedSalesOrder.tracking_number : "") +
+        (safeTrackingUrl ? "\nTrack shipment: " + safeTrackingUrl : "")
       : "";
     const trackingHtml = linkedSalesOrder
       ? "<p><strong>Sales order:</strong> " + escapeHtml(linkedSalesOrder.order_number) +
@@ -485,10 +485,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
       "<p style=\"color:#68756c;font-size:12px\">This secure link may expire. If you need help, reply to this email.</p>" +
       "<p>Regards,<br>" + escapeHtml(companyName) + "</p>" +
       "<p style=\"color:#68756c;font-size:11px\">This message was sent using LedgerFlow on behalf of " + escapeHtml(companyName) + ".</p></div></div>";
-    const textBody = "Hello " + (client.name || "there") + ",\\n\\n" + intro + "\\n" + title + ": " + documentNumber + "\\nTotal: " + amountText +
-      "\\n" + trackingText + "\\n" +
-      (documentType === "invoice" ? "Payment details:\\n" + (paymentDetails.join("\\n") || "Not configured; contact the business before paying.") + "\\n" : "") +
-      "\\nOpen: " + link + "\\n\\nThis message was sent using LedgerFlow on behalf of " + companyName + "."
+    const textBody = "Hello " + (client.name || "there") + ",\n\n" + intro + "\n" + title + ": " + documentNumber + "\nTotal: " + amountText +
+      "\n" + trackingText + "\n" +
+      (documentType === "invoice" ? "Payment details:\n" + (paymentDetails.join("\n") || "Not configured; contact the business before paying.") + "\n" : "") +
+      "\nOpen: " + link + "\n\nThis message was sent using LedgerFlow on behalf of " + companyName + "."
 
     const emailPayload: Record<string, unknown> = {
       to: recipient,
