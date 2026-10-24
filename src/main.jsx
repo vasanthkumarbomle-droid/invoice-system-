@@ -5,7 +5,7 @@ import App from './App.jsx'
 import AuthGate from './AuthGate.jsx'
 import ErrorBoundary from './ErrorBoundary.jsx'
 
-function OfflineExperience({ children }) {
+export function OfflineExperience({ children }) {
   const [offline, setOffline] = useState(!navigator.onLine)
   const [checking, setChecking] = useState(false)
   useEffect(() => {
