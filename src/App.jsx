@@ -3450,13 +3450,15 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px', marginBottom: '24px' }}>
         {/* Bank & Notes Details */}
         <div style={{ flex: 1 }}>
-          <div style={{ padding: '10px 14px', background: '#F6F4F0', border: '1px solid #E6E1DA', borderRadius: '4px', marginBottom: '12px', fontSize: '11px' }}>
-            <div style={{ fontWeight: 700, color: '#B87842', marginBottom: '4px' }}>BANK PAYMENT DETAILS</div>
-            <div>Bank: <strong>{companyProfile.bankName}</strong></div>
-            <div>A/C Name: <strong>{companyProfile.accountHolder}</strong></div>
-            <div>A/C Number: <strong>{companyProfile.accountNumber}</strong></div>
-            <div>IFSC Code: <strong>{companyProfile.ifscCode}</strong> | UPI ID: <strong>{companyProfile.upiId}</strong></div>
-          </div>
+          {(companyProfile.bankName || companyProfile.accountHolder || companyProfile.accountNumber || companyProfile.ifscCode || companyProfile.upiId) && (
+            <div style={{ padding: '10px 14px', background: '#F6F4F0', border: '1px solid #E6E1DA', borderRadius: '4px', marginBottom: '12px', fontSize: '11px' }}>
+              <div style={{ fontWeight: 700, color: '#B87842', marginBottom: '4px' }}>BANK PAYMENT DETAILS</div>
+              {companyProfile.bankName && <div>Bank: <strong>{companyProfile.bankName}</strong></div>}
+              {companyProfile.accountHolder && <div>A/C Name: <strong>{companyProfile.accountHolder}</strong></div>}
+              {companyProfile.accountNumber && <div>A/C Number: <strong>{companyProfile.accountNumber}</strong></div>}
+              {(companyProfile.ifscCode || companyProfile.upiId) && <div>{companyProfile.ifscCode && <>IFSC Code: <strong>{companyProfile.ifscCode}</strong></>}{companyProfile.ifscCode && companyProfile.upiId ? ' | ' : ''}{companyProfile.upiId && <>UPI ID: <strong>{companyProfile.upiId}</strong></>}</div>}
+            </div>
+          )}
           {doc.notes && (
             <div style={{ fontSize: '10px', color: '#7B818B', lineHeight: '1.4' }}>
               <strong>Terms:</strong> {doc.notes}
