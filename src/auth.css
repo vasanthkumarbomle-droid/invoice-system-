@@ -29,7 +29,7 @@
 .auth-demo-caption>span:last-child{color:var(--auth-panel-muted);font-weight:700}
 .auth-demo-live-dot{width:6px;height:6px;flex:0 0 6px;border-radius:50%;background:#86EFAC;box-shadow:0 0 0 4px rgba(134,239,172,.12)}
 .auth-invoice-paper{position:relative;width:91%;max-width:410px;min-height:242px;margin:0 auto;padding:18px 19px 12px;overflow:hidden;border:1px solid rgba(255,255,255,.8);border-radius:10px;color:var(--auth-paper-ink);background:#fff;box-shadow:0 22px 42px rgba(2,6,23,.26),0 3px 8px rgba(2,6,23,.12);transform:rotate(-2deg);animation:auth-paper-float 6s ease-in-out infinite}
-.auth-demo-wrap.is-paused .auth-invoice-paper,.auth-demo-wrap.is-static .auth-invoice-paper{animation-play-state:paused}
+.auth-demo-wrap.is-paused .auth-invoice-paper,.auth-demo-wrap.is-paused .auth-invoice-row,.auth-demo-wrap.is-paused .auth-invoice-tax-lines span,.auth-demo-wrap.is-paused .auth-paid-stamp,.auth-demo-wrap.is-paused .auth-confetti i,.auth-demo-wrap.is-static .auth-invoice-paper{animation-play-state:paused}
 .auth-invoice-top,.auth-invoice-meta,.auth-invoice-bottom,.auth-invoice-footer,.auth-invoice-table-head,.auth-invoice-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .auth-invoice-top{padding-bottom:12px;border-bottom:1px solid var(--auth-paper-border)}
 .auth-invoice-mini-brand{display:flex;align-items:center;gap:7px;color:var(--auth-paper-ink);font-size:11px;font-weight:800}
