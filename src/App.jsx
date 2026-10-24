@@ -1252,6 +1252,7 @@ const [quotations, setQuotations] = useState([])
               products={products}
               existingDoc={editingDoc}
               onCancel={() => navigateTo(editorMode === 'invoice' ? '/invoices' : '/quotations')}
+              onGoSettings={() => navigateTo('/settings')}
   onSave={async (savedDoc) => {
   if (savedDoc.type === 'invoice') {
     try {
@@ -1987,9 +1988,17 @@ function DocumentEditorView({
   existingDoc,
   onSave,
   onCancel,
+  onGoSettings = () => {},
   showToast
 }) {
   const isInvoice = mode === 'invoice'
+  const missingSellerFields = [
+    !String(companyProfile.gstin || '').trim() && 'GSTIN',
+    !String(companyProfile.address || '').trim() && 'registered address',
+    !String(companyProfile.bankName || '').trim() && 'bank name',
+    !String(companyProfile.accountNumber || '').trim() && 'bank account number',
+    !String(companyProfile.ifscCode || '').trim() && 'IFSC code',
+  ].filter(Boolean)
   const submitLockRef = useRef(false)
   const [saving, setSaving] = useState(false)
 
@@ -2312,6 +2321,11 @@ function DocumentEditorView({
       return
     }
 
+    if (finalStatus !== 'Draft' && missingSellerFields.length) {
+      showToast(`Complete your business profile in Settings before issuing: ${missingSellerFields.join(', ')}.`, 'warning')
+      return
+    }
+
     if (items.some((item) => Number(item.gstRate) > 0) && !hasTaxJurisdiction) {
       showToast('Set the business state code in Settings and the client state code or GSTIN before issuing a GST document. This is required to choose CGST/SGST versus IGST correctly.', 'error')
       return
@@ -2405,6 +2419,16 @@ function DocumentEditorView({
           </button>
         </div>
       </div>
+
+      {missingSellerFields.length > 0 && (
+        <div className="lf-profile-completion-alert" role="alert">
+          <div className="lf-profile-completion-copy">
+            <strong>Complete your business profile before issuing</strong>
+            <span>Add your {missingSellerFields.join(', ')} in Settings. Drafts can still be saved.</span>
+          </div>
+          <button type="button" className="lf-btn lf-btn-secondary lf-btn-sm" onClick={onGoSettings}>Go to Settings</button>
+        </div>
+      )}
 
       {/* DOCUMENT METADATA FORM */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', margin: '24px 0' }}>
