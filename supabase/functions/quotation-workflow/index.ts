@@ -419,10 +419,37 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const link = appBase + "/client-document?token=" + encodeURIComponent(rawToken);
     const organization = await admin.from("organizations")
-      .select("name,legal_name,email,phone")
+      .select("name,legal_name,email,phone,bank_name,bank_account_holder,bank_account_no,bank_ifsc,upi_id")
       .eq("id", orgId)
       .maybeSingle();
     const companyName = organization.data?.name || organization.data?.legal_name || "Your supplier";
+    let linkedSalesOrder: any = null;
+    if (documentType === "invoice" && record.sales_order_id) {
+      const { data: linkedOrder } = await admin.from("sales_orders")
+        .select("order_number,carrier,tracking_number")
+        .eq("id", record.sales_order_id).eq("org_id", orgId).maybeSingle();
+      linkedSalesOrder = linkedOrder;
+    }
+    const paymentDetails = [
+      organization.data?.bank_name ? "Bank: " + organization.data.bank_name : "",
+      organization.data?.bank_account_holder ? "Account holder: " + organization.data.bank_account_holder : "",
+      organization.data?.bank_account_no ? "Account number: " + organization.data.bank_account_no : "",
+      organization.data?.bank_ifsc ? "IFSC: " + organization.data.bank_ifsc : "",
+      organization.data?.upi_id ? "UPI ID: " + organization.data.upi_id : "",
+    ].filter(Boolean);
+    const paymentHtml = documentType === "invoice"
+      ? "<h3>Payment details</h3>" + (paymentDetails.length ? "<ul>" + paymentDetails.map((item) => "<li>" + escapeHtml(item) + "</li>").join("") + "</ul>" : "<p>Payment details are not configured. Please contact the business before paying.</p>")
+      : "";
+    const trackingText = linkedSalesOrder
+      ? "Sales order: " + linkedSalesOrder.order_number +
+        (linkedSalesOrder.carrier ? "\\nCarrier: " + linkedSalesOrder.carrier : "") +
+        (linkedSalesOrder.tracking_number ? "\\nTracking number: " + linkedSalesOrder.tracking_number : "")
+      : "";
+    const trackingHtml = linkedSalesOrder
+      ? "<p><strong>Sales order:</strong> " + escapeHtml(linkedSalesOrder.order_number) +
+        (linkedSalesOrder.carrier ? "<br><strong>Carrier:</strong> " + escapeHtml(linkedSalesOrder.carrier) : "") +
+        (linkedSalesOrder.tracking_number ? "<br><strong>Tracking number:</strong> " + escapeHtml(linkedSalesOrder.tracking_number) : "") + "</p>"
+      : "";
     const documentNumber = documentType === "invoice" ? (record.invoice_number || "invoice") : (record.quote_number || "quotation");
     const itemsKey = documentType === "invoice" ? "invoice_items" : "quotation_items";
     const itemRows = (record[itemsKey] || []).map((item: any) => {
@@ -446,11 +473,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
       "<div style=\"border:1px solid #e3e9e3;padding:24px;border-radius:0 0 10px 10px\"><p>Hello " + escapeHtml(client.name || "there") + ",</p><p>" +
       intro + "</p><table style=\"width:100%;border-collapse:collapse;font-size:13px\"><thead><tr><th style=\"text-align:left;padding:8px;background:#f1f6f1\">Item</th><th style=\"text-align:right;padding:8px;background:#f1f6f1\">Qty</th><th style=\"text-align:right;padding:8px;background:#f1f6f1\">Amount</th></tr></thead><tbody>" +
       itemRows + "</tbody></table><p style=\"text-align:right;font-size:18px;font-weight:700\">Total: " + amountText + "</p>" +
+      trackingHtml + paymentHtml +
       "<p style=\"margin:24px 0\"><a href=\"" + escapeHtml(link) + "\" style=\"display:inline-block;background:#286747;color:white;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:7px\">View " + escapeHtml(title) + (documentType === "quotation" ? " & Respond" : " & Download PDF") + "</a></p>" +
       "<p style=\"color:#68756c;font-size:12px\">This secure link may expire. If you need help, reply to this email.</p>" +
       "<p>Regards,<br>" + escapeHtml(companyName) + "</p>" +
       "<p style=\"color:#68756c;font-size:11px\">This message was sent using LedgerFlow on behalf of " + escapeHtml(companyName) + ".</p></div></div>";
-    const textBody = "Hello " + (client.name || "there") + ",\n\n" + intro + "\n" + title + ": " + documentNumber + "\nTotal: " + amountText + "\nOpen: " + link + "\n\nThis message was sent using LedgerFlow on behalf of " + companyName + ".";
+    const textBody = "Hello " + (client.name || "there") + ",\\n\\n" + intro + "\\n" + title + ": " + documentNumber + "\\nTotal: " + amountText +
+      "\\n" + trackingText + "\\n" +
+      (documentType === "invoice" ? "Payment details:\\n" + (paymentDetails.join("\\n") || "Not configured; contact the business before paying.") + "\\n" : "") +
+      "\\nOpen: " + link + "\\n\\nThis message was sent using LedgerFlow on behalf of " + companyName + "."
 
     const emailPayload: Record<string, unknown> = {
       to: recipient,
