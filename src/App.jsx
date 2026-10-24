@@ -449,6 +449,8 @@ const [quotations, setQuotations] = useState([])
 }
 
   const handleSendDocument = async (doc) => {
+    const missingSeller = [!companyProfile.gstin?.trim() && 'GSTIN', !companyProfile.address?.trim() && 'registered address', !companyProfile.bankName?.trim() && 'bank name', !companyProfile.accountNumber?.trim() && 'bank account number', !companyProfile.ifscCode?.trim() && 'IFSC code'].filter(Boolean)
+    if (missingSeller.length) throw new Error('Complete your business profile in Settings before sending: ' + missingSeller.join(', ') + '.')
     if (!isSupabaseConfigured) throw new Error('Connect Supabase before sending a document.')
     if (!doc?.id || !/^[0-9a-f]{8}-/i.test(doc.id)) throw new Error('Save the document to Supabase before sending it.')
     if (!doc.clientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(doc.clientEmail.trim())) throw new Error('Add a valid client email address before sending.')
