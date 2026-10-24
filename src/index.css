@@ -1,1 +1,48 @@
 @import "tailwindcss";
+
+/* Non-blocking offline notice: the app and login remain interactive. */
+.lf-offline-banner {
+  position: sticky;
+  top: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 16px;
+  color: #563b13;
+  background: #fff6df;
+  border-bottom: 1px solid #f0d69b;
+  font: 500 13px/1.45 system-ui, sans-serif;
+}
+.lf-offline-banner-icon { font-size: 18px; flex: 0 0 auto; }
+.lf-offline-banner strong { font-weight: 750; }
+.lf-offline-banner > span:nth-child(2) { flex: 1 1 auto; }
+.lf-offline-banner-retry {
+  flex: 0 0 auto;
+  border: 1px solid #d6b66f;
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: #fffdf7;
+  color: #563b13;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.lf-offline-banner-retry:disabled { opacity: .65; cursor: wait; }
+.lf-offline-banner-dismiss {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 5px;
+  background: transparent;
+  color: #563b13;
+  font-size: 23px;
+  line-height: 1;
+  cursor: pointer;
+}
+@media (max-width: 640px) {
+  .lf-offline-banner { align-items: flex-start; gap: 8px; padding: 10px; }
+  .lf-offline-banner-retry { padding: 6px 8px; white-space: nowrap; }
+}
