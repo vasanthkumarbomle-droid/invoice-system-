@@ -2012,3 +2012,7 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   padding: 12px 0;
   background: var(--lf-card);
 }
+
+.lf-quick-create { position: relative; }
+.lf-quick-create-menu { position: absolute; top: calc(100% + 8px); right: 0; min-width: 180px; z-index: 40; box-shadow: var(--lf-shadow-lg); }
+.lf-quick-create-menu .lf-dropdown-item { width: 100%; text-align: left; }
