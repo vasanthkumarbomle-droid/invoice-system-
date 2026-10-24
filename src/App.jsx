@@ -1694,7 +1694,8 @@ function SalesOrdersView({ orders = [], companyProfile = {}, onAction }) {
       '<h3>Ship to</h3><p><strong>' + safe(order.clients?.name || 'Client') + '</strong><br>' +
       safe(order.clients?.address || '') + '<br>' + safe(order.clients?.phone || '') + '</p>' +
       '<p><strong>Carrier:</strong> ' + safe(order.carrier || 'To be assigned') +
-      ' &nbsp; <strong>Tracking number:</strong> ' + safe(order.tracking_number || 'To be assigned') + '</p>' +
+      ' &nbsp; <strong>Tracking number:</strong> ' + safe(order.tracking_number || 'To be assigned') +
+      (order.tracking_url && /^https:\/\//i.test(order.tracking_url) ? '<br><strong>Tracking link:</strong> ' + safe(order.tracking_url) : '') + '</p>' +
       '<table><thead><tr><th>#</th><th>Product description</th><th>Quantity</th><th>Unit</th></tr></thead><tbody>' + items +
       '</tbody></table><p class="muted">Packing/dispatch document only. Prices and tax amounts are intentionally omitted.</p>' +
       '<div class="signatures"><div>Prepared by</div><div>Received by</div></div><p><button onclick="window.print()">Print challan</button></p></body></html>'
@@ -1806,9 +1807,10 @@ function SalesOrdersView({ orders = [], companyProfile = {}, onAction }) {
                   </div>
                 </div>
 
-                {(order.carrier || order.tracking_number) && (
+                {(order.carrier || order.tracking_number || order.tracking_url) && (
                   <div style={{ fontSize: 12, color: 'var(--lf-text-muted)', overflowWrap: 'anywhere' }}>
                     <strong>Dispatch:</strong> {order.carrier || 'Carrier pending'} {order.tracking_number ? '· Tracking ' + order.tracking_number : ''}
+                    {order.tracking_url && /^https:\/\//i.test(order.tracking_url) && <> · <a href={order.tracking_url} target="_blank" rel="noreferrer" style={{ color: 'var(--lf-brand)', fontWeight: 700 }}>Track shipment <icon name="external-link" size="xs" /></a></>}
                   </div>
                 )}
                 {invoice && (
@@ -1833,6 +1835,14 @@ function SalesOrdersView({ orders = [], companyProfile = {}, onAction }) {
                       placeholder="Tracking / waybill number"
                       value={getShippingValue(order, 'tracking_number')}
                       onChange={(event) => setShippingValue(order.id, 'tracking_number', event.target.value)}
+                    />
+                    <input
+                      className="lf-form-input"
+                      aria-label={'HTTPS tracking URL for ' + order.order_number}
+                      placeholder="HTTPS tracking link (optional)"
+                      type="url"
+                      value={getShippingValue(order, 'tracking_url')}
+                      onChange={(event) => setShippingValue(order.id, 'tracking_url', event.target.value)}
                     />
                   </div>
                 )}
@@ -1875,6 +1885,7 @@ function SalesOrdersView({ orders = [], companyProfile = {}, onAction }) {
                       onClick={() => onAction(order, 'dispatch', {
                         carrier: getShippingValue(order, 'carrier'),
                         trackingNumber: getShippingValue(order, 'tracking_number'),
+                        trackingUrl: getShippingValue(order, 'tracking_url'),
                       })}
                     >
                       <Truck size={15} /> Record Dispatch
