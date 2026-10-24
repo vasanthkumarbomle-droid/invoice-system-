@@ -2004,3 +2004,11 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   .lf-profile-completion-alert { align-items: stretch; flex-direction: column; }
   .lf-profile-completion-alert .lf-btn { width: 100%; }
 }
+
+.lf-settings-save-bar {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  padding: 12px 0;
+  background: var(--lf-card);
+}
