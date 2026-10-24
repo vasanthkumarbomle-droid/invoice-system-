@@ -50,16 +50,6 @@ import {
   LoaderCircle,
   LogOut
 } from 'lucide-react'
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  Legend
-} from 'recharts'
 import { Html5Qrcode } from 'html5-qrcode'
 import { isSupabaseConfigured } from './supabase'
 import './App.css'
