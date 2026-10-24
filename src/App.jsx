@@ -458,8 +458,6 @@ const [quotations, setQuotations] = useState([])
 }
 
   const handleSendDocument = async (doc) => {
-    const missingSeller = [!companyProfile.gstin?.trim() && 'GSTIN', !companyProfile.address?.trim() && 'registered address', !companyProfile.bankName?.trim() && 'bank name', !companyProfile.accountNumber?.trim() && 'bank account number', !companyProfile.ifscCode?.trim() && 'IFSC code'].filter(Boolean)
-    if (missingSeller.length) throw new Error('Complete your business profile in Settings before sending: ' + missingSeller.join(', ') + '.')
     if (!isSupabaseConfigured) throw new Error('Connect Supabase before sending a document.')
     if (!doc?.id || !/^[0-9a-f]{8}-/i.test(doc.id)) throw new Error('Save the document to Supabase before sending it.')
     if (!doc.clientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(doc.clientEmail.trim())) throw new Error('Add a valid client email address before sending.')
@@ -1722,8 +1720,8 @@ function DashboardView({ invoices, payments, quotations, companyProfile, userNam
           <section className="lf-profile-checklist" aria-label="Complete your business profile">
             <div className="lf-profile-checklist-head">
               <div>
-                <h3 className="lf-card-title">Complete your business profile</h3>
-                <p className="lf-card-subtitle">Finish these details to issue and download compliant documents.</p>
+                <h3 className="lf-card-title">Business profile (optional for now)</h3>
+                <p className="lf-card-subtitle">Optional for this demo — add these details later in Settings.</p>
               </div>
               <button type="button" className="lf-btn lf-btn-secondary lf-btn-sm" onClick={onGoSettings}>Go to Settings</button>
             </div>
@@ -2467,16 +2465,6 @@ function DocumentEditorView({
       return
     }
 
-    if (finalStatus !== 'Draft' && missingSellerFields.length) {
-      showToast(`Complete your business profile in Settings before issuing: ${missingSellerFields.join(', ')}.`, 'warning')
-      return
-    }
-
-    if (items.some((item) => Number(item.gstRate) > 0) && !hasTaxJurisdiction) {
-      showToast('Set the business state code in Settings and the client state code or GSTIN before issuing a GST document. This is required to choose CGST/SGST versus IGST correctly.', 'error')
-      return
-    }
-
     const invalidItem = items.find(
       (it) => !it.description.trim() || Number(it.quantity) <= 0 || Number(it.unitPrice) < 0
     )
@@ -2571,8 +2559,8 @@ function DocumentEditorView({
       {missingSellerFields.length > 0 && (
         <div className="lf-profile-completion-alert" role="alert">
           <div className="lf-profile-completion-copy">
-            <strong>Complete your business profile before issuing</strong>
-            <span>Add your {missingSellerFields.join(', ')} in Settings. Drafts can still be saved.</span>
+            <strong>Business details can be added later</strong>
+            <span>You can create documents now. Add {missingSellerFields.join(', ')} later in Settings.</span>
           </div>
           <button type="button" className="lf-btn lf-btn-secondary lf-btn-sm" onClick={onGoSettings}>Go to Settings</button>
         </div>
@@ -2985,8 +2973,8 @@ function DocumentEditorView({
             <div><strong>Live paper preview</strong><span>Updates as you type</span></div>
             <span className="lf-badge lf-badge-draft">DRAFT</span>
           </div>
-          {missingSellerFields.length > 0 && <button type="button" className="lf-live-paper-warning" onClick={onGoSettings} aria-label="Complete seller profile in Settings">
-            <strong>Seller details missing</strong><span>{missingSellerFields.join(', ')}</span><small>Click to open Settings →</small>
+          {missingSellerFields.length > 0 && <button type="button" className="lf-live-paper-warning" onClick={onGoSettings} aria-label="Add optional seller details in Settings">
+            <strong>Optional business details</strong><span>Add these later: {missingSellerFields.join(', ')}</span><small>Settings (optional) →</small>
           </button>}
           <div className="lf-live-paper">
             <PrintableInvoiceTemplate doc={livePreviewDoc} companyProfile={companyProfile} />
@@ -3205,7 +3193,6 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
 
   // Print Action — write the full standalone document before opening the print dialog.
   const handlePrint = () => {
-    if (missingSellerFields.length) { showToast('Complete your business profile in Settings before downloading: ' + missingSellerFields.join(', ') + '.', 'warning'); return }
     const printableHtml = generatePrintableHtml(doc, companyProfile, signatureData)
     const printWindow = window.open('', '_blank', 'width=1000,height=800')
 
@@ -3248,7 +3235,6 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
 
   // Download Standalone Self-Contained HTML Invoice
   const handleDownloadHtml = () => {
-    if (missingSellerFields.length) { showToast('Complete your business profile in Settings before downloading: ' + missingSellerFields.join(', ') + '.', 'warning'); return }
     const htmlContent = generatePrintableHtml(doc, companyProfile, signatureData)
     const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -3268,7 +3254,7 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
       <div className="lf-modal lf-modal-lg" style={{ maxHeight: '92vh' }}>
         {missingSellerFields.length > 0 && (
           <div className="lf-profile-completion-alert" role="alert">
-            <div className="lf-profile-completion-copy"><strong>Complete your business profile before sending or downloading</strong><span>Missing: {missingSellerFields.join(', ')}.</span></div>
+            <div className="lf-profile-completion-copy"><strong>Business details are optional for now</strong><span>Not set yet: {missingSellerFields.join(', ')}. You can still send or download.</span></div>
             <button type="button" className="lf-btn lf-btn-secondary lf-btn-sm" onClick={onGoSettings}>Go to Settings</button>
           </div>
         )}
