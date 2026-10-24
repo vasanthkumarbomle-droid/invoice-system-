@@ -2043,3 +2043,91 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .lf-paper-watermark-paid { color: #16A34A; opacity: .18; }
 .lf-paper-watermark-cancelled { color: #DC2626; opacity: .16; }
 .lf-paper-watermark-sent { color: #2563EB; opacity: .12; }
+
+/* Mobile top bar: keep the page title and primary actions on separate, tidy rows. */
+@media (max-width: 600px) {
+  .lf-top-nav {
+    height: auto;
+    min-height: var(--lf-header-height);
+    padding: 12px 14px;
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .lf-top-nav-left {
+    width: 100%;
+    flex: 1 1 100%;
+    gap: 10px;
+  }
+
+  .lf-page-breadcrumbs {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .lf-breadcrumb-trail {
+    font-size: 10px;
+  }
+
+  .lf-page-title {
+    max-width: 100%;
+    font-size: 17px;
+    line-height: 1.25;
+  }
+
+  .lf-top-nav-right {
+    width: 100%;
+    flex: 1 1 100%;
+    min-width: 0;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .lf-top-nav-right > .lf-btn-primary {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 42px;
+    justify-content: center;
+    white-space: nowrap;
+  }
+
+  .lf-top-nav-right > .lf-quick-create {
+    flex: 0 0 auto;
+  }
+
+  .lf-top-nav-right .lf-icon-btn,
+  .lf-top-nav-right .lf-profile-pill {
+    min-height: 40px;
+  }
+
+  .lf-top-nav-right .lf-user-profile-menu {
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .lf-top-nav {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .lf-page-title {
+    font-size: 16px;
+  }
+
+  /* The primary action already creates documents; keep the compact header uncluttered. */
+  .lf-top-nav-right > .lf-quick-create {
+    display: none;
+  }
+
+  .lf-top-nav-right {
+    gap: 7px;
+  }
+
+  .lf-top-nav-right > .lf-btn-primary {
+    padding-inline: 12px;
+    font-size: 13px;
+  }
+}
