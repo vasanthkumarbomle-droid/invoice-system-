@@ -242,43 +242,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return respondJson({ success: true, updatedAt: savedSignature.updated_at });
   }
 
-  if (action === "sales_order_action") {
-    const authorization = req.headers.get("authorization") || "";
-    const publishableKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
-    if (!authorization || !publishableKey) return respondJson({ error: "Sign in to manage sales orders." }, 401);
-    const caller = createClient(supabaseUrl, publishableKey, {
-      global: { headers: { Authorization: authorization } },
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { data: userData, error: authError } = await caller.auth.getUser();
-    const user = userData?.user;
-    if (authError || !user) return respondJson({ error: "Your session is invalid. Sign in again." }, 401);
-
-    const orgId = String(body?.orgId || "");
-    const orderId = String(body?.orderId || "");
-    const task = String(body?.task || "");
-    const carrier = String(body?.carrier || "");
-    const trackingNumber = String(body?.trackingNumber || "");
-    const trackingUrl = String(body?.trackingUrl || "");
-    const allowedTasks = ["confirm_stock","mark_advance_paid","start_packing","mark_packed","dispatch","cancel_order","generate_invoice"];
-    if (!/^[0-9a-f-]{36}$/i.test(orgId) || !/^[0-9a-f-]{36}$/i.test(orderId) || !allowedTasks.includes(task)) {
-      return respondJson({ error: "Invalid sales-order action." }, 400);
-    }
-    const { data: membership, error: memberError } = await admin.from("org_members")
-      .select("role").eq("org_id", orgId).eq("user_id", user.id).maybeSingle();
-    if (memberError || !membership || !["owner","admin"].includes(String(membership.role || "").toLowerCase())) {
-      return respondJson({ error: "Only business owners or admins can manage sales orders." }, 403);
-    }
-
-
-    const { data: actionResult, error: actionError } = await admin.rpc("manage_sales_order_action", {
-      p_org_id: orgId, p_order_id: orderId, p_action: task,
-      p_carrier: carrier || null, p_tracking_number: trackingNumber || null,
-      p_tracking_url: trackingUrl || null,
-    });
-    if (actionError || !actionResult?.success) return respondJson({ error: actionError?.message || "Sales-order action could not be completed." }, 400);
-    return respondJson(actionResult);
-  }
 
   if (action === "send") {
     const authorization = req.headers.get("authorization") || "";
