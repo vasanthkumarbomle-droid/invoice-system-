@@ -3434,17 +3434,22 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
       printWindow.document.write(printableHtml)
       printWindow.document.close()
 
-      // Do not rely on onload for about:blank: it may have fired before document.write.
-      printWindow.addEventListener('load', () => {
+      // about:blank may fire load before document.write; use one guarded print path.
+      let didPrint = false
+      const printWhenReady = () => {
+        if (didPrint) return
+        const bodyText = printWindow.document.body?.innerText?.trim()
+        if (!bodyText) return
+        didPrint = true
         printWindow.focus()
         printWindow.print()
-      }, { once: true })
+      }
+      printWindow.addEventListener('load', printWhenReady, { once: true })
 
-      // Fallback for browsers where the load event fires before the listener is attached.
+      // Fallback for browsers that fired load before the listener was attached.
       printWindow.setTimeout(() => {
-        if (printWindow.document.body && printWindow.document.body.innerText.trim()) {
-          printWindow.focus()
-          printWindow.print()
+        if (printWindow.document.body?.innerText?.trim()) {
+          printWhenReady()
         } else {
           showToast('The invoice did not render for printing. Please reopen the preview and try again.', 'error')
           printWindow.close()
