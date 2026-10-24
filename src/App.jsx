@@ -1810,7 +1810,7 @@ function SalesOrdersView({ orders = [], companyProfile = {}, onAction }) {
                 {(order.carrier || order.tracking_number || order.tracking_url) && (
                   <div style={{ fontSize: 12, color: 'var(--lf-text-muted)', overflowWrap: 'anywhere' }}>
                     <strong>Dispatch:</strong> {order.carrier || 'Carrier pending'} {order.tracking_number ? '· Tracking ' + order.tracking_number : ''}
-                    {order.tracking_url && /^https:\/\//i.test(order.tracking_url) && <> · <a href={order.tracking_url} target="_blank" rel="noreferrer" style={{ color: 'var(--lf-brand)', fontWeight: 700 }}>Track shipment <icon name="external-link" size="xs" /></a></>}
+                    {order.tracking_url && /^https:\/\//i.test(order.tracking_url) && <> · <a href={order.tracking_url} target="_blank" rel="noreferrer" style={{ color: 'var(--lf-brand)', fontWeight: 700 }}>Track shipment</a></>}
                   </div>
                 )}
                 {invoice && (
