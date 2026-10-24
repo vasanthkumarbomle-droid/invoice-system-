@@ -167,6 +167,17 @@ export default function AuthGate({ children }) {
   const [orgLoadError, setOrgLoadError] = useState('')
   const [onboardingDismissed, setOnboardingDismissed] = useState(false)
   const hadSession = useRef(false)
+  const explicitSignOut = useRef(false)
+
+  const signOutExplicitly = async () => {
+    explicitSignOut.current = true
+    try {
+      await signOut()
+    } finally {
+      explicitSignOut.current = false
+      navigate('/login', { replace: true })
+    }
+  }
 
   useEffect(() => {
     if (!supabase) {
@@ -186,10 +197,12 @@ export default function AuthGate({ children }) {
       if (nextSession) hadSession.current = true
       if (event === 'SIGNED_OUT' && hadSession.current) {
         hadSession.current = false
-        const currentPath = window.location.pathname + window.location.search
-        const next = safeDestination(currentPath)
-        const suffix = next !== '/' ? '&redirect=' + encodeURIComponent(next) : ''
-        navigate('/login?sessionExpired=1' + suffix, { replace: true })
+        if (!explicitSignOut.current) {
+          const currentPath = window.location.pathname + window.location.search
+          const next = safeDestination(currentPath)
+          const suffix = next !== '/' ? '&redirect=' + encodeURIComponent(next) : ''
+          navigate('/login?sessionExpired=1' + suffix, { replace: true })
+        }
       }
       setSession(nextSession)
     })
@@ -245,7 +258,7 @@ export default function AuthGate({ children }) {
           setOrg(undefined)
           try { setOrg(await getMyOrg()) } catch (error) { setOrgLoadError(error?.message || 'Could not load your business details.') }
         }}>Try again</button>
-        <button className="auth-magic-link" type="button" onClick={() => signOut()}>Sign out</button>
+        <button className="auth-magic-link" type="button" onClick={signOutExplicitly}>Sign out</button>
       </AuthLayout>
     )
   }
@@ -274,5 +287,5 @@ export default function AuthGate({ children }) {
 
   if (AUTH_PATHS.has(path)) return <Navigate to={requestedDestination(location.search)} replace />
 
-  return <OrgContext.Provider value={{ ...org, signOut }}>{children}</OrgContext.Provider>
+  return <OrgContext.Provider value={{ ...org, signOut: signOutExplicitly }}>{children}</OrgContext.Provider>
 }
