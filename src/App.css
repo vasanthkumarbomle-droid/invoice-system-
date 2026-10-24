@@ -2021,3 +2021,18 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .lf-dashboard-hero-title { font-size: clamp(22px, 2vw, 28px) !important; line-height: 1.2; }
 .lf-dashboard-hero-description { margin-top: 6px; }
 @media (max-width: 600px) { .lf-dashboard-hero { padding: 16px !important; } }
+
+.lf-live-editor-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 0.78fr); align-items: start; gap: 20px; min-width: 0; }
+.lf-live-editor-form { min-width: 0; }
+.lf-live-paper-panel { position: sticky; top: 82px; min-width: 0; max-height: calc(100vh - 100px); overflow: auto; padding: 14px; border: 1px solid var(--lf-border); border-radius: 12px; background: var(--lf-bg); }
+.lf-live-paper-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.lf-live-paper-heading > div { display: grid; gap: 2px; }
+.lf-live-paper-heading strong { font-size: 14px; }
+.lf-live-paper-heading span:not(.lf-badge) { color: var(--lf-text-muted); font-size: 12px; }
+.lf-live-paper { min-height: 340px; padding: 16px; background: #fff; border: 1px solid #E2E8F0; border-radius: 4px; box-shadow: 0 8px 22px rgba(15,23,42,.08); overflow: auto; }
+.lf-live-paper > div { min-width: 0; }
+.lf-live-paper-warning { display: grid; gap: 4px; width: 100%; margin-bottom: 12px; padding: 12px; border: 1px dashed #DC2626; border-radius: 8px; background: #FEF2F2; color: #991B1B; text-align: left; }
+.lf-live-paper-warning span { font-size: 12px; }
+.lf-live-paper-warning small { font-size: 12px; text-decoration: underline; }
+@media (max-width: 1100px) { .lf-live-editor-grid { grid-template-columns: minmax(0, 1fr); } .lf-live-paper-panel { position: static; max-height: none; } }
+@media (max-width: 600px) { .lf-live-paper-panel { padding: 10px; } .lf-live-paper { padding: 8px; } }
