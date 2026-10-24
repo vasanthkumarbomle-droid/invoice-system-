@@ -130,9 +130,29 @@ export const sendDocumentEmail = async (orgId, documentType, documentId) => {
   const { data, error } = await supabase.functions.invoke('quotation-workflow', {
     body: { action: 'send', orgId, documentType, documentId },
   })
-  if (error) throw new Error(error.message || 'Could not send the document email.')
-  if (data?.error) throw new Error(data.error)
-  return data
+
+  // Supabase FunctionsHttpError often carries the function's JSON response on
+  // error.context, while data is null for non-2xx responses. Read that body so
+  // setup/provider errors reach the UI instead of being hidden by a generic 502.
+  let responseBody = data
+  if (error && error.context && typeof error.context.clone === 'function') {
+    responseBody = await error.context.clone().json().catch(() => responseBody)
+  }
+
+  if (error) {
+    const serverMessage = String(responseBody?.error || '').trim()
+    const details = String(responseBody?.details || '').trim()
+    const message = [serverMessage, details].filter(Boolean).join(' — ')
+    throw new Error(message || error.message || 'Could not send the document email.')
+  }
+  if (responseBody?.error) {
+    const details = String(responseBody?.details || '').trim()
+    throw new Error([responseBody.error, details].filter(Boolean).join(' — '))
+  }
+  if (responseBody?.success !== true || responseBody?.emailAcceptedByProvider !== true) {
+    throw new Error('The email service did not confirm that the document email was accepted. Check the email settings and try again.')
+  }
+  return responseBody
 }
 
 // ---------- Dashboard ----------
