@@ -3450,7 +3450,8 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
   const isInterState = Number(doc.igstAmount) > 0 || (hasPlaceOfSupply && sellerStateCode !== buyerStateCode)
 
   return (
-    <div style={{ fontFamily: 'Arial, sans-serif', color: '#252A32' }}>
+    <div className={`lf-print-paper lf-print-paper-${String(doc.status || 'draft').toLowerCase().replace(/\s+/g, '-')}`} style={{ position: 'relative', fontFamily: 'Arial, sans-serif', color: '#252A32' }}>
+      {['Draft', 'Paid', 'Cancelled'].includes(doc.status) || doc.status === 'Sent' ? <div className={`lf-paper-watermark lf-paper-watermark-${String(doc.status || 'draft').toLowerCase().replace(/\s+/g, '-')}`} aria-label={`Document status: ${doc.status}`}>{doc.status === 'Sent' ? 'ISSUED' : String(doc.status || 'Draft').toUpperCase()}</div> : null}
       {/* Top Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #B87842', paddingBottom: '16px', marginBottom: '20px' }}>
         <div>
