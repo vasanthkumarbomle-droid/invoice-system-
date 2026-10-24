@@ -50,7 +50,6 @@ function AuthInvoiceDemo() {
   const [visible, setVisible] = useState(typeof document === 'undefined' || document.visibilityState === 'visible')
   const [reduced, setReduced] = useState(false)
   const elapsed = useRef(0)
-  const lastTick = useRef(0)
   const sample = samples[cycle % samples.length]
 
   useEffect(() => {
