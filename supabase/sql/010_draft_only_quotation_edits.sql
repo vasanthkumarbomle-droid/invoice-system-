@@ -64,7 +64,7 @@ BEGIN
             p_org_id, v_client_id,
             COALESCE(NULLIF(p_quotation->>'issue_date', '')::date, CURRENT_DATE),
             NULLIF(p_quotation->>'valid_until', '')::date,
-            v_requested_status,
+            v_requested_status::public.quotation_status,
             NULLIF(p_quotation->>'notes', ''),
             NULLIF(p_quotation->>'terms', '')
         )
@@ -89,7 +89,7 @@ BEGIN
         SET client_id = v_client_id,
             issue_date = COALESCE(NULLIF(p_quotation->>'issue_date', '')::date, issue_date),
             valid_until = NULLIF(p_quotation->>'valid_until', '')::date,
-            status = v_requested_status,
+            status = v_requested_status::public.quotation_status,
             notes = NULLIF(p_quotation->>'notes', ''),
             terms = NULLIF(p_quotation->>'terms', '')
         WHERE id = v_id AND org_id = p_org_id AND lower(status::text) = 'draft';
