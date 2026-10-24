@@ -495,6 +495,7 @@ const [quotations, setQuotations] = useState([])
   const [globalSearch, setGlobalSearch] = useState('')
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
 
   // Active Document Preview / Editor State
@@ -945,15 +946,27 @@ const [quotations, setQuotations] = useState([])
               )}
             </div>
 
-            {/* Quick Action Button */}
-            <button
-              type="button"
-              className="lf-btn lf-btn-primary"
-              onClick={() => handleStartNewDoc('invoice')}
-            >
+            {/* Contextual primary action */}
+            <button type="button" className="lf-btn lf-btn-primary" onClick={() => {
+              if (activeTab === 'quotations') handleStartNewDoc('quotation')
+              else if (activeTab === 'clients') { setEditingClient(null); setClientModalOpen(true) }
+              else if (activeTab === 'products') { setEditingProduct(null); setProductModalOpen(true) }
+              else handleStartNewDoc('invoice')
+            }}>
               <Plus size={16} />
-              <span>New Invoice</span>
+              <span>{activeTab === 'quotations' ? 'New Quotation' : activeTab === 'clients' ? 'New Client' : activeTab === 'products' ? 'New Product' : 'New Invoice'}</span>
             </button>
+            <div className="lf-quick-create">
+              <button type="button" className="lf-btn lf-btn-secondary" aria-expanded={quickCreateOpen} onClick={() => setQuickCreateOpen((open) => !open)}>
+                <Plus size={15} /><span>New</span><ChevronDown size={14} />
+              </button>
+              {quickCreateOpen && <div className="lf-dropdown-menu lf-quick-create-menu">
+                <button type="button" className="lf-dropdown-item" onClick={() => { setQuickCreateOpen(false); handleStartNewDoc('invoice') }}><FileText size={15} /><span>Invoice</span></button>
+                <button type="button" className="lf-dropdown-item" onClick={() => { setQuickCreateOpen(false); handleStartNewDoc('quotation') }}><FileSpreadsheet size={15} /><span>Quotation</span></button>
+                <button type="button" className="lf-dropdown-item" onClick={() => { setQuickCreateOpen(false); setEditingClient(null); setClientModalOpen(true) }}><Users size={15} /><span>Client</span></button>
+                <button type="button" className="lf-dropdown-item" onClick={() => { setQuickCreateOpen(false); setEditingProduct(null); setProductModalOpen(true) }}><Package size={15} /><span>Product</span></button>
+              </div>}
+            </div>
 
             {/* Notifications Panel */}
             <div style={{ position: 'relative' }}>
