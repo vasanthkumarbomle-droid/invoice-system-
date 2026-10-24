@@ -168,7 +168,6 @@ export default function AuthGate({ children }) {
   const [session, setSession] = useState(undefined)
   const [org, setOrg] = useState(undefined)
   const [orgLoadError, setOrgLoadError] = useState('')
-  const [onboardingDismissed, setOnboardingDismissed] = useState(false)
   const hadSession = useRef(false)
   const explicitSignOut = useRef(false)
 
@@ -219,13 +218,11 @@ export default function AuthGate({ children }) {
     if (!session) {
       setOrg(undefined)
       setOrgLoadError('')
-      setOnboardingDismissed(false)
       return undefined
     }
     let active = true
     setOrg(undefined)
     setOrgLoadError('')
-    setOnboardingDismissed(false)
     getMyOrg()
       .then((value) => { if (active) setOrg(value) })
       .catch((error) => {
@@ -268,21 +265,14 @@ export default function AuthGate({ children }) {
 
   if (org === undefined) return <LoadingScreen label="Preparing your workspace…" />
 
-  const dismissedKey = org?.id ? getOnboardingSkipKey(org.id) : ''
-  let wasSkipped = onboardingDismissed
-  try { wasSkipped = wasSkipped || Boolean(dismissedKey && window.localStorage.getItem(dismissedKey)) } catch { /* Ignore disabled local storage. */ }
-  const profileIncomplete = org && (!org.name || !org.gstin || !org.state_code || !org.logo_url)
-
-  if (!org || (profileIncomplete && !wasSkipped)) {
+  if (!org) {
     const destination = requestedDestination(location.search)
     const completeOnboarding = (nextOrg) => {
       setOrg(nextOrg)
-      setOnboardingDismissed(true)
       if (AUTH_PATHS.has(path)) navigate(destination, { replace: true })
     }
     const skipOnboarding = () => {
       try { window.localStorage.setItem(getOnboardingSkipKey(org.id), '1') } catch { /* Ignore disabled local storage. */ }
-      setOnboardingDismissed(true)
       if (AUTH_PATHS.has(path)) navigate(destination, { replace: true })
     }
     return <CompanyOnboarding session={session} existingOrg={org || null} onCompleted={completeOnboarding} onSkip={skipOnboarding} />
