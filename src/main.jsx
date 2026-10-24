@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useState } from 'react'
+import { StrictMode, useCallback, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import './index.css'
@@ -7,36 +7,35 @@ import AuthGate from './AuthGate.jsx'
 import ErrorBoundary from './ErrorBoundary.jsx'
 
 export function OfflineExperience({ children }) {
-  // navigator.onLine can be false even while the site is reachable.
-  // Only show the offline screen after a real same-origin request fails.
   const [offline, setOffline] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
   const [checking, setChecking] = useState(false)
 
-  const checkConnection = async () => {
-    // A failed probe to this app's origin does not automatically mean the
-    // device is offline (VPNs, edge redirects and transient errors can fail it).
-    // Prefer the browser's actual network state, and confirm with a tiny static
-    // same-origin asset when a probe is useful.
-    if (navigator.onLine) setOffline(false)
+  // Connectivity is a separate concern from Supabase auth, session and RLS.
+  // A failed database request must never be used as an offline signal.
+  const checkConnection = useCallback(async () => {
     const controller = new AbortController()
     const timeoutId = window.setTimeout(() => controller.abort(), 2500)
+    let assetReachable = false
+
     try {
       const response = await fetch('/favicon.svg?lf-connectivity=' + Date.now(), {
         method: 'GET',
         cache: 'no-store',
         signal: controller.signal,
       })
-      const reachable = response.ok
-      setOffline(!reachable && navigator.onLine === false)
-      return reachable || navigator.onLine
+      assetReachable = response.ok
     } catch {
-      const browserReportsOffline = navigator.onLine === false
-      setOffline(browserReportsOffline)
-      return !browserReportsOffline
+      // A failed probe is only one signal; it must never block the app.
     } finally {
       window.clearTimeout(timeoutId)
     }
-  }
+
+    const shouldShowBanner = !assetReachable && navigator.onLine === false
+    setOffline(shouldShowBanner)
+    if (!shouldShowBanner) setDismissed(false)
+    return !shouldShowBanner
+  }, [])
 
   useEffect(() => {
     void checkConnection()
@@ -44,33 +43,61 @@ export function OfflineExperience({ children }) {
     const onVisible = () => {
       if (document.visibilityState === 'visible') void checkConnection()
     }
+    const registerServiceWorker = () => {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(() => {})
+      }
+    }
+
     window.addEventListener('online', onNetworkChange)
     window.addEventListener('offline', onNetworkChange)
     document.addEventListener('visibilitychange', onVisible)
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(() => {})
-      }, { once: true })
-    }
+    window.addEventListener('load', registerServiceWorker, { once: true })
     return () => {
       window.removeEventListener('online', onNetworkChange)
       window.removeEventListener('offline', onNetworkChange)
       document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('load', registerServiceWorker)
     }
-  }, [])
+  }, [checkConnection])
 
   const retry = async () => {
+    if (checking) return
     setChecking(true)
-    await checkConnection()
-    setChecking(false)
+    try {
+      await checkConnection()
+    } finally {
+      setChecking(false)
+    }
   }
 
-  return <>{children}{offline && <div className="lf-offline-screen" role="alert" aria-live="assertive">
-    <header className="lf-offline-header"><div className="lf-offline-brand"><span className="lf-brand-mark">L</span><span>LedgerFlow</span></div><span className="lf-offline-pill"><i/> Offline mode</span></header>
-    <main className="lf-offline-main">
-      <section className="lf-offline-copy"><span className="lf-offline-kicker">WIFI: PLAYING HIDE & SEEK</span><h1>Well, this is <em>awkward.</em></h1><p>The internet went out for coffee. It didn’t leave us a receipt.</p><button className="lf-offline-retry" onClick={retry} disabled={checking}><span className={checking ? 'lf-spin' : ''}>↻</span>{checking ? 'Checking connection…' : 'Try again'}</button><small>No signal. No drama. We’ll be here.</small></section>
-      <section className="lf-offline-art" aria-label="A sleepy cat napping on a pile of invoices"><div className="lf-sun"/><div className="lf-wifi">⌁<b>×</b></div><div className="lf-plant"><i/><i/><i/><i/><span/></div><div className="lf-doodle-note">even the cloud<br/>needs a nap ↘</div><div className="lf-paper-stack"><div>INVOICE <span>•••</span></div><div>QUOTATION <span>•••</span></div><div>PAYMENT <span>•••</span></div></div><div className="lf-cat-shadow"/><div className="lf-cat"><div className="lf-cat-ear left"/><div className="lf-cat-ear right"/><div className="lf-cat-face"><span className="lf-eye left"/><span className="lf-eye right"/><span className="lf-nose"/><span className="lf-whisker left"/><span className="lf-whisker right"/></div><div className="lf-cat-paw one"/><div className="lf-cat-paw two"/></div><div className="lf-mug"><span>☕</span><small>BRB</small></div><div className="lf-art-caption">currently unavailable<br/><b>emotionally? also unavailable.</b></div></section>
-    </main><footer className="lf-offline-footer"><span>✳</span> YOUR BUSINESS CAN WAIT 3 SECONDS. <span className="lf-footer-right">THE CAT HAS ALREADY WAITED 14 HOURS.</span></footer>
-  </div>}</>
+  return (
+    <>
+      {offline && !dismissed && (
+        <div className="lf-offline-banner" role="status" aria-live="polite">
+          <span className="lf-offline-banner-icon" aria-hidden="true">↯</span>
+          <span><strong>You may be offline.</strong> Cached pages remain available; changes may not sync until connection returns.</span>
+          <button type="button" className="lf-offline-banner-retry" onClick={retry} disabled={checking}>
+            {checking ? 'Checking…' : 'Retry connection'}
+          </button>
+          <button type="button" className="lf-offline-banner-dismiss" onClick={() => setDismissed(true)} aria-label="Dismiss offline notice">×</button>
+        </div>
+      )}
+      {children}
+    </>
+  )
 }
-createRoot(document.getElementById('root')).render(<StrictMode><BrowserRouter><OfflineExperience><ErrorBoundary><AuthGate><App/></AuthGate></ErrorBoundary></OfflineExperience></BrowserRouter></StrictMode>)
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <BrowserRouter>
+      <OfflineExperience>
+        <ErrorBoundary>
+          <AuthGate>
+            <App />
+          </AuthGate>
+        </ErrorBoundary>
+      </OfflineExperience>
+    </BrowserRouter>
+  </StrictMode>
+)
