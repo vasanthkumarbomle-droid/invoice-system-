@@ -611,7 +611,7 @@ const [quotations, setQuotations] = useState([])
       clientId: client.id, clientName: client.name, clientEmail: client.email || '', clientPhone: client.phone || '',
       clientAddress: client.address || '', clientGstin: client.gstin || '', clientStateCode: client.stateCode || String(client.gstin || '').slice(0, 2),
       issueDate, dueDate: addDaysToDateString(issueDate, dueDays), paymentTerms: dueDays === 15 ? 'Net 15' : 'Custom', status: 'Draft',
-      items: [{ id: 'magic-' + Date.now(), productId: product.id, description: product.name, sku: product.sku || '', hsnSac: product.hsnSac || '', unit: product.unit || 'unit', quantity, unitPrice: price, gstRate: rate, subtotal: quantity * price, taxAmount: quantity * price * rate / 100, total: quantity * price * (1 + rate / 100) }]
+      items: [{ id: 'magic-' + String(product.id), productId: product.id, description: product.name, sku: product.sku || '', hsnSac: product.hsnSac || '', unit: product.unit || 'unit', quantity, unitPrice: price, gstRate: rate, subtotal: quantity * price, taxAmount: quantity * price * rate / 100, total: quantity * price * (1 + rate / 100) }]
     })
     setGlobalSearch('')
     navigateTo('/invoices/new')
@@ -1142,8 +1142,6 @@ const [quotations, setQuotations] = useState([])
               quotations={quotations}
               companyProfile={companyProfile}
               userName={org.user?.user_metadata?.full_name || org.full_name || (org.email ? org.email.split('@')[0] : 'there')}
-              onNewInvoice={() => handleStartNewDoc('invoice')}
-              onNewQuotation={() => handleStartNewDoc('quotation')}
               onViewDoc={(doc) => setPreviewDoc(doc)}
               onGoSettings={() => navigateTo('/settings')}
             />
@@ -1177,6 +1175,7 @@ const [quotations, setQuotations] = useState([])
               onViewDoc={(doc) => setPreviewDoc(doc)}
               onEditDoc={handleEditDoc}
               onDuplicateDoc={handleDuplicateDoc}
+              onConvertToInvoice={handleConvertQuotation}
               onDeleteDoc={(doc) => confirmDelete('quotation', doc.id, doc.documentNumber)}
             />
           )}
@@ -1630,7 +1629,7 @@ const [quotations, setQuotations] = useState([])
 // ============================================================================
 // DASHBOARD (OVERVIEW) VIEW
 // ============================================================================
-function DashboardView({ invoices, payments, quotations, companyProfile, userName, onNewInvoice, onNewQuotation, onViewDoc, onGoSettings }) {
+function DashboardView({ invoices, payments, quotations, companyProfile, userName, onViewDoc, onGoSettings }) {
   const reportableInvoices = useMemo(() => invoices.filter((invoice) => !['Draft', 'Cancelled'].includes(invoice.status)), [invoices])
   const reportableInvoiceIds = useMemo(() => new Set(reportableInvoices.map((invoice) => invoice.id)), [reportableInvoices])
   const totalInvoiced = useMemo(() => reportableInvoices.reduce((sum, i) => sum + (Number(i.grandTotal) || 0), 0), [reportableInvoices])
@@ -2129,7 +2128,7 @@ function DocumentEditorView({
     )
   )
   const [paymentTerms, setPaymentTerms] = useState(existingDoc?.paymentTerms || companyProfile.defaultPaymentTerms)
-  const [status, setStatus] = useState(existingDoc?.status || 'Draft')
+  const [status] = useState(existingDoc?.status || 'Draft')
   const [notes, setNotes] = useState(existingDoc?.notes || companyProfile.notes)
 
   // Line Items
@@ -3231,7 +3230,7 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
           printWindow.close()
         }
       }, 700)
-    } catch (error) {
+    } catch {
       printWindow.close()
       showToast('Could not prepare the invoice for printing. Please try again.', 'error')
     }
