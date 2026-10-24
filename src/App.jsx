@@ -1058,6 +1058,7 @@ const [quotations, setQuotations] = useState([])
               onNewInvoice={() => handleStartNewDoc('invoice')}
               onNewQuotation={() => handleStartNewDoc('quotation')}
               onViewDoc={(doc) => setPreviewDoc(doc)}
+              onGoSettings={() => navigateTo('/settings')}
             />
           )}
 
@@ -1541,7 +1542,7 @@ const [quotations, setQuotations] = useState([])
 // ============================================================================
 // DASHBOARD (OVERVIEW) VIEW
 // ============================================================================
-function DashboardView({ invoices, payments, quotations, companyProfile, onNewInvoice, onNewQuotation, onViewDoc }) {
+function DashboardView({ invoices, payments, quotations, companyProfile, onNewInvoice, onNewQuotation, onViewDoc, onGoSettings }) {
   const reportableInvoices = useMemo(() => invoices.filter((invoice) => !['Draft', 'Cancelled'].includes(invoice.status)), [invoices])
   const reportableInvoiceIds = useMemo(() => new Set(reportableInvoices.map((invoice) => invoice.id)), [reportableInvoices])
   const totalInvoiced = useMemo(() => reportableInvoices.reduce((sum, i) => sum + (Number(i.grandTotal) || 0), 0), [reportableInvoices])
@@ -1618,6 +1619,35 @@ function DashboardView({ invoices, payments, quotations, companyProfile, onNewIn
           </div>
         </div>
       </section>
+
+      {(() => {
+        const checklist = [
+          { label: 'GSTIN', complete: Boolean(String(companyProfile.gstin || '').trim()) },
+          { label: 'Registered address', complete: Boolean(String(companyProfile.address || '').trim()) },
+          { label: 'Bank name', complete: Boolean(String(companyProfile.bankName || '').trim()) },
+          { label: 'Account number', complete: Boolean(String(companyProfile.accountNumber || '').trim()) },
+          { label: 'IFSC code', complete: Boolean(String(companyProfile.ifscCode || '').trim()) },
+        ]
+        const done = checklist.filter((item) => item.complete).length
+        if (done === checklist.length) return null
+        return (
+          <section className="lf-profile-checklist" aria-label="Complete your business profile">
+            <div className="lf-profile-checklist-head">
+              <div>
+                <h3 className="lf-card-title">Complete your business profile</h3>
+                <p className="lf-card-subtitle">Finish these details to issue and download compliant documents.</p>
+              </div>
+              <button type="button" className="lf-btn lf-btn-secondary lf-btn-sm" onClick={onGoSettings}>Go to Settings</button>
+            </div>
+            <div className="lf-profile-progress" role="progressbar" aria-valuemin={0} aria-valuemax={checklist.length} aria-valuenow={done}>
+              <span style={{ width: (done / checklist.length * 100) + '%' }} />
+            </div>
+            <div className="lf-profile-checklist-items">
+              {checklist.map((item) => <span key={item.label} className={item.complete ? 'complete' : ''}>{item.complete ? '✓' : '○'} {item.label}</span>)}
+            </div>
+          </section>
+        )
+      })()}
 
       {/* METRIC CARDS */}
       <div className="lf-metrics-grid">
