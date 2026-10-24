@@ -105,6 +105,68 @@ export const setQuotationStatus = (orgId, id, status) => supabase.from('quotatio
 export const convertQuotationToInvoice = (id, dueDate = null) =>
   supabase.rpc('convert_quotation_to_invoice', { p_quote_id: id, p_due_date: dueDate }).then(must)
 
+// Sales Orders: accepted product quotations move through stock reservation, packing,
+// dispatch, and only then final tax invoicing.
+export const listSalesOrdersFull = async (orgId) => {
+  const rows = await supabase
+    .from('sales_orders')
+    .select('*, sales_order_items(*)')
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false })
+    .then(must)
+  if (!rows.length) return []
+
+  const ids = (key) => [...new Set(rows.map((row) => row[key]).filter(Boolean))]
+  const [clients, quotations, invoices] = await Promise.all([
+    supabase.from('clients')
+      .select('id,name,email,phone,address')
+      .eq('org_id', orgId).in('id', ids('client_id')).then(must),
+    supabase.from('quotations')
+      .select('id,quote_number,issue_date,valid_until,terms,grand_total')
+      .eq('org_id', orgId).in('id', ids('quotation_id')).then(must),
+    supabase.from('invoices')
+      .select('id,invoice_number,status,sales_order_id')
+      .eq('org_id', orgId).in('sales_order_id', ids('id')).then(must),
+  ])
+  const clientById = new Map(clients.map((row) => [row.id, row]))
+  const quoteById = new Map(quotations.map((row) => [row.id, row]))
+  const invoiceByOrderId = new Map(invoices.map((row) => [row.sales_order_id, row]))
+  return rows.map((row) => ({
+    ...row,
+    clients: clientById.get(row.client_id) || {},
+    quotations: quoteById.get(row.quotation_id) || {},
+    invoice: invoiceByOrderId.get(row.id) || null,
+    sales_order_items: (row.sales_order_items || []).slice().sort((a, b) => Number(a.position || 0) - Number(b.position || 0)),
+  }))
+}
+
+export const salesOrderAction = async (orgId, orderId, task, options = {}) => {
+  const { data, error } = await supabase.functions.invoke('quotation-workflow', {
+    body: {
+      action: 'sales_order_action',
+      orgId,
+      orderId,
+      task,
+      carrier: options.carrier || '',
+      trackingNumber: options.trackingNumber || '',
+    },
+  })
+  let responseBody = data
+  if (error?.context && typeof error.context.clone === 'function') {
+    const response = error.context.clone()
+    const text = await response.text().catch(() => '')
+    if (text) {
+      try { responseBody = JSON.parse(text) } catch { /* Preserve SDK error if not JSON. */ }
+    }
+  }
+  if (error) throw new Error(responseBody?.error || responseBody?.message || error.message || 'Sales-order action failed.')
+  if (responseBody?.error) throw new Error(responseBody.error + (responseBody.details ? ': ' + responseBody.details : ''))
+  if (responseBody?.success !== true && responseBody?.emailAcceptedByProvider !== true) {
+    throw new Error('The sales-order workflow did not confirm that the action completed.')
+  }
+  return responseBody
+}
+
 // Backward-compatible alias for older callers.
 export const convertQuotation = convertQuotationToInvoice
 
