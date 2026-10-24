@@ -4425,13 +4425,39 @@ function ReportsView({ invoices, payments }) {
 
 function SettingsView({ profile, onSaveProfile }) {
   const [formData, setFormData] = useState({ ...profile })
-    const handleChange = (field, val) => {
+  const [saving, setSaving] = useState(false)
+  const [validationError, setValidationError] = useState('')
+  const hasUnsavedChanges = JSON.stringify(formData) !== JSON.stringify(profile)
+  useEffect(() => {
+    if (!hasUnsavedChanges) return undefined
+    const warnBeforeLeave = (event) => { event.preventDefault(); event.returnValue = '' }
+    window.addEventListener('beforeunload', warnBeforeLeave)
+    return () => window.removeEventListener('beforeunload', warnBeforeLeave)
+  }, [hasUnsavedChanges])
+  const handleChange = (field, val) => {
+    setValidationError('')
     setFormData((prev) => ({ ...prev, [field]: val }))
   }
 
   const handleSaveAll = async (e) => {
     e.preventDefault()
-    await onSaveProfile(formData)
+    const gstin = String(formData.gstin || '').trim().toUpperCase()
+    const pan = String(formData.pan || '').trim().toUpperCase()
+    const ifsc = String(formData.ifscCode || '').trim().toUpperCase()
+    if (gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gstin)) { setValidationError('Enter a valid 15-character GSTIN format.'); return }
+    if (gstin) {
+      const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+      const values = [...gstin.slice(0, 14)].reverse().map((ch) => chars.indexOf(ch))
+      let sum = 0
+      values.forEach((value, index) => { const product = value * (index % 2 === 0 ? 2 : 1); sum += Math.floor(product / 36) + product % 36 })
+      const check = chars[(36 - (sum % 36)) % 36]
+      if (check !== gstin[14]) { setValidationError('The GSTIN checksum does not match. Check the number and try again.'); return }
+    }
+    if (pan && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan)) { setValidationError('Enter PAN in the format ABCDE1234F.'); return }
+    if (ifsc && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) { setValidationError('Enter a valid 11-character IFSC code.'); return }
+    setSaving(true)
+    try { await onSaveProfile({ ...formData, gstin, pan, ifscCode: ifsc }); setFormData((prev) => ({ ...prev, gstin, pan, ifscCode: ifsc })); setValidationError('') }
+    finally { setSaving(false) }
    }
 
   return (
