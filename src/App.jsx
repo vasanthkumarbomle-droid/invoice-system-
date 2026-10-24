@@ -3419,25 +3419,41 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
     finally { setSending(false) }
   }
 
-  // Print Action — print the standalone document, not the hidden preview modal.
+  // Print Action — write the full standalone document before opening the print dialog.
   const handlePrint = () => {
-    const printWindow = window.open('', '_blank')
+    const printableHtml = generatePrintableHtml(doc, companyProfile, signatureData)
+    const printWindow = window.open('', '_blank', 'width=1000,height=800')
 
     if (!printWindow) {
-      showToast('Please allow pop-ups to print or save this document as PDF.', 'error')
+      showToast('Allow pop-ups to print or save this document as PDF.', 'error')
       return
     }
 
-    printWindow.onload = () => {
-      printWindow.focus()
-      printWindow.print()
-    }
+    try {
+      printWindow.document.open()
+      printWindow.document.write(printableHtml)
+      printWindow.document.close()
 
-    printWindow.document.open()
-    printWindow.document.write(
-      generatePrintableHtml(doc, companyProfile, signatureData)
-    )
-    printWindow.document.close()
+      // Do not rely on onload for about:blank: it may have fired before document.write.
+      printWindow.addEventListener('load', () => {
+        printWindow.focus()
+        printWindow.print()
+      }, { once: true })
+
+      // Fallback for browsers where the load event fires before the listener is attached.
+      printWindow.setTimeout(() => {
+        if (printWindow.document.body && printWindow.document.body.innerText.trim()) {
+          printWindow.focus()
+          printWindow.print()
+        } else {
+          showToast('The invoice did not render for printing. Please reopen the preview and try again.', 'error')
+          printWindow.close()
+        }
+      }, 700)
+    } catch (error) {
+      printWindow.close()
+      showToast('Could not prepare the invoice for printing. Please try again.', 'error')
+    }
   }
 
   // Download Standalone Self-Contained HTML Invoice
