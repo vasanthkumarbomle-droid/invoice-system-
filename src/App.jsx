@@ -46,7 +46,8 @@ import {
   FileDown,
   PenLine,
   Send,
-  LoaderCircle
+  LoaderCircle,
+  LogOut
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -71,6 +72,24 @@ function formatINR(amount) {
     currency: 'INR',
     maximumFractionDigits: 2
   }).format(num)
+}
+
+function formatDisplayDate(value) {
+  if (!value) return ''
+  const date = new Date(String(value).slice(0, 10) + 'T12:00:00')
+  return Number.isNaN(date.getTime()) ? String(value) : new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(date)
+}
+
+const GST_STATE_NAMES = {
+  '01': 'Jammu and Kashmir', '02': 'Himachal Pradesh', '03': 'Punjab', '04': 'Chandigarh',
+  '05': 'Uttarakhand', '06': 'Haryana', '07': 'Delhi', '08': 'Rajasthan', '09': 'Uttar Pradesh',
+  '10': 'Bihar', '11': 'Sikkim', '12': 'Arunachal Pradesh', '13': 'Nagaland', '14': 'Manipur',
+  '15': 'Mizoram', '16': 'Tripura', '17': 'Meghalaya', '18': 'Assam', '19': 'West Bengal',
+  '20': 'Jharkhand', '21': 'Odisha', '22': 'Chhattisgarh', '23': 'Madhya Pradesh',
+  '24': 'Gujarat', '26': 'Dadra and Nagar Haveli and Daman and Diu', '27': 'Maharashtra',
+  '28': 'Andhra Pradesh (old code)', '29': 'Karnataka', '30': 'Goa', '31': 'Lakshadweep',
+  '32': 'Kerala', '33': 'Tamil Nadu', '34': 'Puducherry', '35': 'Andaman and Nicobar Islands',
+  '36': 'Telangana', '37': 'Andhra Pradesh', '38': 'Ladakh'
 }
 
 // ============================================================================
@@ -437,6 +456,8 @@ const [quotations, setQuotations] = useState([])
 }
 
   const handleSendDocument = async (doc) => {
+    const missingSeller = [!companyProfile.gstin?.trim() && 'GSTIN', !companyProfile.address?.trim() && 'registered address', !companyProfile.bankName?.trim() && 'bank name', !companyProfile.accountNumber?.trim() && 'bank account number', !companyProfile.ifscCode?.trim() && 'IFSC code'].filter(Boolean)
+    if (missingSeller.length) throw new Error('Complete your business profile in Settings before sending: ' + missingSeller.join(', ') + '.')
     if (!isSupabaseConfigured) throw new Error('Connect Supabase before sending a document.')
     if (!doc?.id || !/^[0-9a-f]{8}-/i.test(doc.id)) throw new Error('Save the document to Supabase before sending it.')
     if (!doc.clientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(doc.clientEmail.trim())) throw new Error('Add a valid client email address before sending.')
@@ -479,8 +500,21 @@ const [quotations, setQuotations] = useState([])
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [globalSearch, setGlobalSearch] = useState('')
+  const globalSearchRef = useRef(null)
+  useEffect(() => {
+    const onShortcut = (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        globalSearchRef.current?.focus()
+        globalSearchRef.current?.select()
+      }
+    }
+    window.addEventListener('keydown', onShortcut)
+    return () => window.removeEventListener('keydown', onShortcut)
+  }, [])
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
 
   // Active Document Preview / Editor State
@@ -534,6 +568,56 @@ const [quotations, setQuotations] = useState([])
     setEditorMode(mode)
     setEditingDoc(null)
     navigateTo(mode === 'invoice' ? '/invoices/new' : '/quotations/new')
+  }
+
+  const handleMagicCommand = (rawCommand) => {
+    const command = String(rawCommand || '').trim()
+    const normalized = command.toLowerCase()
+    if (!command) return false
+    if (/^(show )?overdue$/.test(normalized) || normalized.includes('show overdue')) {
+      navigateTo('/invoices')
+      setGlobalSearch('')
+      showToast('Open the Invoices page and choose Overdue to review outstanding accounts.', 'success')
+      return true
+    }
+    if (normalized.includes('go to reports') || normalized === 'reports') {
+      navigateTo('/reports')
+      setGlobalSearch('')
+      return true
+    }
+    if (!/^invoice\b/i.test(command)) return false
+    const body = command.replace(/^invoice\s*/i, '')
+    const qtyMatch = body.match(/\b(\d+)\s+(.+?)\s+(\d{1,2})%/i)
+    if (!qtyMatch) {
+      showToast('Try: Invoice Ravi Traders 3 keyboards 18% due in 15 days', 'warning')
+      return true
+    }
+    const quantity = Number(qtyMatch[1])
+    const gstRate = Number(qtyMatch[3])
+    const productText = qtyMatch[2].trim().toLowerCase().replace(/s$/, '')
+    const client = clients.slice().sort((a, b) => String(b.name).length - String(a.name).length).find((item) => body.toLowerCase().includes(String(item.name || '').toLowerCase()))
+    const product = products.slice().sort((a, b) => String(b.name).length - String(a.name).length).find((item) => {
+      const name = String(item.name || '').toLowerCase()
+      return name.includes(productText) || productText.includes(name.replace(/s$/, ''))
+    })
+    if (!client) { showToast('I could not match a client. Add the client first, then try the command again.', 'warning'); return true }
+    if (!product) { showToast('I could not match that product in your catalogue. Add it first, then try again.', 'warning'); return true }
+    if (!Number.isFinite(quantity) || quantity < 1 || quantity > 100000) { showToast('Enter a valid item quantity.', 'warning'); return true }
+    const price = Number(product.price) || 0
+    const rate = Number.isFinite(gstRate) ? gstRate : Number(product.gstRate ?? 18)
+    const issueDate = todayInIndia()
+    const dueDays = Number((body.match(/due in (\d+) days?/i) || [])[1] || 15)
+    setEditorMode('invoice')
+    setEditingDoc({
+      clientId: client.id, clientName: client.name, clientEmail: client.email || '', clientPhone: client.phone || '',
+      clientAddress: client.address || '', clientGstin: client.gstin || '', clientStateCode: client.stateCode || String(client.gstin || '').slice(0, 2),
+      issueDate, dueDate: addDaysToDateString(issueDate, dueDays), paymentTerms: dueDays === 15 ? 'Net 15' : 'Custom', status: 'Draft',
+      items: [{ id: 'magic-' + String(product.id), productId: product.id, description: product.name, sku: product.sku || '', hsnSac: product.hsnSac || '', unit: product.unit || 'unit', quantity, unitPrice: price, gstRate: rate, subtotal: quantity * price, taxAmount: quantity * price * rate / 100, total: quantity * price * (1 + rate / 100) }]
+    })
+    setGlobalSearch('')
+    navigateTo('/invoices/new')
+    showToast('Draft prepared from your command. Review the details before saving.', 'success')
+    return true
   }
 
   // Accepted/rejected/converted quotations are immutable; duplicate to create a revised offer.
@@ -748,7 +832,7 @@ const [quotations, setQuotations] = useState([])
             {!sidebarCollapsed && (
               <div className="lf-brand-text">
                 <span className="lf-brand-title">LedgerFlow</span>
-                <span className="lf-brand-subtitle">Financial Suite</span>
+                <span className="lf-brand-subtitle">INVOICE WORKSPACE</span>
               </div>
             )}
           </Link>
@@ -904,11 +988,14 @@ const [quotations, setQuotations] = useState([])
             <div className="lf-search-box">
               <Search size={16} className="lf-search-icon" />
               <input
+                ref={globalSearchRef}
                 type="text"
                 className="lf-search-input"
-                placeholder="Search invoices, clients, SKU..."
+                placeholder="Search or type a command…  (Ctrl+K)"
+                aria-label="Search records or enter a command"
                 value={globalSearch}
                 onChange={(e) => setGlobalSearch(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleMagicCommand(globalSearch) }}
               />
               {filteredSearchResults.length > 0 && (
                 <div className="lf-search-results-dropdown">
@@ -931,15 +1018,27 @@ const [quotations, setQuotations] = useState([])
               )}
             </div>
 
-            {/* Quick Action Button */}
-            <button
-              type="button"
-              className="lf-btn lf-btn-primary"
-              onClick={() => handleStartNewDoc('invoice')}
-            >
+            {/* Contextual primary action */}
+            <button type="button" className="lf-btn lf-btn-primary" onClick={() => {
+              if (activeTab === 'quotations') handleStartNewDoc('quotation')
+              else if (activeTab === 'clients') { setEditingClient(null); setClientModalOpen(true) }
+              else if (activeTab === 'products') { setEditingProduct(null); setProductModalOpen(true) }
+              else handleStartNewDoc('invoice')
+            }}>
               <Plus size={16} />
-              <span>New Invoice</span>
+              <span>{activeTab === 'quotations' ? 'New Quotation' : activeTab === 'clients' ? 'New Client' : activeTab === 'products' ? 'New Product' : 'New Invoice'}</span>
             </button>
+            <div className="lf-quick-create">
+              <button type="button" className="lf-btn lf-btn-secondary" aria-expanded={quickCreateOpen} onClick={() => setQuickCreateOpen((open) => !open)}>
+                <Plus size={15} /><span>New</span><ChevronDown size={14} />
+              </button>
+              {quickCreateOpen && <div className="lf-dropdown-menu lf-quick-create-menu">
+                <button type="button" className="lf-dropdown-item" onClick={() => { setQuickCreateOpen(false); handleStartNewDoc('invoice') }}><FileText size={15} /><span>Invoice</span></button>
+                <button type="button" className="lf-dropdown-item" onClick={() => { setQuickCreateOpen(false); handleStartNewDoc('quotation') }}><FileSpreadsheet size={15} /><span>Quotation</span></button>
+                <button type="button" className="lf-dropdown-item" onClick={() => { setQuickCreateOpen(false); setEditingClient(null); setClientModalOpen(true) }}><Users size={15} /><span>Client</span></button>
+                <button type="button" className="lf-dropdown-item" onClick={() => { setQuickCreateOpen(false); setEditingProduct(null); setProductModalOpen(true) }}><Package size={15} /><span>Product</span></button>
+              </div>}
+            </div>
 
             {/* Notifications Panel */}
             <div style={{ position: 'relative' }}>
@@ -1029,6 +1128,13 @@ const [quotations, setQuotations] = useState([])
                     <span>Financial Reports</span>
                   </button>
                   <div className="lf-dropdown-divider" />
+                  <button type="button" className="lf-dropdown-item lf-dropdown-signout" onClick={async () => {
+                    setProfileMenuOpen(false)
+                    try { await org.signOut?.() } catch (error) { showToast(error?.message || 'Could not sign out. Try again.', 'error') }
+                  }}>
+                    <LogOut size={15} />
+                    <span>Sign out</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -1043,9 +1149,9 @@ const [quotations, setQuotations] = useState([])
               payments={payments}
               quotations={quotations}
               companyProfile={companyProfile}
-              onNewInvoice={() => handleStartNewDoc('invoice')}
-              onNewQuotation={() => handleStartNewDoc('quotation')}
+              userName={org.user?.user_metadata?.full_name || org.full_name || (org.email ? org.email.split('@')[0] : 'there')}
               onViewDoc={(doc) => setPreviewDoc(doc)}
+              onGoSettings={() => navigateTo('/settings')}
             />
           )}
 
@@ -1077,6 +1183,7 @@ const [quotations, setQuotations] = useState([])
               onViewDoc={(doc) => setPreviewDoc(doc)}
               onEditDoc={handleEditDoc}
               onDuplicateDoc={handleDuplicateDoc}
+              onConvertToInvoice={handleConvertQuotation}
               onDeleteDoc={(doc) => confirmDelete('quotation', doc.id, doc.documentNumber)}
             />
           )}
@@ -1240,6 +1347,7 @@ const [quotations, setQuotations] = useState([])
               products={products}
               existingDoc={editingDoc}
               onCancel={() => navigateTo(editorMode === 'invoice' ? '/invoices' : '/quotations')}
+              onGoSettings={() => navigateTo('/settings')}
   onSave={async (savedDoc) => {
   if (savedDoc.type === 'invoice') {
     try {
@@ -1368,6 +1476,7 @@ const [quotations, setQuotations] = useState([])
           signatureData={documentSignatures[previewDoc.id] || ''}
           onSignatureChange={(value) => handleSaveDocumentSignature(previewDoc, value)}
           onSendDocument={handleSendDocument}
+          onGoSettings={() => { setPreviewDoc(null); navigateTo('/settings') }}
         />
       )}
 
@@ -1528,7 +1637,7 @@ const [quotations, setQuotations] = useState([])
 // ============================================================================
 // DASHBOARD (OVERVIEW) VIEW
 // ============================================================================
-function DashboardView({ invoices, payments, quotations, companyProfile, onNewInvoice, onNewQuotation, onViewDoc }) {
+function DashboardView({ invoices, payments, quotations, companyProfile, userName, onViewDoc, onGoSettings }) {
   const reportableInvoices = useMemo(() => invoices.filter((invoice) => !['Draft', 'Cancelled'].includes(invoice.status)), [invoices])
   const reportableInvoiceIds = useMemo(() => new Set(reportableInvoices.map((invoice) => invoice.id)), [reportableInvoices])
   const totalInvoiced = useMemo(() => reportableInvoices.reduce((sum, i) => sum + (Number(i.grandTotal) || 0), 0), [reportableInvoices])
@@ -1587,24 +1696,44 @@ function DashboardView({ invoices, payments, quotations, companyProfile, onNewIn
           <div className="lf-dashboard-hero-copy">
             <span className="lf-dashboard-eyebrow">YOUR BUSINESS AT A GLANCE</span>
             <h2 className="lf-dashboard-hero-title">
-              Welcome back, {companyProfile.tradeName || companyProfile.companyName || 'to LedgerFlow'}
+              Welcome back, {userName || 'there'}
             </h2>
             <p className="lf-dashboard-hero-description">
               Here is your financial billing activity, tax calculations, and receivables status.
             </p>
           </div>
-          <div className="lf-dashboard-hero-actions">
-            <button type="button" className="lf-btn lf-btn-primary" onClick={onNewInvoice}>
-              <Plus size={16} />
-              <span>Create Invoice</span>
-            </button>
-            <button type="button" className="lf-btn lf-btn-secondary" onClick={onNewQuotation}>
-              <FileSpreadsheet size={16} />
-              <span>Create Quotation</span>
-            </button>
-          </div>
+
         </div>
       </section>
+
+      {(() => {
+        const checklist = [
+          { label: 'GSTIN', complete: Boolean(String(companyProfile.gstin || '').trim()) },
+          { label: 'Registered address', complete: Boolean(String(companyProfile.address || '').trim()) },
+          { label: 'Bank name', complete: Boolean(String(companyProfile.bankName || '').trim()) },
+          { label: 'Account number', complete: Boolean(String(companyProfile.accountNumber || '').trim()) },
+          { label: 'IFSC code', complete: Boolean(String(companyProfile.ifscCode || '').trim()) },
+        ]
+        const done = checklist.filter((item) => item.complete).length
+        if (done === checklist.length) return null
+        return (
+          <section className="lf-profile-checklist" aria-label="Complete your business profile">
+            <div className="lf-profile-checklist-head">
+              <div>
+                <h3 className="lf-card-title">Complete your business profile</h3>
+                <p className="lf-card-subtitle">Finish these details to issue and download compliant documents.</p>
+              </div>
+              <button type="button" className="lf-btn lf-btn-secondary lf-btn-sm" onClick={onGoSettings}>Go to Settings</button>
+            </div>
+            <div className="lf-profile-progress" role="progressbar" aria-valuemin={0} aria-valuemax={checklist.length} aria-valuenow={done}>
+              <span style={{ width: (done / checklist.length * 100) + '%' }} />
+            </div>
+            <div className="lf-profile-checklist-items">
+              {checklist.map((item) => <span key={item.label} className={item.complete ? 'complete' : ''}>{item.complete ? '✓' : '○'} {item.label}</span>)}
+            </div>
+          </section>
+        )
+      })()}
 
       {/* METRIC CARDS */}
       <div className="lf-metrics-grid">
@@ -1639,7 +1768,7 @@ function DashboardView({ invoices, payments, quotations, companyProfile, onNewIn
             {formatINR(outstandingBalance)}
           </div>
           <div className="lf-metric-subtext">
-            <span className="lf-trend-amber">{invoices.filter((i) => i.status === 'Overdue').length} overdue accounts</span>
+            <span className={invoices.some((i) => i.status === 'Overdue') ? 'lf-trend-amber' : ''} style={!invoices.some((i) => i.status === 'Overdue') ? { color: 'var(--lf-text-muted)' } : undefined}>{invoices.filter((i) => i.status === 'Overdue').length} overdue {invoices.filter((i) => i.status === 'Overdue').length === 1 ? 'account' : 'accounts'}</span>
           </div>
         </div>
 
@@ -1877,12 +2006,12 @@ function DocumentsListView({
                     <div style={{ fontWeight: 500 }}>{doc.clientName}</div>
                     <div style={{ fontSize: '11px', color: 'var(--lf-text-muted)' }}>{doc.clientEmail}</div>
                   </td>
-                  <td>{doc.issueDate}</td>
-                  <td>{doc.dueDate}</td>
+                  <td>{formatDisplayDate(doc.issueDate)}</td>
+                  <td>{formatDisplayDate(doc.dueDate)}</td>
                   <td style={{ fontWeight: 700 }}>{formatINR(doc.grandTotal)}</td>
                   {isInvoice && (
-                    <td style={{ fontWeight: 600, color: doc.balanceDue > 0 ? 'var(--lf-highlight)' : 'var(--lf-brand)' }}>
-                      {formatINR(doc.balanceDue || 0)}
+                    <td style={{ fontWeight: 600, color: doc.status === 'Cancelled' ? 'var(--lf-text-muted)' : Number(doc.balanceDue) > 0 ? 'var(--lf-warning)' : 'var(--lf-text-muted)' }}>
+                      {doc.status === 'Cancelled' ? '—' : formatINR(doc.balanceDue || 0)}
                     </td>
                   )}
                   <td>
@@ -1975,9 +2104,17 @@ function DocumentEditorView({
   existingDoc,
   onSave,
   onCancel,
+  onGoSettings = () => {},
   showToast
 }) {
   const isInvoice = mode === 'invoice'
+  const missingSellerFields = [
+    !String(companyProfile.gstin || '').trim() && 'GSTIN',
+    !String(companyProfile.address || '').trim() && 'registered address',
+    !String(companyProfile.bankName || '').trim() && 'bank name',
+    !String(companyProfile.accountNumber || '').trim() && 'bank account number',
+    !String(companyProfile.ifscCode || '').trim() && 'IFSC code',
+  ].filter(Boolean)
   const submitLockRef = useRef(false)
   const [saving, setSaving] = useState(false)
 
@@ -1999,7 +2136,7 @@ function DocumentEditorView({
     )
   )
   const [paymentTerms, setPaymentTerms] = useState(existingDoc?.paymentTerms || companyProfile.defaultPaymentTerms)
-  const [status, setStatus] = useState(existingDoc?.status || 'Draft')
+  const [status] = useState(existingDoc?.status || 'Draft')
   const [notes, setNotes] = useState(existingDoc?.notes || companyProfile.notes)
 
   // Line Items
@@ -2290,6 +2427,34 @@ function DocumentEditorView({
   const igstAmount = hasTaxJurisdiction && isInterState ? totalTaxAmount : 0
   const grandTotal = Math.round((taxableAmount + totalTaxAmount) * 100) / 100
 
+  const livePreviewDoc = {
+    ...(existingDoc || {}),
+    type: mode,
+    documentNumber: existingDoc?.documentNumber || (isInvoice ? 'DRAFT PREVIEW' : 'QUOTE PREVIEW'),
+    clientName: clientName || 'Client name',
+    clientEmail,
+    clientPhone,
+    clientAddress,
+    clientGstin,
+    clientStateCode: String(clientStateCode || clientGstin.slice(0, 2) || ''),
+    issueDate,
+    dueDate,
+    paymentTerms,
+    status: existingDoc?.status || 'Draft',
+    items: items.map((item) => ({ ...item, total: (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0) * (1 + (Number(item.gstRate) || 0) / 100) })),
+    subtotal,
+    discountAmount,
+    taxableAmount,
+    cgstAmount,
+    sgstAmount,
+    igstAmount,
+    taxAmount: totalTaxAmount,
+    grandTotal,
+    amountPaid: Number(existingDoc?.amountPaid) || 0,
+    balanceDue: Math.max(0, grandTotal - (Number(existingDoc?.amountPaid) || 0)),
+    notes,
+  }
+
   // Validation & Save Handler
   // Lock synchronously as well as disabling the buttons so a rapid double-click
   // cannot create two database records before React re-renders.
@@ -2297,6 +2462,11 @@ function DocumentEditorView({
     if (submitLockRef.current) return
     if (!clientName.trim()) {
       showToast('Please specify a client name', 'error')
+      return
+    }
+
+    if (finalStatus !== 'Draft' && missingSellerFields.length) {
+      showToast(`Complete your business profile in Settings before issuing: ${missingSellerFields.join(', ')}.`, 'warning')
       return
     }
 
@@ -2393,6 +2563,18 @@ function DocumentEditorView({
           </button>
         </div>
       </div>
+
+      <div className="lf-live-editor-grid">
+        <div className="lf-live-editor-form">
+      {missingSellerFields.length > 0 && (
+        <div className="lf-profile-completion-alert" role="alert">
+          <div className="lf-profile-completion-copy">
+            <strong>Complete your business profile before issuing</strong>
+            <span>Add your {missingSellerFields.join(', ')} in Settings. Drafts can still be saved.</span>
+          </div>
+          <button type="button" className="lf-btn lf-btn-secondary lf-btn-sm" onClick={onGoSettings}>Go to Settings</button>
+        </div>
+      )}
 
       {/* DOCUMENT METADATA FORM */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', margin: '24px 0' }}>
@@ -2795,6 +2977,21 @@ function DocumentEditorView({
         </div>
       </div>
 
+        </div>
+        <aside className="lf-live-paper-panel" aria-label="Live invoice paper preview">
+          <div className="lf-live-paper-heading">
+            <div><strong>Live paper preview</strong><span>Updates as you type</span></div>
+            <span className="lf-badge lf-badge-draft">DRAFT</span>
+          </div>
+          {missingSellerFields.length > 0 && <button type="button" className="lf-live-paper-warning" onClick={onGoSettings} aria-label="Complete seller profile in Settings">
+            <strong>Seller details missing</strong><span>{missingSellerFields.join(', ')}</span><small>Click to open Settings →</small>
+          </button>}
+          <div className="lf-live-paper">
+            <PrintableInvoiceTemplate doc={livePreviewDoc} companyProfile={companyProfile} />
+          </div>
+        </aside>
+      </div>
+
       {/* BARCODE SCANNER MODAL */}
       {scannerOpen && (
         <BarcodeScannerModal
@@ -2990,8 +3187,9 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
 // DOCUMENT PREVIEW MODAL & A4 PRINT TEMPLATE
 // ============================================================================
 
-function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast, signatureData = '', onSignatureChange, onSendDocument }) {
+function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast, signatureData = '', onSignatureChange, onSendDocument, onGoSettings }) {
   const isInvoice = doc.type === 'invoice'
+  const missingSellerFields = [!companyProfile.gstin?.trim() && 'GSTIN', !companyProfile.address?.trim() && 'registered address', !companyProfile.bankName?.trim() && 'bank name', !companyProfile.accountNumber?.trim() && 'bank account number', !companyProfile.ifscCode?.trim() && 'IFSC code'].filter(Boolean)
   const [signatureModalOpen, setSignatureModalOpen] = useState(false)
   const [sending, setSending] = useState(false)
 
@@ -3005,6 +3203,7 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
 
   // Print Action — write the full standalone document before opening the print dialog.
   const handlePrint = () => {
+    if (missingSellerFields.length) { showToast('Complete your business profile in Settings before downloading: ' + missingSellerFields.join(', ') + '.', 'warning'); return }
     const printableHtml = generatePrintableHtml(doc, companyProfile, signatureData)
     const printWindow = window.open('', '_blank', 'width=1000,height=800')
 
@@ -3039,7 +3238,7 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
           printWindow.close()
         }
       }, 700)
-    } catch (error) {
+    } catch {
       printWindow.close()
       showToast('Could not prepare the invoice for printing. Please try again.', 'error')
     }
@@ -3047,6 +3246,7 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
 
   // Download Standalone Self-Contained HTML Invoice
   const handleDownloadHtml = () => {
+    if (missingSellerFields.length) { showToast('Complete your business profile in Settings before downloading: ' + missingSellerFields.join(', ') + '.', 'warning'); return }
     const htmlContent = generatePrintableHtml(doc, companyProfile, signatureData)
     const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -3064,6 +3264,12 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
     <>
     <div className="lf-modal-backdrop lf-non-printable">
       <div className="lf-modal lf-modal-lg" style={{ maxHeight: '92vh' }}>
+        {missingSellerFields.length > 0 && (
+          <div className="lf-profile-completion-alert" role="alert">
+            <div className="lf-profile-completion-copy"><strong>Complete your business profile before sending or downloading</strong><span>Missing: {missingSellerFields.join(', ')}.</span></div>
+            <button type="button" className="lf-btn lf-btn-secondary lf-btn-sm" onClick={onGoSettings}>Go to Settings</button>
+          </div>
+        )}
         {/* Modal Top Bar */}
         <div className="lf-modal-header">
           <div>
@@ -3251,7 +3457,8 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
   const isInterState = Number(doc.igstAmount) > 0 || (hasPlaceOfSupply && sellerStateCode !== buyerStateCode)
 
   return (
-    <div style={{ fontFamily: 'Arial, sans-serif', color: '#252A32' }}>
+    <div className={`lf-print-paper lf-print-paper-${String(doc.status || 'draft').toLowerCase().replace(/\s+/g, '-')}`} style={{ position: 'relative', fontFamily: 'Arial, sans-serif', color: '#252A32' }}>
+      {['Draft', 'Paid', 'Cancelled'].includes(doc.status) || doc.status === 'Sent' ? <div className={`lf-paper-watermark lf-paper-watermark-${String(doc.status || 'draft').toLowerCase().replace(/\s+/g, '-')}`} aria-label={`Document status: ${doc.status}`}>{doc.status === 'Sent' ? 'ISSUED' : String(doc.status || 'Draft').toUpperCase()}</div> : null}
       {/* Top Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #B87842', paddingBottom: '16px', marginBottom: '20px' }}>
         <div>
@@ -3262,10 +3469,10 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
             {companyProfile.address}
           </div>
           <div style={{ fontSize: '11px', color: '#7B818B', marginTop: '4px' }}>
-            GSTIN: <strong>{companyProfile.gstin}</strong> | PAN: <strong>{companyProfile.pan}</strong>
+            {companyProfile.gstin && <>GSTIN: <strong>{companyProfile.gstin}</strong></>}{companyProfile.gstin && companyProfile.pan ? ' | ' : ''}{companyProfile.pan && <>PAN: <strong>{companyProfile.pan}</strong></>}
           </div>
           <div style={{ fontSize: '11px', color: '#7B818B' }}>
-            Email: {companyProfile.email} | Phone: {companyProfile.phone}
+            {[companyProfile.email && `Email: ${companyProfile.email}`, companyProfile.phone && `Phone: ${companyProfile.phone}`].filter(Boolean).join(' | ')}
           </div>
         </div>
 
@@ -3306,11 +3513,11 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
             <span style={{ color: '#7B818B' }}>Issue Date:</span>
-            <span style={{ fontWeight: 600 }}>{doc.issueDate}</span>
+            <span style={{ fontWeight: 600 }}>{formatDisplayDate(doc.issueDate)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
             <span style={{ color: '#7B818B' }}>{isInvoice ? 'Due Date:' : 'Valid Until:'}</span>
-            <span style={{ fontWeight: 600 }}>{doc.dueDate}</span>
+            <span style={{ fontWeight: 600 }}>{formatDisplayDate(doc.dueDate)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
             <span style={{ color: '#7B818B' }}>Payment Terms:</span>
@@ -3318,7 +3525,7 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
             <span style={{ color: '#7B818B' }}>Place of Supply:</span>
-            <span style={{ fontWeight: 600 }}>{buyerStateCode || 'Not specified'}</span>
+            <span style={{ fontWeight: 600 }}>{buyerStateCode ? `${buyerStateCode} – ${GST_STATE_NAMES[buyerStateCode] || 'State'}` : 'Not specified'}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
             <span style={{ color: '#7B818B' }}>Supply Type:</span>
@@ -3361,13 +3568,15 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px', marginBottom: '24px' }}>
         {/* Bank & Notes Details */}
         <div style={{ flex: 1 }}>
-          <div style={{ padding: '10px 14px', background: '#F6F4F0', border: '1px solid #E6E1DA', borderRadius: '4px', marginBottom: '12px', fontSize: '11px' }}>
-            <div style={{ fontWeight: 700, color: '#B87842', marginBottom: '4px' }}>BANK PAYMENT DETAILS</div>
-            <div>Bank: <strong>{companyProfile.bankName}</strong></div>
-            <div>A/C Name: <strong>{companyProfile.accountHolder}</strong></div>
-            <div>A/C Number: <strong>{companyProfile.accountNumber}</strong></div>
-            <div>IFSC Code: <strong>{companyProfile.ifscCode}</strong> | UPI ID: <strong>{companyProfile.upiId}</strong></div>
-          </div>
+          {(companyProfile.bankName || companyProfile.accountHolder || companyProfile.accountNumber || companyProfile.ifscCode || companyProfile.upiId) && (
+            <div style={{ padding: '10px 14px', background: '#F6F4F0', border: '1px solid #E6E1DA', borderRadius: '4px', marginBottom: '12px', fontSize: '11px' }}>
+              <div style={{ fontWeight: 700, color: '#B87842', marginBottom: '4px' }}>BANK PAYMENT DETAILS</div>
+              {companyProfile.bankName && <div>Bank: <strong>{companyProfile.bankName}</strong></div>}
+              {companyProfile.accountHolder && <div>A/C Name: <strong>{companyProfile.accountHolder}</strong></div>}
+              {companyProfile.accountNumber && <div>A/C Number: <strong>{companyProfile.accountNumber}</strong></div>}
+              {(companyProfile.ifscCode || companyProfile.upiId) && <div>{companyProfile.ifscCode && <>IFSC Code: <strong>{companyProfile.ifscCode}</strong></>}{companyProfile.ifscCode && companyProfile.upiId ? ' | ' : ''}{companyProfile.upiId && <>UPI ID: <strong>{companyProfile.upiId}</strong></>}</div>}
+            </div>
+          )}
           {doc.notes && (
             <div style={{ fontSize: '10px', color: '#7B818B', lineHeight: '1.4' }}>
               <strong>Terms:</strong> {doc.notes}
@@ -3426,7 +3635,7 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
       {/* Footer Signatures */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid #E6E1DA', paddingTop: '16px', marginTop: '20px' }}>
         <div style={{ fontSize: '9px', color: '#7B818B' }}>
-          This is a computer generated document. Generated via LedgerFlow Financial Suite.
+          This is a computer generated document. Generated via LedgerFlow.
         </div>
         <div style={{ textAlign: 'center', minWidth: '170px' }}>
           <div style={{ fontSize: '11px', fontWeight: 700, color: '#B87842', marginBottom: '6px' }}>
@@ -3573,9 +3782,9 @@ function ClientsView({ clients, invoices, onAddClient, onEditClient, onDeleteCli
                       <span style={{ color: 'var(--lf-text-muted)' }}>Unregistered</span>
                     )}
                   </td>
-                  <td>{client.address ? client.address.split(',')[0] : 'N/A'}</td>
+                  <td>{client.state || client.stateName || (client.gstin && GST_STATE_NAMES[client.gstin.slice(0, 2)]) || 'Not specified'}</td>
                   <td>
-                    <div style={{ fontWeight: 600 }}>{clientInvoices.length} Invoices</div>
+                    <div style={{ fontWeight: 600 }}>{clientInvoices.length} {clientInvoices.length === 1 ? 'invoice' : 'invoices'}</div>
                     <div style={{ fontSize: '11px', color: 'var(--lf-brand)' }}>{formatINR(totalBilled)}</div>
                   </td>
                   <td>
@@ -3772,7 +3981,7 @@ function ProductsView({ products, onAddProduct, onEditProduct, onDeleteProduct, 
                 </td>
                 <td>
                   <div style={{ fontWeight: 600 }}>{p.sku}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--lf-highlight)' }}>
+                  <div style={{ fontSize: '12px', color: p.barcode ? 'var(--lf-text-muted)' : 'var(--lf-text-muted)' }}>
                     {p.barcode ? `Barcode: ${p.barcode}` : 'No Barcode'}
                   </div>
                 </td>
@@ -3785,7 +3994,7 @@ function ProductsView({ products, onAddProduct, onEditProduct, onDeleteProduct, 
                   <div style={{ display: 'grid', gap: 4 }}>
                     <span className="lf-badge lf-badge-draft" style={{ width: 'fit-content' }}>On hand: {p.stock}</span>
                     <span style={{ fontSize: 11, color: 'var(--lf-text-muted)' }}>Reserved: {p.reservedStock || 0}</span>
-                    <span className={`lf-badge ${(p.availableStock ?? p.stock) > 10 ? 'lf-badge-paid' : 'lf-badge-overdue'}`} style={{ width: 'fit-content' }}>
+                    <span className={`lf-badge ${(p.availableStock ?? p.stock) <= 5 ? 'lf-badge-overdue' : (p.availableStock ?? p.stock) > 5 ? 'lf-badge-paid' : 'lf-badge-draft'}`} style={{ width: 'fit-content' }}>
                       Available: {p.availableStock ?? p.stock}
                     </span>
                   </div>
@@ -4307,7 +4516,7 @@ function ReportsView({ invoices, payments }) {
           <div className="lf-metric-card">
             <span className="lf-metric-label">GST Tax Billed</span>
             <div className="lf-metric-value" style={{ color: 'var(--lf-brand)' }}>{formatINR(totalTaxCollected)}</div>
-            <div className="lf-metric-subtext">CCGST + SGST + IGST on invoices issued</div>
+            <div className="lf-metric-subtext">CGST + SGST + IGST on invoices issued</div>
           </div>
           <div className="lf-metric-card">
             <span className="lf-metric-label">Collections Received</span>
@@ -4347,28 +4556,63 @@ function ReportsView({ invoices, payments }) {
 
 function SettingsView({ profile, onSaveProfile }) {
   const [formData, setFormData] = useState({ ...profile })
-    const handleChange = (field, val) => {
-    setFormData((prev) => ({ ...prev, [field]: val }))
+  const [saving, setSaving] = useState(false)
+  const [validationError, setValidationError] = useState('')
+  const hasUnsavedChanges = JSON.stringify(formData) !== JSON.stringify(profile)
+  useEffect(() => {
+    if (!hasUnsavedChanges) return undefined
+    const warnBeforeLeave = (event) => { event.preventDefault(); event.returnValue = '' }
+    window.addEventListener('beforeunload', warnBeforeLeave)
+    return () => window.removeEventListener('beforeunload', warnBeforeLeave)
+  }, [hasUnsavedChanges])
+  const handleChange = (field, val) => {
+    setValidationError('')
+    setFormData((prev) => {
+      const next = { ...prev, [field]: val }
+      if (field === 'ifscCode') {
+        const prefix = String(val || '').trim().toUpperCase().slice(0, 4)
+        const bankNames = { SBIN: 'State Bank of India', HDFC: 'HDFC Bank', ICIC: 'ICICI Bank', UTIB: 'Axis Bank', KKBK: 'Kotak Mahindra Bank', PUNB: 'Punjab National Bank', BARB: 'Bank of Baroda', CNRB: 'Canara Bank', UBIN: 'Union Bank of India', IDFB: 'IDFC FIRST Bank', YESB: 'Yes Bank' }
+        if (bankNames[prefix]) next.bankName = bankNames[prefix]
+      }
+      return next
+    })
   }
 
   const handleSaveAll = async (e) => {
     e.preventDefault()
-    await onSaveProfile(formData)
+    const gstin = String(formData.gstin || '').trim().toUpperCase()
+    const pan = String(formData.pan || '').trim().toUpperCase()
+    const ifsc = String(formData.ifscCode || '').trim().toUpperCase()
+    if (gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gstin)) { setValidationError('Enter a valid 15-character GSTIN format.'); return }
+    if (gstin) {
+      const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+      const values = [...gstin.slice(0, 14)].reverse().map((ch) => chars.indexOf(ch))
+      let sum = 0
+      values.forEach((value, index) => { const product = value * (index % 2 === 0 ? 2 : 1); sum += Math.floor(product / 36) + product % 36 })
+      const check = chars[(36 - (sum % 36)) % 36]
+      if (check !== gstin[14]) { setValidationError('The GSTIN checksum does not match. Check the number and try again.'); return }
+    }
+    if (pan && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan)) { setValidationError('Enter PAN in the format ABCDE1234F.'); return }
+    if (ifsc && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) { setValidationError('Enter a valid 11-character IFSC code.'); return }
+    setSaving(true)
+    try { await onSaveProfile({ ...formData, gstin, pan, ifscCode: ifsc }); setFormData((prev) => ({ ...prev, gstin, pan, ifscCode: ifsc })); setValidationError('') }
+    finally { setSaving(false) }
    }
 
   return (
     <div className="lf-card">
-      <div className="lf-card-header">
+      <div className="lf-card-header lf-settings-save-bar">
         <div>
           <h2 className="lf-card-title">System & Company Configuration</h2>
           <p className="lf-card-subtitle">Set your company details, GSTIN, invoice numbering prefixes, and cloud database</p>
         </div>
-        <button type="button" className="lf-btn lf-btn-primary" onClick={handleSaveAll}>
+        <button type="button" className="lf-btn lf-btn-primary" onClick={handleSaveAll} disabled={saving}>
           <Check size={16} />
-          <span>Save Changes</span>
+          <span>{saving ? "Saving…" : hasUnsavedChanges ? "Save Changes •" : "Save Changes"}</span>
         </button>
       </div>
 
+      {validationError && <div className="lf-profile-completion-alert" role="alert"><div className="lf-profile-completion-copy"><strong>Check your business details</strong><span>{validationError}</span></div></div>}
       <form onSubmit={handleSaveAll}>
         {/* Business Profile */}
         <div style={{ marginBottom: '28px' }}>
@@ -4405,15 +4649,10 @@ function SettingsView({ profile, onSaveProfile }) {
             </div>
             <div className="lf-form-group">
               <label className="lf-form-label">State Code (place of supply)</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={2}
-                className="lf-form-input"
-                placeholder="36 for Telangana"
-                value={formData.stateCode || ''}
-                onChange={(e) => handleChange('stateCode', e.target.value.replace(/\D/g, '').slice(0, 2))}
-              />
+              <select className="lf-form-select" value={formData.stateCode || String(formData.gstin || '').slice(0, 2)} onChange={(e) => handleChange('stateCode', e.target.value)}>
+                <option value="">Select state code</option>
+                {Object.entries(GST_STATE_NAMES).sort((a, b) => a[1].localeCompare(b[1])).map(([code, name]) => <option key={code} value={code}>{code} – {name}</option>)}
+              </select>
             </div>
             <div className="lf-form-group">
               <label className="lf-form-label">PAN</label>
@@ -4532,7 +4771,7 @@ function OfflineStatusPage({ onRetry }) {
           width: 64, height: 64, margin: '0 auto 22px', display: 'grid', placeItems: 'center',
           borderRadius: 20, background: '#fff4e8', color: '#ea580c', fontSize: 30
         }}>↯</div>
-        <p style={{ margin: '0 0 8px', fontSize: 12, letterSpacing: '.16em', fontWeight: 800, color: '#64748b' }}>LEDGERFLOW · FINANCIAL SUITE</p>
+        <p style={{ margin: '0 0 8px', fontSize: 12, letterSpacing: '.16em', fontWeight: 800, color: '#64748b' }}>LEDGERFLOW</p>
         <h1 style={{ margin: '0 0 12px', fontSize: 'clamp(27px, 5vw, 36px)', letterSpacing: '-.04em' }}>You’re offline</h1>
         <p style={{ margin: '0 auto 26px', maxWidth: 420, lineHeight: 1.7, color: '#64748b', fontSize: 15 }}>
           Your internet connection was interrupted. LedgerFlow can’t sync invoices, quotations, payments or inventory until you reconnect.
