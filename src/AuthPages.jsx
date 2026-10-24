@@ -359,7 +359,7 @@ export function AuthLoginPage() {
       {googleEnabled ? (
         <button type="button" className="auth-btn auth-btn-secondary" onClick={googleLogin} disabled={busy}><GoogleMark /> Continue with Google</button>
       ) : (
-        <p className="auth-provider-note">Google sign-in is currently disabled for this deployment.</p>
+        <p className="auth-provider-note">Google sign-in is hidden until the Supabase Google provider is enabled and VITE_SUPABASE_GOOGLE_ENABLED is set to true.</p>
       )}
       <button type="button" className="auth-magic-link" onClick={sendMagicLink} disabled={busy}><Mail size={16} /> Email me a magic link</button>
       <p className="auth-switch-prompt">New to LedgerFlow? <button type="button" className="auth-inline-link" onClick={() => navigate('/signup' + (redirect !== '/' ? '?redirect=' + encodeURIComponent(redirect) : ''))}>Create an account</button></p>
