@@ -377,15 +377,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
       itemRows + "</tbody></table><p style=\"text-align:right;font-size:18px;font-weight:700\">Total: " + amountText + "</p>" +
       "<p style=\"margin:24px 0\"><a href=\"" + escapeHtml(link) + "\" style=\"display:inline-block;background:#286747;color:white;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:7px\">View " + escapeHtml(title) + (documentType === "quotation" ? " & Respond" : " & Download PDF") + "</a></p>" +
       "<p style=\"color:#68756c;font-size:12px\">This secure link may expire. If you need help, reply to this email.</p>" +
-      "<p>Regards,<br>" + escapeHtml(companyName) + "</p></div></div>";
-    const textBody = "Hello " + (client.name || "there") + ",\n\n" + intro + "\n" + title + ": " + documentNumber + "\nTotal: " + amountText + "\nOpen: " + link;
+      "<p>Regards,<br>" + escapeHtml(companyName) + "</p>" +
+      "<p style=\"color:#68756c;font-size:11px\">This message was sent using LedgerFlow on behalf of " + escapeHtml(companyName) + ".</p></div></div>";
+    const textBody = "Hello " + (client.name || "there") + ",\n\n" + intro + "\n" + title + ": " + documentNumber + "\nTotal: " + amountText + "\nOpen: " + link + "\n\nThis message was sent using LedgerFlow on behalf of " + companyName + ".";
 
     const emailPayload: Record<string, unknown> = {
       to: recipient,
       subject: title + " " + documentNumber + " from " + companyName,
       htmlBody: html,
       body: textBody,
-      senderName: companyName,
+      // Be transparent about the sender identity: MailApp sends from the
+      // Google account that owns the Apps Script, not the business profile email.
+      senderName: "LedgerFlow | " + companyName,
     };
     if (validEmail(organization.data?.email)) emailPayload.replyTo = organization.data.email;
 
