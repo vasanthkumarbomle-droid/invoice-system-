@@ -337,7 +337,7 @@ export function AuthLoginPage() {
     <AuthLayout title="Welcome back." subtitle="Pick up right where your business left off." eyebrow="GOOD TO HAVE YOU BACK">
       {sessionExpired && <div className="auth-notice auth-notice-info" role="status">Your session ended. Sign in again to continue.</div>}
       {!supabase && <div className="auth-message auth-message-error" role="alert">Authentication is not configured. Add the Supabase URL and publishable key to the deployment environment.</div>}
-      <form className="auth-form" onSubmit={submit} noValidate>
+      <form className="auth-form" onSubmit={submit}>
         <div className="auth-field">
           <label htmlFor="login-email">Work email</label>
           <input ref={emailRef} id="login-email" name="email" type="email" autoComplete="email" inputMode="email" placeholder="you@company.com" value={email} onChange={(event) => { setEmail(event.target.value); setError('') }} required />
