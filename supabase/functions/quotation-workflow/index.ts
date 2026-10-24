@@ -242,6 +242,77 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return respondJson({ success: true, updatedAt: savedSignature.updated_at });
   }
 
+  if (action === "sales_order_action") {
+    const authorization = req.headers.get("authorization") || "";
+    const publishableKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+    if (!authorization || !publishableKey) return respondJson({ error: "Sign in to manage sales orders." }, 401);
+    const caller = createClient(supabaseUrl, publishableKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: userData, error: authError } = await caller.auth.getUser();
+    const user = userData?.user;
+    if (authError || !user) return respondJson({ error: "Your session is invalid. Sign in again." }, 401);
+
+    const orgId = String(body?.orgId || "");
+    const orderId = String(body?.orderId || "");
+    const task = String(body?.task || "");
+    const carrier = String(body?.carrier || "");
+    const trackingNumber = String(body?.trackingNumber || "");
+    const allowedTasks = ["confirm_stock","mark_advance_paid","start_packing","mark_packed","dispatch","cancel_order","generate_invoice","send_proforma"];
+    if (!/^[0-9a-f-]{36}$/i.test(orgId) || !/^[0-9a-f-]{36}$/i.test(orderId) || !allowedTasks.includes(task)) {
+      return respondJson({ error: "Invalid sales-order action." }, 400);
+    }
+    const { data: membership, error: memberError } = await admin.from("org_members")
+      .select("role").eq("org_id", orgId).eq("user_id", user.id).maybeSingle();
+    if (memberError || !membership || !["owner","admin"].includes(String(membership.role || "").toLowerCase())) {
+      return respondJson({ error: "Only business owners or admins can manage sales orders." }, 403);
+    }
+
+    if (task === "send_proforma") {
+      const { data: order, error: orderError } = await admin.from("sales_orders")
+        .select("*").eq("org_id", orgId).eq("id", orderId).maybeSingle();
+      if (orderError || !order) return respondJson({ error: "Sales order not found." }, 404);
+      if (order.payment_type !== "advance" || ["invoiced","cancelled"].includes(String(order.status))) {
+        return respondJson({ error: "Payment instructions are available only for open orders that require advance payment." }, 409);
+      }
+      const [{ data: client }, { data: quote }, { data: company }] = await Promise.all([
+        admin.from("clients").select("name,email").eq("id", order.client_id).eq("org_id", orgId).maybeSingle(),
+        admin.from("quotations").select("quote_number,grand_total").eq("id", order.quotation_id).eq("org_id", orgId).maybeSingle(),
+        admin.from("organizations").select("name,legal_name,email,bank_name,bank_account_holder,bank_account_no,bank_ifsc,upi_id").eq("id", orgId).maybeSingle(),
+      ]);
+      const recipient = String(client?.email || "").trim();
+      if (!validEmail(recipient)) return respondJson({ error: "The client needs a valid email address before sending payment instructions." }, 400);
+      if (!company || !(company.bank_name || company.bank_account_no || company.bank_ifsc || company.upi_id)) {
+        return respondJson({ error: "Add bank or UPI payment details in Business Settings before sending payment instructions." }, 400);
+      }
+      const companyName = company.name || company.legal_name || "Your supplier";
+      const paymentDetails = [
+        company.bank_name ? "Bank: " + company.bank_name : "",
+        company.bank_account_holder ? "Account holder: " + company.bank_account_holder : "",
+        company.bank_account_no ? "Account number: " + company.bank_account_no : "",
+        company.bank_ifsc ? "IFSC: " + company.bank_ifsc : "",
+        company.upi_id ? "UPI ID: " + company.upi_id : "",
+      ].filter(Boolean);
+      const amountText = "₹" + (Number(quote?.grand_total) || 0).toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2});
+      const subject = "Advance payment instructions — sales order " + order.order_number;
+      const plain = "Hello " + (client?.name || "there") + ",\n\nYour order " + order.order_number + " has been accepted. The agreed terms require advance payment.\nAmount reference for quotation " + (quote?.quote_number || "") + ": " + amountText + "\n\nPayment details:\n" + paymentDetails.join("\n") + "\n\nThis is a payment-instructions email, not a tax invoice or payment link. The tax invoice will be issued after dispatch.\n\nRegards,\n" + companyName;
+      const html = "<div style=\"font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#202b24\"><h2>Advance payment instructions</h2><p>Hello " + escapeHtml(client?.name || "there") + ",</p><p>Sales order <strong>" + escapeHtml(order.order_number) + "</strong> has been accepted. The agreed terms require advance payment.</p><p>Quotation total reference: <strong>" + amountText + "</strong></p><h3>Payment details</h3><ul>" + paymentDetails.map((item) => "<li>" + escapeHtml(item) + "</li>").join("") + "</ul><p>This is a payment-instructions email, not a tax invoice or payment link. The tax invoice will be issued after dispatch.</p><p>Regards,<br>" + escapeHtml(companyName) + "</p><p style=\"color:#68756c;font-size:11px\">Sent using LedgerFlow on behalf of " + escapeHtml(companyName) + ".</p></div>";
+      const emailPayload: Record<string, unknown> = { to: recipient, subject, body: plain, htmlBody: html, senderName: "LedgerFlow | " + companyName };
+      if (validEmail(company?.email)) emailPayload.replyTo = company.email;
+      const mailResult = await sendWithGoogleAppsScript(emailPayload);
+      if (!mailResult.ok) return respondJson({ error: "Payment instructions could not be sent.", details: mailResult.details || "The email provider rejected the message." }, 502);
+      return respondJson({ success: true, emailAcceptedByProvider: true, recipient, orderNumber: order.order_number });
+    }
+
+    const { data: actionResult, error: actionError } = await admin.rpc("manage_sales_order_action", {
+      p_org_id: orgId, p_order_id: orderId, p_action: task,
+      p_carrier: carrier || null, p_tracking_number: trackingNumber || null,
+    });
+    if (actionError || !actionResult?.success) return respondJson({ error: actionError?.message || "Sales-order action could not be completed." }, 400);
+    return respondJson(actionResult);
+  }
+
   if (action === "send") {
     const authorization = req.headers.get("authorization") || "";
     const publishableKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
@@ -460,24 +531,32 @@ Deno.serve(async (req: Request): Promise<Response> => {
       }
 
       let responseTime = new Date().toISOString();
-      let invoiceId: string | null = null;
+      let salesOrderId: string | null = null;
+      let salesOrderNumber: string | null = null;
+      let orderStatus = "";
+      let stockStatus = "";
+      let paymentType = "";
 
       if (decision === "accepted") {
-        // Accept + invoice creation + quote/token state updates are one database
-        // transaction. The RPC is service-role-only and safely handles retries.
-        const { data: conversion, error: conversionError } = await admin.rpc(
-          "respond_to_quotation_and_convert_to_invoice",
+        // Acceptance creates a sales order and reserves available stock. Tax invoicing
+        // is deferred until an owner dispatches the order.
+        const { data: orderResult, error: orderError } = await admin.rpc(
+          "accept_quotation_create_sales_order",
           { p_token_id: tokenRow.id },
         );
-        if (conversionError || !conversion?.success || !conversion?.invoiceId) {
-          console.error("Automatic invoice conversion failed:", conversionError?.message || "No invoice was returned.");
+        if (orderError || !orderResult?.success || !orderResult?.salesOrderId) {
+          console.error("Sales order creation failed:", orderError?.message || "No sales order was returned.");
           return respondJson({
-            error: "The quotation could not be accepted and converted into an invoice. No response was recorded; ask the sender to retry.",
-            details: conversionError?.message || "The automatic invoice conversion did not return an invoice.",
+            error: "Your acceptance could not be completed. No order was confirmed; ask the sender to retry.",
+            details: orderError?.message || "The sales-order workflow did not return an order.",
           }, 500);
         }
-        responseTime = String(conversion.respondedAt || responseTime);
-        invoiceId = String(conversion.invoiceId);
+        responseTime = new Date().toISOString();
+        salesOrderId = String(orderResult.salesOrderId);
+        salesOrderNumber = String(orderResult.salesOrderNumber || "");
+        orderStatus = String(orderResult.orderStatus || "awaiting_stock");
+        stockStatus = String(orderResult.stockStatus || "manual_check");
+        paymentType = String(orderResult.paymentType || "credit");
       } else {
         const { data: claimedToken, error: claimError } = await admin.from("document_share_tokens")
           .update({ response_status: decision, responded_at: responseTime })
@@ -496,6 +575,73 @@ Deno.serve(async (req: Request): Promise<Response> => {
         }
       }
 
+      // Send order confirmation after acceptance. No tax invoice or payment request
+      // is sent until fulfillment reaches the dispatch stage.
+      let orderConfirmationEmailSent = false;
+      let orderConfirmationEmailError = "";
+      let orderConfirmationRecipient = "";
+      if (decision === "accepted" && salesOrderId && salesOrderNumber) {
+        try {
+          const { data: company } = await admin.from("organizations")
+            .select("name,legal_name,email")
+            .eq("id", tokenRow.org_id)
+            .maybeSingle();
+          const companyName = company?.name || company?.legal_name || "Your supplier";
+          const recipient = String(tokenRow.recipient_email || quote.clients?.email || "").trim();
+          orderConfirmationRecipient = recipient;
+          if (!validEmail(recipient)) {
+            orderConfirmationEmailError = "The client record does not contain a valid email address.";
+          } else {
+            const quoteNumber = String(quote.quote_number || quote.id);
+            const items = (quote.quotation_items || []).map((item: any) =>
+              "• " + String(item.description || "Item") + " × " + String(item.quantity || 0)
+            ).join("\n");
+            const stockMessage = stockStatus === "reserved"
+              ? "Available stock has been reserved for your order."
+              : stockStatus === "backorder"
+                ? "The order is confirmed; the business is checking availability or restocking before dispatch."
+                : "The business will check stock availability before dispatch.";
+            const advanceMessage = paymentType === "advance"
+              ? "\nThe agreed terms require advance payment. The business will send payment instructions separately."
+              : "";
+            const subject = "Order confirmed " + salesOrderNumber + " — quotation " + quoteNumber;
+            const bodyText = "Hello " + String(quote.clients?.name || "there") + ",\n\n" +
+              "Thank you. We recorded your acceptance of quotation " + quoteNumber + ".\n" +
+              "Sales order: " + salesOrderNumber + "\nStatus: " + titleCase(orderStatus) + "\n\n" +
+              (items ? "Items:\n" + items + "\n\n" : "") +
+              stockMessage + advanceMessage + "\n\n" +
+              "No tax invoice has been issued at this stage. The business will generate and send the tax invoice once the order is packed and dispatched.\n\n" +
+              "Regards,\n" + companyName + "\n\nSent using LedgerFlow on behalf of " + companyName + ".";
+            const linkBase = (String(Deno.env.get("PUBLIC_APP_URL") || "https://ledgerflowhq.vercel.app").replace(/\/+$/, ""));
+            const link = linkBase + "/client-document?token=" + encodeURIComponent(rawToken);
+            const bodyHtml = "<div style=\"font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#202b24\">" +
+              "<div style=\"background:#286747;color:#fff;padding:20px 24px\"><strong style=\"font-size:20px\">" +
+              escapeHtml(companyName) + "</strong><div style=\"font-size:12px;margin-top:6px\">Order confirmation</div></div>" +
+              "<div style=\"border:1px solid #e3e9e3;padding:24px\"><p>Hello " + escapeHtml(quote.clients?.name || "there") + ",</p>" +
+              "<p>Thank you. We recorded your acceptance of quotation <strong>" + escapeHtml(quoteNumber) + "</strong>.</p>" +
+              "<p style=\"font-size:18px\"><strong>Sales order " + escapeHtml(salesOrderNumber) + "</strong></p>" +
+              "<p>Status: " + escapeHtml(titleCase(orderStatus)) + " — " + escapeHtml(stockMessage) + "</p><ul>" +
+              (quote.quotation_items || []).map((item: any) => "<li>" + escapeHtml(item.description || "Item") + " × " + escapeHtml(item.quantity || 0) + "</li>").join("") +
+              "</ul>" +
+              (paymentType === "advance" ? "<p>The agreed terms require advance payment. The business will send payment instructions separately.</p>" : "") +
+              "<p>No tax invoice has been issued yet. The tax invoice will be generated and sent after packing and dispatch.</p>" +
+              "<p><a href=\"" + escapeHtml(link) + "\">View accepted quotation</a></p>" +
+              "<p>Regards,<br>" + escapeHtml(companyName) + "</p><p style=\"font-size:11px;color:#68756c\">Sent using LedgerFlow on behalf of " + escapeHtml(companyName) + ".</p></div></div>";
+            const emailPayload: Record<string, unknown> = {
+              to: recipient, subject, body: bodyText, htmlBody: bodyHtml,
+              senderName: "LedgerFlow | " + companyName,
+            };
+            if (validEmail(company?.email)) emailPayload.replyTo = company.email;
+            const mailResult = await sendWithGoogleAppsScript(emailPayload);
+            orderConfirmationEmailSent = mailResult.ok;
+            if (!mailResult.ok) orderConfirmationEmailError = mailResult.details || "The email provider did not accept the order confirmation.";
+          }
+        } catch (orderEmailError) {
+          orderConfirmationEmailError = orderEmailError instanceof Error ? orderEmailError.message : "Order confirmation email failed.";
+          console.error("Order confirmation email failed:", orderConfirmationEmailError);
+        }
+      }
+
       // Notify the business contact after the decision is committed. A failed notification
       // must never undo the client's recorded decision.
       let ownerNotified = false;
@@ -509,8 +655,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
           const businessName = business?.name || business?.legal_name || "LedgerFlow business";
           const quoteNumber = quote.quote_number || quote.id;
           const accepted = decision === "accepted";
-          const subject = `Quotation ${quoteNumber} was ${accepted ? "accepted" : "rejected"}`;
-          const message = "The client " + (quote.clients?.name || "customer") + " has " + (accepted ? "accepted" : "rejected") + " quotation " + quoteNumber + " from " + businessName + ".";
+          const subject = decision === "accepted"
+            ? `Quotation ${quoteNumber} accepted — sales order ${salesOrderNumber || ""}`
+            : `Quotation ${quoteNumber} was rejected`;
+          const message = decision === "accepted"
+            ? "The client " + (quote.clients?.name || "customer") + " accepted quotation " + quoteNumber + ". Sales order " + (salesOrderNumber || "") + " is now " + titleCase(orderStatus) + "."
+            : "The client " + (quote.clients?.name || "customer") + " rejected quotation " + quoteNumber + " from " + businessName + ".";
           const mailResult = await sendWithGoogleAppsScript({
             to: ownerEmail,
             subject,
@@ -530,8 +680,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
         responseStatus: decision,
         respondedAt: responseTime,
         ownerNotified,
-        invoiceGenerated: decision === "accepted" && Boolean(invoiceId),
-        invoiceId,
+        salesOrderCreated: decision === "accepted" && Boolean(salesOrderId),
+        salesOrderId,
+        salesOrderNumber,
+        orderStatus,
+        stockStatus,
+        paymentType,
+        orderConfirmationEmailSent,
+        orderConfirmationRecipient,
+        orderConfirmationEmailError: orderConfirmationEmailError || undefined,
       });
     }
 
@@ -564,13 +721,26 @@ Deno.serve(async (req: Request): Promise<Response> => {
     };
 
     let linkedInvoiceId: string | null = null;
-    if (tokenRow.document_type === "quotation" && String(record.status || "").toLowerCase() === "converted") {
-      const { data: linkedInvoice } = await admin.from("invoices")
-        .select("id")
+    let publicSalesOrder: any = null;
+    if (tokenRow.document_type === "quotation") {
+      const { data: linkedOrder } = await admin.from("sales_orders")
+        .select("id,order_number,status,stock_status,payment_type,payment_terms,advance_paid,carrier,tracking_number")
         .eq("org_id", tokenRow.org_id)
         .eq("quotation_id", record.id)
         .maybeSingle();
-      linkedInvoiceId = linkedInvoice?.id ? String(linkedInvoice.id) : null;
+      if (linkedOrder) {
+        publicSalesOrder = linkedOrder;
+        const { data: linkedInvoice } = await admin.from("invoices")
+          .select("id,invoice_number,status")
+          .eq("org_id", tokenRow.org_id)
+          .eq("sales_order_id", linkedOrder.id)
+          .maybeSingle();
+        if (linkedInvoice) {
+          linkedInvoiceId = String(linkedInvoice.id);
+          publicSalesOrder.invoiceNumber = linkedInvoice.invoice_number;
+          publicSalesOrder.invoiceStatus = linkedInvoice.status;
+        }
+      }
     }
 
     return respondJson({
@@ -593,6 +763,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         default_payment_terms_days: organization.default_payment_terms_days || 15,
       },
       responseStatus: tokenRow.response_status || "",
+      salesOrder: publicSalesOrder,
       invoiceGenerated: Boolean(linkedInvoiceId),
       invoiceId: linkedInvoiceId,
     });
