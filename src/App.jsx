@@ -22,7 +22,6 @@ import {
   ClipboardList,
   Truck,
   PackageCheck,
-  Printer,
   CreditCard,
   BarChart3,
   Settings,
