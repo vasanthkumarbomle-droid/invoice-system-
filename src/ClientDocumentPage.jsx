@@ -116,7 +116,7 @@ export default function ClientDocumentPage() {
             payment_type: data.paymentType,
           } : current.salesOrder,
           document: { ...current.document, status: decision },
-        } : current) : current)
+        } : current)
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Could not record your response. Please refresh and try again.')
