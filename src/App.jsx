@@ -1637,6 +1637,66 @@ const [quotations, setQuotations] = useState([])
 // ============================================================================
 // DASHBOARD (OVERVIEW) VIEW
 // ============================================================================
+function RevenueTrendChart({ data }) {
+  const width = 720
+  const height = 270
+  const margin = { top: 16, right: 16, bottom: 42, left: 76 }
+  const plotWidth = width - margin.left - margin.right
+  const plotHeight = height - margin.top - margin.bottom
+  const values = data.flatMap((row) => [Number(row.Invoiced) || 0, Number(row.Received) || 0])
+  const maxValue = Math.max(0, ...values)
+  const scaleMax = maxValue > 0 ? Math.ceil(maxValue / 4) * 4 : 4
+  const tickValues = Array.from({ length: 5 }, (_, index) => scaleMax * index / 4)
+  const slotWidth = plotWidth / Math.max(data.length, 1)
+  const barWidth = Math.min(25, slotWidth * 0.25)
+  const yFor = (value) => margin.top + plotHeight - ((Number(value) || 0) / scaleMax) * plotHeight
+  const axisMoney = (value) => {
+    if (value >= 1000000) return '₹' + (value / 1000000).toFixed(1) + 'm'
+    if (value >= 1000) return '₹' + (value / 1000).toFixed(value >= 10000 ? 0 : 1) + 'k'
+    return '₹' + Math.round(value)
+  }
+  const hasActivity = maxValue > 0
+
+  return (
+    <div className="lf-revenue-chart">
+      <svg className="lf-revenue-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Six-month chart comparing invoiced totals and payments received">
+        {tickValues.map((tick, index) => {
+          const y = yFor(tick)
+          return <g key={index}>
+            <line x1={margin.left} y1={y} x2={width - margin.right} y2={y} stroke="#E2E8DF" strokeDasharray={index === 0 ? '0' : '3 5'} />
+            <text x={margin.left - 10} y={y + 4} textAnchor="end" fontSize="11" fill="#75877C">{axisMoney(tick)}</text>
+          </g>
+        })}
+        {data.map((row, index) => {
+          const groupX = margin.left + slotWidth * index
+          const pairWidth = barWidth * 2 + 8
+          const firstX = groupX + (slotWidth - pairWidth) / 2
+          const invoiced = Math.max(0, Number(row.Invoiced) || 0)
+          const received = Math.max(0, Number(row.Received) || 0)
+          const baseY = margin.top + plotHeight
+          const invoiceY = yFor(invoiced)
+          const receivedY = yFor(received)
+          return <g key={row.month}>
+            <rect x={firstX} y={invoiceY} width={barWidth} height={Math.max(hasActivity && invoiced > 0 ? 2 : 0, baseY - invoiceY)} rx="4" fill="#24775B">
+              <title>{row.month} invoiced: {formatINR(invoiced)}</title>
+            </rect>
+            <rect x={firstX + barWidth + 8} y={receivedY} width={barWidth} height={Math.max(hasActivity && received > 0 ? 2 : 0, baseY - receivedY)} rx="4" fill="#E8A04B">
+              <title>{row.month} received: {formatINR(received)}</title>
+            </rect>
+            <text x={groupX + slotWidth / 2} y={height - 19} textAnchor="middle" fontSize="12" fill="#65796D">{row.month}</text>
+          </g>
+        })}
+        {!hasActivity && <text x={margin.left + plotWidth / 2} y={margin.top + plotHeight / 2} textAnchor="middle" fontSize="14" fill="#75877C">Nothing billed yet — your numbers will show here.</text>}
+      </svg>
+      <div className="lf-revenue-legend" aria-hidden="true">
+        <span><i className="lf-legend-invoiced" /> Invoiced</span>
+        <span><i className="lf-legend-received" /> Received</span>
+        <span className="lf-chart-period">Last 6 months</span>
+      </div>
+    </div>
+  )
+}
+
 function DashboardView({ invoices, payments, quotations, companyProfile, userName, onViewDoc, onGoSettings }) {
   const reportableInvoices = useMemo(() => invoices.filter((invoice) => !['Draft', 'Cancelled'].includes(invoice.status)), [invoices])
   const reportableInvoiceIds = useMemo(() => new Set(reportableInvoices.map((invoice) => invoice.id)), [reportableInvoices])
@@ -1796,25 +1856,7 @@ function DashboardView({ invoices, payments, quotations, companyProfile, userNam
             <span className="lf-badge lf-badge-sent">{indianFinancialYearLabel()}</span>
           </div>
           <div className="lf-chart-wrap">
-            <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E6E1DA" />
-                <XAxis dataKey="month" stroke="#7A8699" fontSize={11} tickLine={false} />
-                <YAxis stroke="#7A8699" fontSize={11} tickLine={false} />
-                <Tooltip
-                  formatter={(val) => [formatINR(val), '']}
-                  contentStyle={{
-                    backgroundColor: '#FFFFFF',
-                    border: '1px solid #E3E9F2',
-                    borderRadius: '12px',
-                    boxShadow: '0 12px 30px rgba(23,32,51,0.12)'
-                  }}
-                />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-                <Bar dataKey="Invoiced" fill="#2563EB" radius={[5, 5, 0, 0]} maxBarSize={28} name="Total Invoiced" />
-                <Bar dataKey="Received" fill="#F97316" radius={[5, 5, 0, 0]} maxBarSize={28} name="Amount Received" />
-              </BarChart>
-            </ResponsiveContainer>
+            <RevenueTrendChart data={chartData} />
           </div>
         </div>
 
