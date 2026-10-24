@@ -1978,3 +1978,29 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
 }
+
+.lf-profile-completion-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  margin: 16px 0;
+  border: 1px solid #FCD34D;
+  border-radius: 12px;
+  background: #FFFBEB;
+  color: #78350F;
+}
+.lf-profile-completion-copy { display: grid; gap: 3px; min-width: 0; }
+.lf-profile-completion-copy strong { font-size: 14px; }
+.lf-profile-completion-copy span { font-size: 12px; line-height: 1.5; }
+.lf-profile-checklist { margin-top: 16px; padding: 18px; border: 1px solid var(--lf-border); border-radius: 12px; background: var(--lf-card); }
+.lf-profile-checklist-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.lf-profile-progress { height: 7px; overflow: hidden; border-radius: 999px; background: #E2E8F0; }
+.lf-profile-progress > span { display: block; height: 100%; border-radius: inherit; background: var(--lf-success); transition: width 180ms ease; }
+.lf-profile-checklist-items { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 12px; color: var(--lf-text-muted); font-size: 12px; }
+.lf-profile-checklist-items .complete { color: var(--lf-success); }
+@media (max-width: 600px) {
+  .lf-profile-completion-alert { align-items: stretch; flex-direction: column; }
+  .lf-profile-completion-alert .lf-btn { width: 100%; }
+}
