@@ -1,5 +1,6 @@
 import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.jsx'
 import AuthGate from './AuthGate.jsx'
@@ -29,4 +30,4 @@ export function OfflineExperience({ children }) {
     </main><footer className="lf-offline-footer"><span>✳</span> YOUR BUSINESS CAN WAIT 3 SECONDS. <span className="lf-footer-right">THE CAT HAS ALREADY WAITED 14 HOURS.</span></footer>
   </div>}</>
 }
-createRoot(document.getElementById('root')).render(<StrictMode><OfflineExperience><ErrorBoundary><AuthGate><App/></AuthGate></ErrorBoundary></OfflineExperience></StrictMode>)
+createRoot(document.getElementById('root')).render(<StrictMode><BrowserRouter><OfflineExperience><ErrorBoundary><AuthGate><App/></AuthGate></ErrorBoundary></OfflineExperience></BrowserRouter></StrictMode>)
