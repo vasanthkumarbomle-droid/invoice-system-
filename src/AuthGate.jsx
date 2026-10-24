@@ -244,9 +244,8 @@ export default function AuthGate({ children }) {
   if (org === null) return <CreateOrg onCreated={setOrg} />
 
   return (
-    <OrgContext.Provider value={org}>
+    <OrgContext.Provider value={{ ...org, signOut }}>
       {children}
-      <button className="signout" onClick={signOut}>Sign out</button>
     </OrgContext.Provider>
   )
 }
