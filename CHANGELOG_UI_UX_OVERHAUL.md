@@ -35,7 +35,7 @@ This PR is an incremental, reviewable first pass. Unchecked items are not comple
 - [ ] Dashboard chart empty state, due-this-week, top-overdue-client and low-stock widgets, skeleton loading.
 - [ ] Relative due dates, tooltips, action menus, mobile table cards and accessible empty states.
 - [ ] Preview menu/share link/converted-quotation link/status watermark/print parity and filler-copy removal.
-- [ ] Live paper editor split layout with inline warnings and synchronized totals.
+- [x] Live paper editor starter: responsive split layout, live form values/totals and a clickable missing-seller warning that opens Settings. Issue/paid stamp animation and precise warning overlays remain unfinished.
 - [ ] Line-item UOM/discount/stock warnings, amount in words, round-off/shipping/TDS/TCS, quotation terms, template/logo/signature uploads.
 - [ ] Reports date range, ageing, client totals, taxable value and GSTR-1-style export.
 - [ ] HSN column and full responsive/accessibility audit at 360px.
@@ -46,6 +46,6 @@ This PR is an incremental, reviewable first pass. Unchecked items are not comple
 
 ## Verification
 - [x] Vercel generated preview deployments for this branch.
-- [ ] Latest deployment must be READY before merge.
+- [ ] Latest commit deployment must be READY before merge.
 - [ ] No end-to-end browser test completed in this session.
 - [ ] Build/lint/test output has not been independently run in a local checkout during this session.
