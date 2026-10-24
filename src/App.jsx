@@ -2354,11 +2354,11 @@ function DocumentEditorView({
           <button
             type="button"
             className="lf-btn lf-btn-primary"
-            onClick={() => handleSubmit(isInvoice ? 'Sent' : status)}
+            onClick={() => handleSubmit('Sent')}
             disabled={saving}
           >
             {saving ? <LoaderCircle size={16} className="lf-spin" /> : <Check size={16} />}
-            <span>{saving ? 'Saving…' : (!isInvoice && status === 'Draft' ? 'Save Quotation' : 'Save & Issue')}</span>
+            <span>{saving ? 'Saving…' : (isInvoice ? 'Save & Issue' : 'Save & Send to Client')}</span>
           </button>
         </div>
       </div>
@@ -2512,32 +2512,6 @@ function DocumentEditorView({
                 <option value="Net 45">Net 45 Days</option>
                 <option value="Custom">Custom Terms</option>
               </select>
-            </div>
-            <div className="lf-form-group">
-              <label className="lf-form-label">{isInvoice ? 'Issue Status' : 'Quotation Status'}</label>
-              {((isInvoice && ['Paid', 'Partially Paid', 'Overdue', 'Cancelled'].includes(status)) ||
-                (!isInvoice && ['Accepted', 'Rejected', 'Expired', 'Converted'].includes(status))) ? (
-                <div className="lf-form-input" role="status" aria-live="polite" style={{ display: 'flex', alignItems: 'center', fontWeight: 700 }}>
-                  {status}
-                  <span style={{ marginLeft: '8px', color: 'var(--lf-text-muted)', fontWeight: 400, fontSize: '11px' }}>
-                    Managed by {isInvoice ? 'payment and due-date activity' : 'the client response workflow'}
-                  </span>
-                </div>
-              ) : (
-                <select
-                  className="lf-form-select"
-                  value={status === 'Draft' ? 'Draft' : 'Sent'}
-                  onChange={(e) => setStatus(e.target.value)}
-                >
-                  <option value="Draft">Draft</option>
-                  <option value="Sent">{isInvoice ? 'Issued / Sent' : 'Issued to client'}</option>
-                </select>
-              )}
-              <small style={{ color: 'var(--lf-text-muted)', display: 'block', marginTop: '5px' }}>
-                {isInvoice
-                  ? 'Paid and overdue states follow recorded payments and the due date.'
-                  : 'Accepted and rejected states are recorded from the client response page.'}
-              </small>
             </div>
           </div>
 
