@@ -3419,9 +3419,25 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
     finally { setSending(false) }
   }
 
-  // Print Action
+  // Print Action — print the standalone document, not the hidden preview modal.
   const handlePrint = () => {
-    window.print()
+    const printWindow = window.open('', '_blank')
+
+    if (!printWindow) {
+      showToast('Please allow pop-ups to print or save this document as PDF.', 'error')
+      return
+    }
+
+    printWindow.onload = () => {
+      printWindow.focus()
+      printWindow.print()
+    }
+
+    printWindow.document.open()
+    printWindow.document.write(
+      generatePrintableHtml(doc, companyProfile, signatureData)
+    )
+    printWindow.document.close()
   }
 
   // Download Standalone Self-Contained HTML Invoice
