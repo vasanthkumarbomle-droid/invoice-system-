@@ -1384,6 +1384,7 @@ const [quotations, setQuotations] = useState([])
           signatureData={documentSignatures[previewDoc.id] || ''}
           onSignatureChange={(value) => handleSaveDocumentSignature(previewDoc, value)}
           onSendDocument={handleSendDocument}
+          onGoSettings={() => { setPreviewDoc(null); navigateTo('/settings') }}
         />
       )}
 
@@ -3135,6 +3136,12 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
     <>
     <div className="lf-modal-backdrop lf-non-printable">
       <div className="lf-modal lf-modal-lg" style={{ maxHeight: '92vh' }}>
+        {missingSellerFields.length > 0 && (
+          <div className="lf-profile-completion-alert" role="alert">
+            <div className="lf-profile-completion-copy"><strong>Complete your business profile before sending or downloading</strong><span>Missing: {missingSellerFields.join(', ')}.</span></div>
+            <button type="button" className="lf-btn lf-btn-secondary lf-btn-sm" onClick={onGoSettings}>Go to Settings</button>
+          </div>
+        )}
         {/* Modal Top Bar */}
         <div className="lf-modal-header">
           <div>
