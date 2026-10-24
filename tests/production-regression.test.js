@@ -34,7 +34,7 @@ test('issued invoices are protected from edit/cancel actions in the UI', () => {
 test('dashboard revenue chart has a responsive SVG and a useful empty-data state', () => {
   assert.match(app, /function RevenueTrendChart\(\{ data \}\)/)
   assert.match(app, /className="lf-revenue-svg"/)
-  assert.match(app, /viewBox=\{\`0 0 \$\{width\} \$\{height\}\`\}/)
+  assert.ok(app.includes('viewBox={`0 0 ${width} ${height}`}'))
   assert.match(app, /aria-label="Six-month chart comparing invoiced totals and payments received"/)
   assert.match(app, /Last 6 months/)
   assert.match(app, /Nothing billed yet — your numbers will show here\./)
