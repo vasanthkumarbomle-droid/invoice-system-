@@ -1070,6 +1070,7 @@ const [quotations, setQuotations] = useState([])
               payments={payments}
               quotations={quotations}
               companyProfile={companyProfile}
+              userName={org.user?.user_metadata?.full_name || org.full_name || (org.email ? org.email.split('@')[0] : 'there')}
               onNewInvoice={() => handleStartNewDoc('invoice')}
               onNewQuotation={() => handleStartNewDoc('quotation')}
               onViewDoc={(doc) => setPreviewDoc(doc)}
@@ -1558,7 +1559,7 @@ const [quotations, setQuotations] = useState([])
 // ============================================================================
 // DASHBOARD (OVERVIEW) VIEW
 // ============================================================================
-function DashboardView({ invoices, payments, quotations, companyProfile, onNewInvoice, onNewQuotation, onViewDoc, onGoSettings }) {
+function DashboardView({ invoices, payments, quotations, companyProfile, userName, onNewInvoice, onNewQuotation, onViewDoc, onGoSettings }) {
   const reportableInvoices = useMemo(() => invoices.filter((invoice) => !['Draft', 'Cancelled'].includes(invoice.status)), [invoices])
   const reportableInvoiceIds = useMemo(() => new Set(reportableInvoices.map((invoice) => invoice.id)), [reportableInvoices])
   const totalInvoiced = useMemo(() => reportableInvoices.reduce((sum, i) => sum + (Number(i.grandTotal) || 0), 0), [reportableInvoices])
@@ -1617,22 +1618,13 @@ function DashboardView({ invoices, payments, quotations, companyProfile, onNewIn
           <div className="lf-dashboard-hero-copy">
             <span className="lf-dashboard-eyebrow">YOUR BUSINESS AT A GLANCE</span>
             <h2 className="lf-dashboard-hero-title">
-              Welcome back, {companyProfile.tradeName || companyProfile.companyName || 'to LedgerFlow'}
+              Welcome back, {userName || 'there'}
             </h2>
             <p className="lf-dashboard-hero-description">
               Here is your financial billing activity, tax calculations, and receivables status.
             </p>
           </div>
-          <div className="lf-dashboard-hero-actions">
-            <button type="button" className="lf-btn lf-btn-primary" onClick={onNewInvoice}>
-              <Plus size={16} />
-              <span>Create Invoice</span>
-            </button>
-            <button type="button" className="lf-btn lf-btn-secondary" onClick={onNewQuotation}>
-              <FileSpreadsheet size={16} />
-              <span>Create Quotation</span>
-            </button>
-          </div>
+
         </div>
       </section>
 
