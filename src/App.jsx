@@ -46,7 +46,8 @@ import {
   FileDown,
   PenLine,
   Send,
-  LoaderCircle
+  LoaderCircle,
+  LogOut
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -1127,6 +1128,13 @@ const [quotations, setQuotations] = useState([])
                     <span>Financial Reports</span>
                   </button>
                   <div className="lf-dropdown-divider" />
+                  <button type="button" className="lf-dropdown-item lf-dropdown-signout" onClick={async () => {
+                    setProfileMenuOpen(false)
+                    try { await org.signOut?.() } catch (error) { showToast(error?.message || 'Could not sign out. Try again.', 'error') }
+                  }}>
+                    <LogOut size={15} />
+                    <span>Sign out</span>
+                  </button>
                 </div>
               )}
             </div>
