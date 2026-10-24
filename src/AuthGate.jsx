@@ -224,11 +224,31 @@ export default function AuthGate({ children }) {
     setOrg(undefined)
     setOrgLoadError('')
     getMyOrg()
-      .then((value) => { if (active) setOrg(value) })
+      .then(async (value) => {
+        if (!active) return
+        if (value) {
+          setOrg(value)
+          return
+        }
+
+        // A workspace is needed for tenant-scoped invoices and quotations,
+        // but a full business profile is not. Create a minimal workspace so
+        // the user can start working and fill these details in Settings later.
+        const metadataName = String(session?.user?.user_metadata?.company_name || '').trim()
+        const workspaceName = metadataName || 'My Workspace'
+        const created = await createOrg({
+          name: workspaceName,
+          legal_name: workspaceName,
+          gstin: null,
+          state_code: null,
+          logo_url: null,
+        })
+        if (active) setOrg({ ...created, role: created?.role || 'owner' })
+      })
       .catch((error) => {
         if (active) {
           setOrg(undefined)
-          setOrgLoadError(error?.message || 'Could not load your business details.')
+          setOrgLoadError(error?.message || 'Could not prepare your workspace. Please try again.')
         }
       })
     return () => { active = false }
