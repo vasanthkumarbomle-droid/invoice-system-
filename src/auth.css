@@ -148,3 +148,102 @@
 @media(max-width:820px){.auth-page{display:flex;flex-direction:column;overflow:visible}.auth-brand{min-height:80px;height:auto;padding:15px 20px;display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:0;flex:0 0 auto}.auth-brand:before,.auth-brand:after,.auth-brand-story,.auth-demo-wrap,.auth-benefits,.auth-brand-foot{display:none}.auth-brand-lockup{display:flex;align-items:center;gap:10px}.auth-logo-mark{width:38px;height:38px;flex:0 0 38px}.auth-brand-name{font-size:17px;align-self:center}.auth-brand-label{display:none}.auth-panel{flex:1 0 auto;min-height:calc(100dvh - 80px);padding:24px 18px 20px}.auth-mobile-brand{display:none}.auth-card{width:100%;max-width:460px;padding:clamp(22px,6vw,30px);box-shadow:var(--lf-shadow-md)}.auth-panel-foot{margin-top:17px}}
 @media(max-width:420px){.auth-brand{min-height:70px;padding:13px 16px}.auth-panel{min-height:calc(100dvh - 70px);padding:18px 12px 16px}.auth-card{padding:21px 17px;border-radius:14px}.auth-card-topline{margin-bottom:22px}.auth-card h1{font-size:25px}.auth-sub{margin-bottom:21px}.auth-form{gap:13px}.auth-password-rules{gap:7px 5px}.auth-form-options{align-items:flex-start}.auth-panel-foot{font-size:8px}}
 @media(prefers-reduced-motion:reduce){.auth-invoice-paper,.auth-invoice-tax-lines span,.auth-paid-stamp,.auth-confetti i,.auth-spinner{animation:none!important}.auth-invoice-row,.auth-invoice-tax-lines span{opacity:1!important;transform:none!important}.auth-paid-stamp{opacity:1!important;transform:rotate(-13deg) scale(1)!important}.auth-confetti{display:none}}
+
+
+/* Form controls used by the company onboarding step. */
+.auth-field select {
+  width: 100%;
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 36px 0 13px;
+  color: var(--lf-text);
+  background: var(--lf-card);
+  border: 1px solid var(--lf-border-strong);
+  border-radius: var(--lf-radius-sm);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+}
+.auth-field select:focus {
+  border-color: var(--lf-brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--lf-brand) 20%, transparent);
+}
+.auth-optional {
+  color: var(--lf-text-muted);
+  font-size: 10px;
+  font-weight: 500;
+  margin-left: 4px;
+}
+.auth-logo-upload {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 68px;
+  padding: 10px 12px;
+  border: 1px dashed var(--lf-border-strong);
+  border-radius: var(--lf-radius-sm);
+  color: var(--lf-text-secondary);
+  background: var(--lf-bg);
+  cursor: pointer;
+}
+.auth-logo-upload:hover {
+  border-color: var(--lf-brand);
+  background: var(--lf-brand-light);
+}
+.auth-logo-upload img,
+.auth-logo-upload-icon {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 8px;
+  object-fit: contain;
+  display: grid;
+  place-items: center;
+  color: var(--lf-brand);
+  background: var(--lf-card);
+  border: 1px solid var(--lf-border);
+}
+.auth-logo-upload > span:not(.auth-logo-upload-icon) {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.auth-logo-upload strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--lf-text);
+  font-size: 12px;
+}
+.auth-logo-upload small {
+  color: var(--lf-text-muted);
+  font-size: 10px;
+}
+.auth-logo-upload input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+.auth-logo-upload:focus-within {
+  outline: 2px solid var(--lf-brand);
+  outline-offset: 3px;
+}
+.auth-invoice-row.row-one {
+  animation: auth-row-appear 8s ease-out infinite;
+}
+.auth-invoice-row.row-two {
+  animation: auth-row-appear 8s ease-out .7s infinite;
+}
+@keyframes auth-row-appear {
+  0%, 5% { opacity: 0; transform: translateY(4px); }
+  12%, 100% { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-invoice-row.row-one,
+  .auth-invoice-row.row-two { animation: none !important; opacity: 1 !important; transform: none !important; }
+}
