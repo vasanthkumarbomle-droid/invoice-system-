@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
+import { Routes, Route, Link, useNavigate } from 'react-router-dom'
 import ClientDocumentPage from './ClientDocumentPage.jsx'
 import PasswordResetPage from './PasswordResetPage.jsx'
+import { AuthLoginPage, AuthSignupPage, AuthForgotPasswordPage } from './AuthPages.jsx'
 import { useOrg } from './OrgContext'
 import * as db from './lib/db'
 import {
@@ -250,8 +251,10 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
       <Routes>
+        <Route path="/login" element={<AuthLoginPage />} />
+        <Route path="/signup" element={<AuthSignupPage />} />
+        <Route path="/forgot-password" element={<AuthForgotPasswordPage />} />
         <Route path="/" element={<LedgerFlowShell activeTab="dashboard" />} />
         <Route path="/invoices" element={<LedgerFlowShell activeTab="invoices" />} />
         <Route path="/invoices/new" element={<LedgerFlowShell activeTab="editor" initialMode="invoice" />} />
@@ -267,7 +270,6 @@ export default function App() {
         <Route path="/reset-password" element={<PasswordResetPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
-    </BrowserRouter>
   )
 }
 
