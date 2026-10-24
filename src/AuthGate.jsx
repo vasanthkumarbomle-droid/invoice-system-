@@ -73,13 +73,13 @@ function CompanyOnboarding({ session, existingOrg, onCompleted, onSkip }) {
     setLogoFile(file)
   }
 
-  const submit = async (event) => {
+  const submit = async (event, skipOptional = false) => {
     event.preventDefault()
     setError('')
     setNotice('')
     const name = companyName.trim()
     if (!name) { setError('Enter your company name to continue.'); return }
-    if (gstin.trim() && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gstin.trim().toUpperCase())) {
+    if (!skipOptional && gstin.trim() && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gstin.trim().toUpperCase())) {
       setError('Enter a 15-character GSTIN in the correct format, or leave it blank for now.')
       return
     }
@@ -87,7 +87,7 @@ function CompanyOnboarding({ session, existingOrg, onCompleted, onSkip }) {
     let logoUrl = existingOrg?.logo_url || null
     let logoWarning = ''
     try {
-      if (logoFile) {
+      if (logoFile && !skipOptional) {
         try {
           const fileName = logoFile.name.replace(/[^a-zA-Z0-9._-]/g, '-')
           const uploadPath = String(session.user.id) + '/' + Date.now() + '-' + fileName
@@ -105,8 +105,8 @@ function CompanyOnboarding({ session, existingOrg, onCompleted, onSkip }) {
       const patch = {
         name,
         legal_name: name,
-        gstin: gstin.trim().toUpperCase() || null,
-        state_code: stateCode || null,
+        gstin: skipOptional ? null : (gstin.trim().toUpperCase() || null),
+        state_code: skipOptional ? null : (stateCode || null),
         ...(logoFile && logoUrl ? { logo_url: logoUrl } : {}),
       }
       const saved = existingOrg
@@ -152,8 +152,11 @@ function CompanyOnboarding({ session, existingOrg, onCompleted, onSkip }) {
         {error && <div className="auth-message auth-message-error" role="alert" aria-live="polite">{error}</div>}
         {notice && <div className="auth-message auth-message-success" role="status">{notice}</div>}
         <button className="auth-btn" type="submit" disabled={busy}>{busy ? <><LoaderCircle size={17} className="auth-spinner" /> Saving workspace…</> : <>Save and continue <ArrowRight size={16} /></>}</button>
-        {existingOrg && <button className="auth-magic-link" type="button" disabled={busy} onClick={onSkip}>I’ll finish this later</button>}
-        {!existingOrg && <p className="auth-field-hint">GSTIN, state, and logo can be added later in Settings. Your company name is needed to create the workspace.</p>}
+        <button className="auth-magic-link" type="button" disabled={busy} onClick={() => {
+          if (existingOrg) onSkip()
+          else void submit({ preventDefault() {} }, true)
+        }}>{existingOrg ? 'I’ll finish this later' : 'Skip optional details'}</button>
+        {!existingOrg && <p className="auth-field-hint">We’ll use your company name to create the workspace. GSTIN, state, and logo can be added later in Settings.</p>}
       </form>
     </AuthLayout>
   )
