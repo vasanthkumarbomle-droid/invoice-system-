@@ -390,7 +390,7 @@ BEGIN
     SELECT 1 FROM public.org_members AS member
     WHERE member.org_id = v_quote.org_id
       AND member.user_id = auth.uid()
-      AND lower(COALESCE(member.role, '')) IN ('owner', 'admin')
+      AND lower(COALESCE(member.role::text, '')) IN ('owner', 'admin')
   ) THEN
     RAISE EXCEPTION 'Only business owners or admins can convert quotations.' USING ERRCODE = '42501';
   END IF;
@@ -415,14 +415,16 @@ BEGIN
 
   v_payment_terms_days := GREATEST(0, LEAST(COALESCE(v_payment_terms_days, 15), 3650));
 
-  INSERT INTO public.invoices (org_id, client_id, issue_date, due_date, status, notes)
+  INSERT INTO public.invoices (org_id, client_id, quotation_id, issue_date, due_date, status, notes, terms)
   VALUES (
     v_quote.org_id,
     v_quote.client_id,
+    v_quote.id,
     v_issue_date,
     COALESCE(p_due_date, v_issue_date + v_payment_terms_days),
     'pending',
-    v_quote.notes
+    v_quote.notes,
+    v_quote.terms
   )
   RETURNING id INTO v_invoice_id;
 
