@@ -140,6 +140,32 @@ export const listSalesOrdersFull = async (orgId) => {
   }))
 }
 
+export const listReservedProductQuantities = async (orgId) => {
+  const rows = await supabase.from('sales_order_items')
+    .select('product_id,reserved_qty,sales_order_id')
+    .eq('org_id', orgId)
+    .gt('reserved_qty', 0)
+    .not('product_id', 'is', null)
+    .then(must)
+  if (!rows.length) return {}
+
+  const orderIds = [...new Set(rows.map((row) => row.sales_order_id).filter(Boolean))]
+  const activeOrders = await supabase.from('sales_orders')
+    .select('id')
+    .eq('org_id', orgId)
+    .in('id', orderIds)
+    .in('status', ['reserved', 'packing', 'packed', 'dispatched'])
+    .is('stock_deducted_at', null)
+    .then(must)
+  const activeIds = new Set(activeOrders.map((row) => row.id))
+  const totals = {}
+  for (const row of rows) {
+    if (!activeIds.has(row.sales_order_id) || !row.product_id) continue
+    totals[row.product_id] = (totals[row.product_id] || 0) + (Number(row.reserved_qty) || 0)
+  }
+  return totals
+}
+
 export const salesOrderAction = async (orgId, orderId, task, options = {}) => {
   const { data, error } = await supabase.functions.invoke('quotation-workflow', {
     body: {
