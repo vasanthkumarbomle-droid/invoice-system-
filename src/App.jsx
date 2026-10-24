@@ -295,21 +295,30 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
 
   const loadProducts = useCallback(async () => {
     try {
-      const rows = await db.listProducts(org.id)
-      setProducts(rows.map((r) => ({
-        id: r.id,
-        name: r.name,
-        sku: r.sku || '',
-        barcode: r.barcode || '',
-        category: r.category || 'Hardware',
-        price: Number(r.price),
-        gstRate: Number(r.gst_rate),
-        hsnSac: r.hsn_sac || '',
-        stock: Number(r.stock_qty),
-        description: r.description || '',
-      })))
+      const [rows, reservedByProduct] = await Promise.all([
+        db.listProducts(org.id),
+        db.listReservedProductQuantities(org.id),
+      ])
+      setProducts(rows.map((r) => {
+        const stock = Number(r.stock_qty) || 0
+        const reservedStock = Number(reservedByProduct[r.id]) || 0
+        return {
+          id: r.id,
+          name: r.name,
+          sku: r.sku || '',
+          barcode: r.barcode || '',
+          category: r.category || 'Hardware',
+          price: Number(r.price),
+          gstRate: Number(r.gst_rate),
+          hsnSac: r.hsn_sac || '',
+          stock,
+          reservedStock,
+          availableStock: Math.max(0, stock - reservedStock),
+          description: r.description || '',
+        }
+      }))
     } catch (e) {
-      console.error('Failed to load products:', e)
+      console.error('Failed to load products and reservations:', e)
     }
   }, [org.id])
 
@@ -4120,9 +4129,13 @@ function ProductsView({ products, onAddProduct, onEditProduct, onDeleteProduct, 
                 <td style={{ fontWeight: 700 }}>{formatINR(p.price)}</td>
                 <td>{p.gstRate}%</td>
                 <td>
-                  <span className={`lf-badge ${p.stock > 10 ? 'lf-badge-paid' : 'lf-badge-overdue'}`}>
-                    {p.stock} units
-                  </span>
+                  <div style={{ display: 'grid', gap: 4 }}>
+                    <span className="lf-badge lf-badge-draft" style={{ width: 'fit-content' }}>On hand: {p.stock}</span>
+                    <span style={{ fontSize: 11, color: 'var(--lf-text-muted)' }}>Reserved: {p.reservedStock || 0}</span>
+                    <span className={`lf-badge ${(p.availableStock ?? p.stock) > 10 ? 'lf-badge-paid' : 'lf-badge-overdue'}`} style={{ width: 'fit-content' }}>
+                      Available: {p.availableStock ?? p.stock}
+                    </span>
+                  </div>
                 </td>
                 <td>
                   <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
