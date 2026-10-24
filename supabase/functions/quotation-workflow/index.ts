@@ -459,20 +459,41 @@ Deno.serve(async (req: Request): Promise<Response> => {
         return respondJson({ error: "The quotation has expired. Contact the sender for an updated quotation." }, 409);
       }
 
-      const { data: claimedToken, error: claimError } = await admin.from("document_share_tokens")
-        .update({ response_status: decision, responded_at: new Date().toISOString() })
-        .eq("id", tokenRow.id).is("responded_at", null).select("id").maybeSingle();
-      if (claimError || !claimedToken) return respondJson({ error: "A response has already been recorded." }, 409);
+      let responseTime = new Date().toISOString();
+      let invoiceId: string | null = null;
 
-      const { data: updatedQuote, error: updateError } = await admin.from("quotations")
-        .update({ status: decision })
-        .eq("id", quote.id).eq("org_id", tokenRow.org_id).eq("status", "sent")
-        .select("id").maybeSingle();
-      if (updateError || !updatedQuote) {
-        await admin.from("document_share_tokens")
-          .update({ response_status: null, responded_at: null })
-          .eq("id", tokenRow.id).eq("response_status", decision);
-        return respondJson({ error: "This quotation was updated elsewhere. Refresh the page to see the latest status." }, 409);
+      if (decision === "accepted") {
+        // Accept + invoice creation + quote/token state updates are one database
+        // transaction. The RPC is service-role-only and safely handles retries.
+        const { data: conversion, error: conversionError } = await admin.rpc(
+          "respond_to_quotation_and_convert_to_invoice",
+          { p_token_id: tokenRow.id },
+        );
+        if (conversionError || !conversion?.success || !conversion?.invoiceId) {
+          console.error("Automatic invoice conversion failed:", conversionError?.message || "No invoice was returned.");
+          return respondJson({
+            error: "The quotation could not be accepted and converted into an invoice. No response was recorded; ask the sender to retry.",
+            details: conversionError?.message || "The automatic invoice conversion did not return an invoice.",
+          }, 500);
+        }
+        responseTime = String(conversion.respondedAt || responseTime);
+        invoiceId = String(conversion.invoiceId);
+      } else {
+        const { data: claimedToken, error: claimError } = await admin.from("document_share_tokens")
+          .update({ response_status: decision, responded_at: responseTime })
+          .eq("id", tokenRow.id).is("responded_at", null).select("id").maybeSingle();
+        if (claimError || !claimedToken) return respondJson({ error: "A response has already been recorded." }, 409);
+
+        const { data: updatedQuote, error: updateError } = await admin.from("quotations")
+          .update({ status: decision })
+          .eq("id", quote.id).eq("org_id", tokenRow.org_id).eq("status", "sent")
+          .select("id").maybeSingle();
+        if (updateError || !updatedQuote) {
+          await admin.from("document_share_tokens")
+            .update({ response_status: null, responded_at: null })
+            .eq("id", tokenRow.id).eq("response_status", decision);
+          return respondJson({ error: "This quotation was updated elsewhere. Refresh the page to see the latest status." }, 409);
+        }
       }
 
       // Notify the business contact after the decision is committed. A failed notification
@@ -507,8 +528,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return respondJson({
         success: true,
         responseStatus: decision,
-        respondedAt: new Date().toISOString(),
+        respondedAt: responseTime,
         ownerNotified,
+        invoiceGenerated: decision === "accepted" && Boolean(invoiceId),
+        invoiceId,
       });
     }
 
@@ -540,6 +563,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
       signatureData: signatureRow?.signature_data || "",
     };
 
+    let linkedInvoiceId: string | null = null;
+    if (tokenRow.document_type === "quotation" && String(record.status || "").toLowerCase() === "converted") {
+      const { data: linkedInvoice } = await admin.from("invoices")
+        .select("id")
+        .eq("org_id", tokenRow.org_id)
+        .eq("quotation_id", record.id)
+        .maybeSingle();
+      linkedInvoiceId = linkedInvoice?.id ? String(linkedInvoice.id) : null;
+    }
+
     return respondJson({
       documentType: tokenRow.document_type,
       document: publicDocument,
@@ -560,6 +593,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
         default_payment_terms_days: organization.default_payment_terms_days || 15,
       },
       responseStatus: tokenRow.response_status || "",
+      invoiceGenerated: Boolean(linkedInvoiceId),
+      invoiceId: linkedInvoiceId,
     });
   }
 
