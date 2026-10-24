@@ -73,6 +73,18 @@ function formatINR(amount) {
   }).format(num)
 }
 
+const GST_STATE_NAMES = {
+  '01': 'Jammu and Kashmir', '02': 'Himachal Pradesh', '03': 'Punjab', '04': 'Chandigarh',
+  '05': 'Uttarakhand', '06': 'Haryana', '07': 'Delhi', '08': 'Rajasthan', '09': 'Uttar Pradesh',
+  '10': 'Bihar', '11': 'Sikkim', '12': 'Arunachal Pradesh', '13': 'Nagaland', '14': 'Manipur',
+  '15': 'Mizoram', '16': 'Tripura', '17': 'Meghalaya', '18': 'Assam', '19': 'West Bengal',
+  '20': 'Jharkhand', '21': 'Odisha', '22': 'Chhattisgarh', '23': 'Madhya Pradesh',
+  '24': 'Gujarat', '26': 'Dadra and Nagar Haveli and Daman and Diu', '27': 'Maharashtra',
+  '28': 'Andhra Pradesh (old code)', '29': 'Karnataka', '30': 'Goa', '31': 'Lakshadweep',
+  '32': 'Kerala', '33': 'Tamil Nadu', '34': 'Puducherry', '35': 'Andaman and Nicobar Islands',
+  '36': 'Telangana', '37': 'Andhra Pradesh', '38': 'Ladakh'
+}
+
 // ============================================================================
 // MAIN APP COMPONENT WRAPPER WITH ROUTER
 // ============================================================================
@@ -748,7 +760,7 @@ const [quotations, setQuotations] = useState([])
             {!sidebarCollapsed && (
               <div className="lf-brand-text">
                 <span className="lf-brand-title">LedgerFlow</span>
-                <span className="lf-brand-subtitle">Financial Suite</span>
+                <span className="lf-brand-subtitle">INVOICE WORKSPACE</span>
               </div>
             )}
           </Link>
@@ -3426,7 +3438,7 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
       {/* Footer Signatures */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid #E6E1DA', paddingTop: '16px', marginTop: '20px' }}>
         <div style={{ fontSize: '9px', color: '#7B818B' }}>
-          This is a computer generated document. Generated via LedgerFlow Financial Suite.
+          This is a computer generated document. Generated via LedgerFlow.
         </div>
         <div style={{ textAlign: 'center', minWidth: '170px' }}>
           <div style={{ fontSize: '11px', fontWeight: 700, color: '#B87842', marginBottom: '6px' }}>
@@ -3573,9 +3585,9 @@ function ClientsView({ clients, invoices, onAddClient, onEditClient, onDeleteCli
                       <span style={{ color: 'var(--lf-text-muted)' }}>Unregistered</span>
                     )}
                   </td>
-                  <td>{client.address ? client.address.split(',')[0] : 'N/A'}</td>
+                  <td>{client.state || client.stateName || (client.gstin && GST_STATE_NAMES[client.gstin.slice(0, 2)]) || 'Not specified'}</td>
                   <td>
-                    <div style={{ fontWeight: 600 }}>{clientInvoices.length} Invoices</div>
+                    <div style={{ fontWeight: 600 }}>{clientInvoices.length} {clientInvoices.length === 1 ? 'invoice' : 'invoices'}</div>
                     <div style={{ fontSize: '11px', color: 'var(--lf-brand)' }}>{formatINR(totalBilled)}</div>
                   </td>
                   <td>
@@ -4307,7 +4319,7 @@ function ReportsView({ invoices, payments }) {
           <div className="lf-metric-card">
             <span className="lf-metric-label">GST Tax Billed</span>
             <div className="lf-metric-value" style={{ color: 'var(--lf-brand)' }}>{formatINR(totalTaxCollected)}</div>
-            <div className="lf-metric-subtext">CCGST + SGST + IGST on invoices issued</div>
+            <div className="lf-metric-subtext">CGST + SGST + IGST on invoices issued</div>
           </div>
           <div className="lf-metric-card">
             <span className="lf-metric-label">Collections Received</span>
@@ -4532,7 +4544,7 @@ function OfflineStatusPage({ onRetry }) {
           width: 64, height: 64, margin: '0 auto 22px', display: 'grid', placeItems: 'center',
           borderRadius: 20, background: '#fff4e8', color: '#ea580c', fontSize: 30
         }}>↯</div>
-        <p style={{ margin: '0 0 8px', fontSize: 12, letterSpacing: '.16em', fontWeight: 800, color: '#64748b' }}>LEDGERFLOW · FINANCIAL SUITE</p>
+        <p style={{ margin: '0 0 8px', fontSize: 12, letterSpacing: '.16em', fontWeight: 800, color: '#64748b' }}>LEDGERFLOW</p>
         <h1 style={{ margin: '0 0 12px', fontSize: 'clamp(27px, 5vw, 36px)', letterSpacing: '-.04em' }}>You’re offline</h1>
         <p style={{ margin: '0 auto 26px', maxWidth: 420, lineHeight: 1.7, color: '#64748b', fontSize: 15 }}>
           Your internet connection was interrupted. LedgerFlow can’t sync invoices, quotations, payments or inventory until you reconnect.
