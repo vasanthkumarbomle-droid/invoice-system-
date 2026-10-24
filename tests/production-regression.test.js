@@ -30,3 +30,13 @@ test('issued invoices are protected from edit/cancel actions in the UI', () => {
   assert.match(db, /cancel_invoice_if_unpaid/)
   assert.match(app, /doc\.type === 'invoice' && doc\.status !== 'Draft'/)
 })
+
+test('dashboard revenue chart has a responsive SVG and a useful empty-data state', () => {
+  assert.match(app, /function RevenueTrendChart\(\{ data \}\)/)
+  assert.match(app, /className="lf-revenue-svg"/)
+  assert.match(app, /viewBox=\{\`0 0 \$\{width\} \$\{height\}\`\}/)
+  assert.match(app, /aria-label="Six-month chart comparing invoiced totals and payments received"/)
+  assert.match(app, /Last 6 months/)
+  assert.match(app, /Nothing billed yet — your numbers will show here\./)
+  assert.match(app, /<RevenueTrendChart data=\{chartData\} \/>/)
+})
