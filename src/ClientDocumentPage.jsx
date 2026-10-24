@@ -100,7 +100,12 @@ export default function ClientDocumentPage() {
           ...current,
           responseStatus: decision,
           ownerNotified: Boolean(data?.ownerNotified),
-          document: { ...current.document, status: decision },
+          invoiceGenerated: Boolean(data?.invoiceGenerated),
+          invoiceId: data?.invoiceId || current.invoiceId || null,
+          document: {
+            ...current.document,
+            status: decision === 'accepted' && data?.invoiceGenerated ? 'Converted' : decision,
+          },
         } : current)
       }
     } catch (error) {
@@ -241,9 +246,11 @@ export default function ClientDocumentPage() {
               <span className="client-eyebrow">QUOTATION RESPONSE</span>
               <h2>{hasResponse ? 'Your response has been recorded' : 'Review and respond'}</h2>
               <p>{hasResponse
-                ? 'Your ' + payload.responseStatus + ' decision is recorded. ' + (payload.ownerNotified ? 'The business contact was also notified by email.' : 'The response is available to the business in LedgerFlow.')
+                ? (payload.responseStatus === 'accepted' && payload.invoiceGenerated
+                  ? 'Your acceptance is recorded and an invoice has been generated automatically. The business can now manage it in LedgerFlow.'
+                  : 'Your ' + payload.responseStatus + ' decision is recorded. ' + (payload.ownerNotified ? 'The business contact was also notified by email.' : 'The response is available to the business in LedgerFlow.'))
                 : canRespond
-                  ? 'Review the quotation and choose Accept or Reject. Your decision will be recorded and the sender can proceed accordingly.'
+                  ? 'Review the quotation and choose Accept or Reject. Accepting it automatically generates an invoice for the business.'
                   : 'This quotation is no longer awaiting a response or its validity date has passed. Contact the sender if you need an updated quotation.'}</p>
             </div>
             {canRespond && (
