@@ -100,13 +100,23 @@ export default function ClientDocumentPage() {
           ...current,
           responseStatus: decision,
           ownerNotified: Boolean(data?.ownerNotified),
-          invoiceGenerated: Boolean(data?.invoiceGenerated),
-          invoiceId: data?.invoiceId || current.invoiceId || null,
-          document: {
-            ...current.document,
-            status: decision === 'accepted' && data?.invoiceGenerated ? 'Converted' : decision,
-          },
-        } : current)
+          salesOrderCreated: Boolean(data?.salesOrderCreated),
+          salesOrderNumber: data?.salesOrderNumber || current.salesOrderNumber || current.salesOrder?.order_number || '',
+          orderStatus: data?.orderStatus || current.orderStatus || current.salesOrder?.status || '',
+          stockStatus: data?.stockStatus || current.stockStatus || current.salesOrder?.stock_status || '',
+          paymentType: data?.paymentType || current.paymentType || current.salesOrder?.payment_type || '',
+          orderConfirmationEmailSent: Boolean(data?.orderConfirmationEmailSent),
+          orderConfirmationEmailError: data?.orderConfirmationEmailError || '',
+          salesOrder: data?.salesOrderId ? {
+            ...(current.salesOrder || {}),
+            id: data.salesOrderId,
+            order_number: data.salesOrderNumber,
+            status: data.orderStatus,
+            stock_status: data.stockStatus,
+            payment_type: data.paymentType,
+          } : current.salesOrder,
+          document: { ...current.document, status: decision },
+        } : current) : current)
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Could not record your response. Please refresh and try again.')
@@ -246,11 +256,20 @@ export default function ClientDocumentPage() {
               <span className="client-eyebrow">QUOTATION RESPONSE</span>
               <h2>{hasResponse ? 'Your response has been recorded' : 'Review and respond'}</h2>
               <p>{hasResponse
-                ? (payload.responseStatus === 'accepted' && payload.invoiceGenerated
-                  ? 'Your acceptance is recorded and an invoice has been generated automatically. The business can now manage it in LedgerFlow.'
-                  : 'Your ' + payload.responseStatus + ' decision is recorded. ' + (payload.ownerNotified ? 'The business contact was also notified by email.' : 'The response is available to the business in LedgerFlow.'))
+                ? payload.responseStatus === 'accepted'
+                  ? 'Your acceptance is recorded.' +
+                    ((payload.salesOrderNumber || payload.salesOrder?.order_number)
+                      ? ' Sales order ' + (payload.salesOrderNumber || payload.salesOrder.order_number) + ' has been created. '
+                      : ' The business has recorded your order. ') +
+                    (payload.orderConfirmationEmailSent
+                      ? 'An order-confirmation email has been accepted by the email provider. '
+                      : payload.orderConfirmationEmailError
+                        ? 'The order is recorded, but the confirmation email could not be sent: ' + payload.orderConfirmationEmailError + '. '
+                        : 'The business will check stock and prepare the order. ') +
+                    'No tax invoice is issued at acceptance; it will be sent after packing and dispatch.'
+                  : 'Your ' + payload.responseStatus + ' decision is recorded. ' + (payload.ownerNotified ? 'The business contact was also notified by email.' : 'The response is available to the business in LedgerFlow.')
                 : canRespond
-                  ? 'Review the quotation and choose Accept or Reject. Accepting it automatically generates an invoice for the business.'
+                  ? 'Review the quotation and choose Accept or Reject. Accepting creates a sales order; stock is reserved when available. The tax invoice is sent only after the business packs and dispatches the products.'
                   : 'This quotation is no longer awaiting a response or its validity date has passed. Contact the sender if you need an updated quotation.'}</p>
             </div>
             {canRespond && (
