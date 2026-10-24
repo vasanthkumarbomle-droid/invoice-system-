@@ -259,6 +259,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const task = String(body?.task || "");
     const carrier = String(body?.carrier || "");
     const trackingNumber = String(body?.trackingNumber || "");
+    const trackingUrl = String(body?.trackingUrl || "");
     const allowedTasks = ["confirm_stock","mark_advance_paid","start_packing","mark_packed","dispatch","cancel_order","generate_invoice","send_proforma"];
     if (!/^[0-9a-f-]{36}$/i.test(orgId) || !/^[0-9a-f-]{36}$/i.test(orderId) || !allowedTasks.includes(task)) {
       return respondJson({ error: "Invalid sales-order action." }, 400);
@@ -308,6 +309,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const { data: actionResult, error: actionError } = await admin.rpc("manage_sales_order_action", {
       p_org_id: orgId, p_order_id: orderId, p_action: task,
       p_carrier: carrier || null, p_tracking_number: trackingNumber || null,
+      p_tracking_url: trackingUrl || null,
     });
     if (actionError || !actionResult?.success) return respondJson({ error: actionError?.message || "Sales-order action could not be completed." }, 400);
     return respondJson(actionResult);
@@ -426,7 +428,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     let linkedSalesOrder: any = null;
     if (documentType === "invoice" && record.sales_order_id) {
       const { data: linkedOrder } = await admin.from("sales_orders")
-        .select("order_number,carrier,tracking_number")
+        .select("order_number,carrier,tracking_number,tracking_url")
         .eq("id", record.sales_order_id).eq("org_id", orgId).maybeSingle();
       linkedSalesOrder = linkedOrder;
     }
@@ -440,15 +442,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const paymentHtml = documentType === "invoice"
       ? "<h3>Payment details</h3>" + (paymentDetails.length ? "<ul>" + paymentDetails.map((item) => "<li>" + escapeHtml(item) + "</li>").join("") + "</ul>" : "<p>Payment details are not configured. Please contact the business before paying.</p>")
       : "";
+    const safeTrackingUrl = /^https:\/\//i.test(String(linkedSalesOrder?.tracking_url || ""))
+      ? String(linkedSalesOrder.tracking_url)
+      : "";
     const trackingText = linkedSalesOrder
       ? "Sales order: " + linkedSalesOrder.order_number +
         (linkedSalesOrder.carrier ? "\\nCarrier: " + linkedSalesOrder.carrier : "") +
-        (linkedSalesOrder.tracking_number ? "\\nTracking number: " + linkedSalesOrder.tracking_number : "")
+        (linkedSalesOrder.tracking_number ? "\\nTracking number: " + linkedSalesOrder.tracking_number : "") +
+        (safeTrackingUrl ? "\\nTrack shipment: " + safeTrackingUrl : "")
       : "";
     const trackingHtml = linkedSalesOrder
       ? "<p><strong>Sales order:</strong> " + escapeHtml(linkedSalesOrder.order_number) +
         (linkedSalesOrder.carrier ? "<br><strong>Carrier:</strong> " + escapeHtml(linkedSalesOrder.carrier) : "") +
-        (linkedSalesOrder.tracking_number ? "<br><strong>Tracking number:</strong> " + escapeHtml(linkedSalesOrder.tracking_number) : "") + "</p>"
+        (linkedSalesOrder.tracking_number ? "<br><strong>Tracking number:</strong> " + escapeHtml(linkedSalesOrder.tracking_number) : "") +
+        (safeTrackingUrl ? "<br><a href=\"" + escapeHtml(safeTrackingUrl) + "\">Track shipment</a>" : "") + "</p>"
       : "";
     const documentNumber = documentType === "invoice" ? (record.invoice_number || "invoice") : (record.quote_number || "quotation");
     const itemsKey = documentType === "invoice" ? "invoice_items" : "quotation_items";
@@ -755,7 +762,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     let publicSalesOrder: any = null;
     if (tokenRow.document_type === "quotation") {
       const { data: linkedOrder } = await admin.from("sales_orders")
-        .select("id,order_number,status,stock_status,payment_type,payment_terms,advance_paid,carrier,tracking_number")
+        .select("id,order_number,status,stock_status,payment_type,payment_terms,advance_paid,carrier,tracking_number,tracking_url")
         .eq("org_id", tokenRow.org_id)
         .eq("quotation_id", record.id)
         .maybeSingle();
