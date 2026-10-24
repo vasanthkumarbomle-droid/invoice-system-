@@ -293,11 +293,34 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const recipient = String(client.email || "").trim();
     if (!validEmail(recipient)) return respondJson({ error: "Add a valid email address to this client record before sending." }, 422);
 
-    const appBase = (Deno.env.get("PUBLIC_APP_URL") || "").replace(/\/+$/, "");
-    const scriptUrl = Deno.env.get("GOOGLE_APPS_SCRIPT_URL");
-    const scriptSecret = Deno.env.get("GOOGLE_APPS_SCRIPT_SECRET");
-    if (!/^https:\/\//i.test(appBase) || !scriptUrl || !scriptSecret) {
-      return respondJson({ error: "Email is not configured. Set PUBLIC_APP_URL, GOOGLE_APPS_SCRIPT_URL and GOOGLE_APPS_SCRIPT_SECRET in Supabase function secrets." }, 503);
+    // The production app URL is stable; allow PUBLIC_APP_URL to override it,
+    // but do not make a missing copy of this public URL disable all email sends.
+    const configuredAppBase = String(Deno.env.get("PUBLIC_APP_URL") || "").trim();
+    const appBase = (configuredAppBase || "https://ledgerflowhq.vercel.app").replace(/\/+$/, "");
+    const scriptUrl = String(Deno.env.get("GOOGLE_APPS_SCRIPT_URL") || "").trim();
+    const scriptSecret = String(Deno.env.get("GOOGLE_APPS_SCRIPT_SECRET") || "");
+    const missingEmailSettings: string[] = [];
+    if (!/^https:\/\//i.test(appBase)) missingEmailSettings.push("PUBLIC_APP_URL (must be an HTTPS URL)");
+    if (!scriptUrl) missingEmailSettings.push("GOOGLE_APPS_SCRIPT_URL");
+    if (!scriptSecret) missingEmailSettings.push("GOOGLE_APPS_SCRIPT_SECRET");
+    if (scriptUrl) {
+      try {
+        const parsedScriptUrl = new URL(scriptUrl);
+        if (parsedScriptUrl.protocol !== "https:" || parsedScriptUrl.hostname !== "script.google.com" ||
+            !parsedScriptUrl.pathname.startsWith("/macros/s/") || !parsedScriptUrl.pathname.endsWith("/exec")) {
+          missingEmailSettings.push("GOOGLE_APPS_SCRIPT_URL (must be a deployed Google Apps Script Web App URL ending in /exec)");
+        }
+      } catch {
+        missingEmailSettings.push("GOOGLE_APPS_SCRIPT_URL (not a valid URL)");
+      }
+    }
+    if (missingEmailSettings.length > 0) {
+      console.error("Quotation email configuration incomplete:", missingEmailSettings.join(", "));
+      return respondJson({
+        error: "Client email sending is not configured correctly.",
+        details: "Fix these Supabase Edge Function secrets: " + missingEmailSettings.join(", "),
+        missingSettings: missingEmailSettings,
+      }, 503);
     }
 
     if (documentType === "quotation" && record.valid_until && String(record.valid_until).slice(0, 10) < todayInIndia()) {
