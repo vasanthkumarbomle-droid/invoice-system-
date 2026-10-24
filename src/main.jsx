@@ -13,20 +13,26 @@ export function OfflineExperience({ children }) {
   const [checking, setChecking] = useState(false)
 
   const checkConnection = async () => {
+    // A failed probe to this app's origin does not automatically mean the
+    // device is offline (VPNs, edge redirects and transient errors can fail it).
+    // Prefer the browser's actual network state, and confirm with a tiny static
+    // same-origin asset when a probe is useful.
+    if (navigator.onLine) setOffline(false)
     const controller = new AbortController()
-    const timeoutId = window.setTimeout(() => controller.abort(), 4500)
+    const timeoutId = window.setTimeout(() => controller.abort(), 2500)
     try {
-      const response = await fetch('/?ledgerflow-connectivity-check=' + Date.now(), {
+      const response = await fetch('/favicon.svg?lf-connectivity=' + Date.now(), {
         method: 'GET',
         cache: 'no-store',
         signal: controller.signal,
       })
       const reachable = response.ok
-      setOffline(!reachable)
-      return reachable
+      setOffline(!reachable && navigator.onLine === false)
+      return reachable || navigator.onLine
     } catch {
-      setOffline(true)
-      return false
+      const browserReportsOffline = navigator.onLine === false
+      setOffline(browserReportsOffline)
+      return !browserReportsOffline
     } finally {
       window.clearTimeout(timeoutId)
     }
