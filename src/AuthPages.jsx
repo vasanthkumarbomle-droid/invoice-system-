@@ -249,9 +249,8 @@ export function AuthLoginPage() {
   const handleCaps = (event) => setShowCapsLock(Boolean(event.getModifierState?.('CapsLock')))
 
   const recordFailedAttempt = () => {
-    let count = 1
     try {
-      count = (Number(sessionStorage.getItem(attemptsKey + ':count')) || 0) + 1
+      const count = (Number(sessionStorage.getItem(attemptsKey + ':count')) || 0) + 1
       sessionStorage.setItem(attemptsKey + ':count', String(count))
       if (count >= 5) {
         const until = Date.now() + 30000
