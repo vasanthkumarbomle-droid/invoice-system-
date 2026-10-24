@@ -4436,7 +4436,15 @@ function SettingsView({ profile, onSaveProfile }) {
   }, [hasUnsavedChanges])
   const handleChange = (field, val) => {
     setValidationError('')
-    setFormData((prev) => ({ ...prev, [field]: val }))
+    setFormData((prev) => {
+      const next = { ...prev, [field]: val }
+      if (field === 'ifscCode') {
+        const prefix = String(val || '').trim().toUpperCase().slice(0, 4)
+        const bankNames = { SBIN: 'State Bank of India', HDFC: 'HDFC Bank', ICIC: 'ICICI Bank', UTIB: 'Axis Bank', KKBK: 'Kotak Mahindra Bank', PUNB: 'Punjab National Bank', BARB: 'Bank of Baroda', CNRB: 'Canara Bank', UBIN: 'Union Bank of India', IDFB: 'IDFC FIRST Bank', YESB: 'Yes Bank' }
+        if (bankNames[prefix]) next.bankName = bankNames[prefix]
+      }
+      return next
+    })
   }
 
   const handleSaveAll = async (e) => {
@@ -4462,17 +4470,18 @@ function SettingsView({ profile, onSaveProfile }) {
 
   return (
     <div className="lf-card">
-      <div className="lf-card-header">
+      <div className="lf-card-header lf-settings-save-bar">
         <div>
           <h2 className="lf-card-title">System & Company Configuration</h2>
           <p className="lf-card-subtitle">Set your company details, GSTIN, invoice numbering prefixes, and cloud database</p>
         </div>
-        <button type="button" className="lf-btn lf-btn-primary" onClick={handleSaveAll}>
+        <button type="button" className="lf-btn lf-btn-primary" onClick={handleSaveAll} disabled={saving}>
           <Check size={16} />
-          <span>Save Changes</span>
+          <span>{saving ? "Saving…" : hasUnsavedChanges ? "Save Changes •" : "Save Changes"}</span>
         </button>
       </div>
 
+      {validationError && <div className="lf-profile-completion-alert" role="alert"><div className="lf-profile-completion-copy"><strong>Check your business details</strong><span>{validationError}</span></div></div>}
       <form onSubmit={handleSaveAll}>
         {/* Business Profile */}
         <div style={{ marginBottom: '28px' }}>
@@ -4509,15 +4518,10 @@ function SettingsView({ profile, onSaveProfile }) {
             </div>
             <div className="lf-form-group">
               <label className="lf-form-label">State Code (place of supply)</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={2}
-                className="lf-form-input"
-                placeholder="36 for Telangana"
-                value={formData.stateCode || ''}
-                onChange={(e) => handleChange('stateCode', e.target.value.replace(/\D/g, '').slice(0, 2))}
-              />
+              <select className="lf-form-select" value={formData.stateCode || String(formData.gstin || '').slice(0, 2)} onChange={(e) => handleChange('stateCode', e.target.value)}>
+                <option value="">Select state code</option>
+                {Object.entries(GST_STATE_NAMES).sort((a, b) => a[1].localeCompare(b[1])).map(([code, name]) => <option key={code} value={code}>{code} – {name}</option>)}
+              </select>
             </div>
             <div className="lf-form-group">
               <label className="lf-form-label">PAN</label>
