@@ -1696,7 +1696,7 @@ function DashboardView({ invoices, payments, quotations, companyProfile, userNam
             {formatINR(outstandingBalance)}
           </div>
           <div className="lf-metric-subtext">
-            <span className="lf-trend-amber">{invoices.filter((i) => i.status === 'Overdue').length} overdue accounts</span>
+            <span className={invoices.some((i) => i.status === 'Overdue') ? 'lf-trend-amber' : ''} style={!invoices.some((i) => i.status === 'Overdue') ? { color: 'var(--lf-text-muted)' } : undefined}>{invoices.filter((i) => i.status === 'Overdue').length} overdue {invoices.filter((i) => i.status === 'Overdue').length === 1 ? 'account' : 'accounts'}</span>
           </div>
         </div>
 
@@ -1934,12 +1934,12 @@ function DocumentsListView({
                     <div style={{ fontWeight: 500 }}>{doc.clientName}</div>
                     <div style={{ fontSize: '11px', color: 'var(--lf-text-muted)' }}>{doc.clientEmail}</div>
                   </td>
-                  <td>{doc.issueDate}</td>
-                  <td>{doc.dueDate}</td>
+                  <td>{formatDisplayDate(doc.issueDate)}</td>
+                  <td>{formatDisplayDate(doc.dueDate)}</td>
                   <td style={{ fontWeight: 700 }}>{formatINR(doc.grandTotal)}</td>
                   {isInvoice && (
-                    <td style={{ fontWeight: 600, color: doc.balanceDue > 0 ? 'var(--lf-highlight)' : 'var(--lf-brand)' }}>
-                      {formatINR(doc.balanceDue || 0)}
+                    <td style={{ fontWeight: 600, color: doc.status === 'Cancelled' ? 'var(--lf-text-muted)' : Number(doc.balanceDue) > 0 ? 'var(--lf-warning)' : 'var(--lf-text-muted)' }}>
+                      {doc.status === 'Cancelled' ? '—' : formatINR(doc.balanceDue || 0)}
                     </td>
                   )}
                   <td>
@@ -3863,7 +3863,7 @@ function ProductsView({ products, onAddProduct, onEditProduct, onDeleteProduct, 
                 </td>
                 <td>
                   <div style={{ fontWeight: 600 }}>{p.sku}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--lf-highlight)' }}>
+                  <div style={{ fontSize: '12px', color: p.barcode ? 'var(--lf-text-muted)' : 'var(--lf-text-muted)' }}>
                     {p.barcode ? `Barcode: ${p.barcode}` : 'No Barcode'}
                   </div>
                 </td>
@@ -3876,7 +3876,7 @@ function ProductsView({ products, onAddProduct, onEditProduct, onDeleteProduct, 
                   <div style={{ display: 'grid', gap: 4 }}>
                     <span className="lf-badge lf-badge-draft" style={{ width: 'fit-content' }}>On hand: {p.stock}</span>
                     <span style={{ fontSize: 11, color: 'var(--lf-text-muted)' }}>Reserved: {p.reservedStock || 0}</span>
-                    <span className={`lf-badge ${(p.availableStock ?? p.stock) > 10 ? 'lf-badge-paid' : 'lf-badge-overdue'}`} style={{ width: 'fit-content' }}>
+                    <span className={`lf-badge ${(p.availableStock ?? p.stock) <= 5 ? 'lf-badge-overdue' : (p.availableStock ?? p.stock) > 5 ? 'lf-badge-paid' : 'lf-badge-draft'}`} style={{ width: 'fit-content' }}>
                       Available: {p.availableStock ?? p.stock}
                     </span>
                   </div>
