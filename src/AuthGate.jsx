@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { LoaderCircle, ShieldCheck, UploadCloud, ArrowRight } from 'lucide-react'
+import { LoaderCircle, UploadCloud, ArrowRight } from 'lucide-react'
 import { supabase, getMyOrg, createOrg, updateOrg, signOut } from './lib/db'
 import { OrgContext } from './OrgContext'
 import { AuthLayout } from './AuthPages'
