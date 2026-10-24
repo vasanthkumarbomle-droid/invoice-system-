@@ -2420,6 +2420,34 @@ function DocumentEditorView({
   const igstAmount = hasTaxJurisdiction && isInterState ? totalTaxAmount : 0
   const grandTotal = Math.round((taxableAmount + totalTaxAmount) * 100) / 100
 
+  const livePreviewDoc = {
+    ...(existingDoc || {}),
+    type: mode,
+    documentNumber: existingDoc?.documentNumber || (isInvoice ? 'DRAFT PREVIEW' : 'QUOTE PREVIEW'),
+    clientName: clientName || 'Client name',
+    clientEmail,
+    clientPhone,
+    clientAddress,
+    clientGstin,
+    clientStateCode: String(clientStateCode || clientGstin.slice(0, 2) || ''),
+    issueDate,
+    dueDate,
+    paymentTerms,
+    status: existingDoc?.status || 'Draft',
+    items: items.map((item) => ({ ...item, total: (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0) * (1 + (Number(item.gstRate) || 0) / 100) })),
+    subtotal,
+    discountAmount,
+    taxableAmount,
+    cgstAmount,
+    sgstAmount,
+    igstAmount,
+    taxAmount: totalTaxAmount,
+    grandTotal,
+    amountPaid: Number(existingDoc?.amountPaid) || 0,
+    balanceDue: Math.max(0, grandTotal - (Number(existingDoc?.amountPaid) || 0)),
+    notes,
+  }
+
   // Validation & Save Handler
   // Lock synchronously as well as disabling the buttons so a rapid double-click
   // cannot create two database records before React re-renders.
@@ -2529,6 +2557,8 @@ function DocumentEditorView({
         </div>
       </div>
 
+      <div className="lf-live-editor-grid">
+        <div className="lf-live-editor-form">
       {missingSellerFields.length > 0 && (
         <div className="lf-profile-completion-alert" role="alert">
           <div className="lf-profile-completion-copy">
@@ -2938,6 +2968,21 @@ function DocumentEditorView({
             {numberToWordsINR(grandTotal)}
           </div>
         </div>
+      </div>
+
+        </div>
+        <aside className="lf-live-paper-panel" aria-label="Live invoice paper preview">
+          <div className="lf-live-paper-heading">
+            <div><strong>Live paper preview</strong><span>Updates as you type</span></div>
+            <span className="lf-badge lf-badge-draft">DRAFT</span>
+          </div>
+          {missingSellerFields.length > 0 && <button type="button" className="lf-live-paper-warning" onClick={onGoSettings} aria-label="Complete seller profile in Settings">
+            <strong>Seller details missing</strong><span>{missingSellerFields.join(', ')}</span><small>Click to open Settings →</small>
+          </button>}
+          <div className="lf-live-paper">
+            <PrintableInvoiceTemplate doc={livePreviewDoc} companyProfile={companyProfile} />
+          </div>
+        </aside>
       </div>
 
       {/* BARCODE SCANNER MODAL */}
