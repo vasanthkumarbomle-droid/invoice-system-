@@ -19,6 +19,10 @@ import {
   FileSpreadsheet,
   Users,
   Package,
+  ClipboardList,
+  Truck,
+  PackageCheck,
+  Printer,
   CreditCard,
   BarChart3,
   Settings,
@@ -214,6 +218,7 @@ export default function App() {
         <Route path="/invoices" element={<LedgerFlowShell activeTab="invoices" />} />
         <Route path="/invoices/new" element={<LedgerFlowShell activeTab="editor" initialMode="invoice" />} />
         <Route path="/quotations" element={<LedgerFlowShell activeTab="quotations" />} />
+        <Route path="/orders" element={<LedgerFlowShell activeTab="orders" />} />
         <Route path="/quotations/new" element={<LedgerFlowShell activeTab="editor" initialMode="quotation" />} />
         <Route path="/clients" element={<LedgerFlowShell activeTab="clients" />} />
         <Route path="/products" element={<LedgerFlowShell activeTab="products" />} />
@@ -368,6 +373,20 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
   }
 
 const [quotations, setQuotations] = useState([])
+  const [salesOrders, setSalesOrders] = useState([])
+
+  const loadSalesOrders = useCallback(async () => {
+    try {
+      const rows = await db.listSalesOrdersFull(org.id)
+      setSalesOrders(rows)
+    } catch (e) {
+      console.error('Failed to load sales orders:', e)
+    }
+  }, [org.id])
+
+  useEffect(() => {
+    loadSalesOrders()
+  }, [loadSalesOrders])
 
   const loadQuotations = useCallback(async () => {
     try {
@@ -769,6 +788,19 @@ const [quotations, setQuotations] = useState([])
 
           <button
             type="button"
+            className={`lf-nav-item ${activeTab === 'orders' ? 'active' : ''}`}
+            onClick={() => navigateTo('/orders')}
+            title="Sales Orders & Fulfillment"
+          >
+            <span className="lf-nav-icon"><ClipboardList size={18} /></span>
+            {!sidebarCollapsed && <span>Sales Orders</span>}
+            {!sidebarCollapsed && salesOrders.filter((order) => !['invoiced','cancelled'].includes(String(order.status || '').toLowerCase())).length > 0 && (
+              <span className="lf-nav-badge">{salesOrders.filter((order) => !['invoiced','cancelled'].includes(String(order.status || '').toLowerCase())).length}</span>
+            )}
+          </button>
+
+          <button
+            type="button"
             className={`lf-nav-item ${activeTab === 'clients' ? 'active' : ''}`}
             onClick={() => navigateTo('/clients')}
             title="Clients"
@@ -857,6 +889,7 @@ const [quotations, setQuotations] = useState([])
                 {activeTab === 'dashboard' && 'Financial Overview'}
                 {activeTab === 'invoices' && 'Invoices'}
                 {activeTab === 'quotations' && 'Quotations & Estimates'}
+                {activeTab === 'orders' && 'Sales Orders & Fulfillment'}
                 {activeTab === 'clients' && 'Client Directory'}
                 {activeTab === 'products' && 'Product Catalogue & Inventory'}
                 {activeTab === 'payments' && 'Payment Transactions'}
@@ -1047,6 +1080,14 @@ const [quotations, setQuotations] = useState([])
               onDuplicateDoc={handleDuplicateDoc}
               onDeleteDoc={(doc) => confirmDelete('quotation', doc.id, doc.documentNumber)}
               onConvertToInvoice={canManageBusiness ? handleConvertQuotation : undefined}
+            />
+          )}
+
+          {activeTab === 'orders' && (
+            <SalesOrdersView
+              orders={salesOrders}
+              companyProfile={companyProfile}
+              onAction={handleSalesOrderAction}
             />
           )}
 
