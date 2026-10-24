@@ -3407,7 +3407,7 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
             <span style={{ color: '#7B818B' }}>Place of Supply:</span>
-            <span style={{ fontWeight: 600 }}>{buyerStateCode || 'Not specified'}</span>
+            <span style={{ fontWeight: 600 }}>{buyerStateCode ? `${buyerStateCode} – ${GST_STATE_NAMES[buyerStateCode] || 'State'}` : 'Not specified'}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
             <span style={{ color: '#7B818B' }}>Supply Type:</span>
