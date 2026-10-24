@@ -49,7 +49,7 @@ function AuthInvoiceDemo() {
   const [amount, setAmount] = useState(samples[0].amount)
   const [visible, setVisible] = useState(typeof document === 'undefined' || document.visibilityState === 'visible')
   const [reduced, setReduced] = useState(false)
-  const elapsed = useRef(8000)
+  const elapsed = useRef(0)
   const lastTick = useRef(0)
   const sample = samples[cycle % samples.length]
 
@@ -69,23 +69,23 @@ function AuthInvoiceDemo() {
 
   useEffect(() => {
     if (reduced) {
+      elapsed.current = 0
       setAmount(sample.amount)
-      elapsed.current = 8000
       return undefined
     }
     if (!visible) return undefined
-    lastTick.current = performance.now()
+    let lastTick = performance.now()
     const timer = window.setInterval(() => {
       const now = performance.now()
-      elapsed.current += Math.max(0, now - lastTick.current)
-      lastTick.current = now
+      elapsed.current += Math.max(0, now - lastTick)
+      lastTick = now
       if (elapsed.current >= 8000) {
-        elapsed.current = 0
+        elapsed.current %= 8000
         setCycle((current) => current + 1)
       }
       const progress = Math.min(1, Math.max(0, (elapsed.current - 650) / 4000))
       const eased = 1 - Math.pow(1 - progress, 3)
-      const target = samples[(cycle + (elapsed.current === 0 ? 1 : 0)) % samples.length]
+      const target = samples[cycle % samples.length]
       setAmount(Math.round(target.amount * eased))
     }, 100)
     return () => window.clearInterval(timer)
@@ -182,7 +182,7 @@ function PasswordField({ id, label, value, onChange, autoComplete, required = tr
           onKeyUp={onCapsLockChange}
           onKeyDown={onCapsLockChange}
           required={required}
-          minLength={8}
+          minLength={autoComplete === 'current-password' ? undefined : 8}
           aria-describedby={hint ? id + '-hint' : undefined}
         />
         <button type="button" className="auth-password-toggle" aria-label={shown ? 'Hide password' : 'Show password'} onClick={() => setShown((state) => !state)}>
@@ -234,12 +234,18 @@ export function AuthLoginPage() {
     const update = () => {
       const remaining = Math.max(0, Math.ceil((lockedUntil - Date.now()) / 1000))
       setLockRemaining(remaining)
-      if (!remaining) setLockedUntil(0)
+      if (!remaining) {
+        setLockedUntil(0)
+        try {
+          sessionStorage.removeItem(attemptsKey + ':count')
+          sessionStorage.removeItem(attemptsKey + ':until')
+        } catch { /* Cooldown reset is best-effort when storage is disabled. */ }
+      }
     }
     update()
     const timer = window.setInterval(update, 250)
     return () => window.clearInterval(timer)
-  }, [lockedUntil])
+  }, [lockedUntil, attemptsKey])
 
   const handleCaps = (event) => setShowCapsLock(Boolean(event.getModifierState?.('CapsLock')))
 
@@ -392,7 +398,7 @@ export function AuthSignupPage() {
     if (resendCooldown <= 0) return undefined
     const timer = window.setInterval(() => setResendCooldown((value) => Math.max(0, value - 1)), 1000)
     return () => window.clearInterval(timer)
-  }, [resendCooldown > 0])
+  }, [resendCooldown])
 
   const submit = async (event) => {
     event.preventDefault()
