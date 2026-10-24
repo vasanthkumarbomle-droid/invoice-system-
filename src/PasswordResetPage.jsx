@@ -80,8 +80,6 @@ export default function PasswordResetPage() {
       setPassword('')
       setConfirmPassword('')
       setNotice('Your password has been updated. You can sign in with your new password.')
-      // A recovery session should not keep the user on a privileged recovery state.
-      await supabase.auth.signOut()
     } catch (updateError) {
       setError(updateError?.message || 'Could not update your password. Request a new reset link and try again.')
     } finally {
