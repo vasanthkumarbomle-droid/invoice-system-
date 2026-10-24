@@ -499,6 +499,18 @@ const [quotations, setQuotations] = useState([])
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [globalSearch, setGlobalSearch] = useState('')
+  const globalSearchRef = useRef(null)
+  useEffect(() => {
+    const onShortcut = (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        globalSearchRef.current?.focus()
+        globalSearchRef.current?.select()
+      }
+    }
+    window.addEventListener('keydown', onShortcut)
+    return () => window.removeEventListener('keydown', onShortcut)
+  }, [])
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [quickCreateOpen, setQuickCreateOpen] = useState(false)
@@ -555,6 +567,56 @@ const [quotations, setQuotations] = useState([])
     setEditorMode(mode)
     setEditingDoc(null)
     navigateTo(mode === 'invoice' ? '/invoices/new' : '/quotations/new')
+  }
+
+  const handleMagicCommand = (rawCommand) => {
+    const command = String(rawCommand || '').trim()
+    const normalized = command.toLowerCase()
+    if (!command) return false
+    if (/^(show )?overdue$/.test(normalized) || normalized.includes('show overdue')) {
+      navigateTo('/invoices')
+      setGlobalSearch('')
+      showToast('Open the Invoices page and choose Overdue to review outstanding accounts.', 'success')
+      return true
+    }
+    if (normalized.includes('go to reports') || normalized === 'reports') {
+      navigateTo('/reports')
+      setGlobalSearch('')
+      return true
+    }
+    if (!/^invoice\b/i.test(command)) return false
+    const body = command.replace(/^invoice\s*/i, '')
+    const qtyMatch = body.match(/\b(\d+)\s+(.+?)\s+(\d{1,2})%/i)
+    if (!qtyMatch) {
+      showToast('Try: Invoice Ravi Traders 3 keyboards 18% due in 15 days', 'warning')
+      return true
+    }
+    const quantity = Number(qtyMatch[1])
+    const gstRate = Number(qtyMatch[3])
+    const productText = qtyMatch[2].trim().toLowerCase().replace(/s$/, '')
+    const client = clients.slice().sort((a, b) => String(b.name).length - String(a.name).length).find((item) => body.toLowerCase().includes(String(item.name || '').toLowerCase()))
+    const product = products.slice().sort((a, b) => String(b.name).length - String(a.name).length).find((item) => {
+      const name = String(item.name || '').toLowerCase()
+      return name.includes(productText) || productText.includes(name.replace(/s$/, ''))
+    })
+    if (!client) { showToast('I could not match a client. Add the client first, then try the command again.', 'warning'); return true }
+    if (!product) { showToast('I could not match that product in your catalogue. Add it first, then try again.', 'warning'); return true }
+    if (!Number.isFinite(quantity) || quantity < 1 || quantity > 100000) { showToast('Enter a valid item quantity.', 'warning'); return true }
+    const price = Number(product.price) || 0
+    const rate = Number.isFinite(gstRate) ? gstRate : Number(product.gstRate ?? 18)
+    const issueDate = todayInIndia()
+    const dueDays = Number((body.match(/due in (\d+) days?/i) || [])[1] || 15)
+    setEditorMode('invoice')
+    setEditingDoc({
+      clientId: client.id, clientName: client.name, clientEmail: client.email || '', clientPhone: client.phone || '',
+      clientAddress: client.address || '', clientGstin: client.gstin || '', clientStateCode: client.stateCode || String(client.gstin || '').slice(0, 2),
+      issueDate, dueDate: addDaysToDateString(issueDate, dueDays), paymentTerms: dueDays === 15 ? 'Net 15' : 'Custom', status: 'Draft',
+      items: [{ id: 'magic-' + Date.now(), productId: product.id, description: product.name, sku: product.sku || '', hsnSac: product.hsnSac || '', unit: product.unit || 'unit', quantity, unitPrice: price, gstRate: rate, subtotal: quantity * price, taxAmount: quantity * price * rate / 100, total: quantity * price * (1 + rate / 100) }]
+    })
+    setGlobalSearch('')
+    navigateTo('/invoices/new')
+    showToast('Draft prepared from your command. Review the details before saving.', 'success')
+    return true
   }
 
   // Accepted/rejected/converted quotations are immutable; duplicate to create a revised offer.
@@ -925,11 +987,14 @@ const [quotations, setQuotations] = useState([])
             <div className="lf-search-box">
               <Search size={16} className="lf-search-icon" />
               <input
+                ref={globalSearchRef}
                 type="text"
                 className="lf-search-input"
-                placeholder="Search invoices, clients, SKU..."
+                placeholder="Search or type a command…  (Ctrl+K)"
+                aria-label="Search records or enter a command"
                 value={globalSearch}
                 onChange={(e) => setGlobalSearch(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleMagicCommand(globalSearch) }}
               />
               {filteredSearchResults.length > 0 && (
                 <div className="lf-search-results-dropdown">
