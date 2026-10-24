@@ -73,6 +73,12 @@ function formatINR(amount) {
   }).format(num)
 }
 
+function formatDisplayDate(value) {
+  if (!value) return ''
+  const date = new Date(String(value).slice(0, 10) + 'T12:00:00')
+  return Number.isNaN(date.getTime()) ? String(value) : new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(date)
+}
+
 const GST_STATE_NAMES = {
   '01': 'Jammu and Kashmir', '02': 'Himachal Pradesh', '03': 'Punjab', '04': 'Chandigarh',
   '05': 'Uttarakhand', '06': 'Haryana', '07': 'Delhi', '08': 'Rajasthan', '09': 'Uttar Pradesh',
@@ -3345,10 +3351,10 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
             {companyProfile.address}
           </div>
           <div style={{ fontSize: '11px', color: '#7B818B', marginTop: '4px' }}>
-            GSTIN: <strong>{companyProfile.gstin}</strong> | PAN: <strong>{companyProfile.pan}</strong>
+            {companyProfile.gstin && <>GSTIN: <strong>{companyProfile.gstin}</strong></>}{companyProfile.gstin && companyProfile.pan ? ' | ' : ''}{companyProfile.pan && <>PAN: <strong>{companyProfile.pan}</strong></>}
           </div>
           <div style={{ fontSize: '11px', color: '#7B818B' }}>
-            Email: {companyProfile.email} | Phone: {companyProfile.phone}
+            {[companyProfile.email && `Email: ${companyProfile.email}`, companyProfile.phone && `Phone: ${companyProfile.phone}`].filter(Boolean).join(' | ')}
           </div>
         </div>
 
@@ -3389,11 +3395,11 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
             <span style={{ color: '#7B818B' }}>Issue Date:</span>
-            <span style={{ fontWeight: 600 }}>{doc.issueDate}</span>
+            <span style={{ fontWeight: 600 }}>{formatDisplayDate(doc.issueDate)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
             <span style={{ color: '#7B818B' }}>{isInvoice ? 'Due Date:' : 'Valid Until:'}</span>
-            <span style={{ fontWeight: 600 }}>{doc.dueDate}</span>
+            <span style={{ fontWeight: 600 }}>{formatDisplayDate(doc.dueDate)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
             <span style={{ color: '#7B818B' }}>Payment Terms:</span>
