@@ -1141,7 +1141,6 @@ const [quotations, setQuotations] = useState([])
               onEditDoc={handleEditDoc}
               onDuplicateDoc={handleDuplicateDoc}
               onDeleteDoc={(doc) => confirmDelete('quotation', doc.id, doc.documentNumber)}
-              onConvertToInvoice={canManageBusiness ? handleConvertQuotation : undefined}
             />
           )}
 
