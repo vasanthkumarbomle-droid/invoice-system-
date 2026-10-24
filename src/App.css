@@ -2043,3 +2043,58 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .lf-paper-watermark-paid { color: #16A34A; opacity: .18; }
 .lf-paper-watermark-cancelled { color: #DC2626; opacity: .16; }
 .lf-paper-watermark-sent { color: #2563EB; opacity: .12; }
+
+/* Reliable, fluid dashboard revenue chart (independent of ResizeObserver sizing). */
+.lf-chart-wrap {
+  width: 100%;
+  min-width: 0;
+  min-height: 270px;
+  height: 270px;
+  position: relative;
+}
+.lf-revenue-chart {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.lf-revenue-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: visible;
+}
+.lf-revenue-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  min-height: 25px;
+  padding-left: 12px;
+  color: #65796D;
+  font-size: 11px;
+}
+.lf-revenue-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.lf-revenue-legend i {
+  width: 9px;
+  height: 9px;
+  display: inline-block;
+  border-radius: 3px;
+}
+.lf-legend-invoiced { background: #24775B; }
+.lf-legend-received { background: #E8A04B; }
+.lf-revenue-legend .lf-chart-period {
+  margin-left: auto;
+  color: #84958A;
+}
+@media (max-width: 440px) {
+  .lf-chart-wrap { height: 250px; min-height: 250px; }
+  .lf-revenue-legend { gap: 10px; padding-left: 2px; font-size: 10px; }
+}
