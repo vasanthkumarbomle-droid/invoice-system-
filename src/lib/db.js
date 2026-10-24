@@ -175,6 +175,7 @@ export const salesOrderAction = async (orgId, orderId, task, options = {}) => {
       task,
       carrier: options.carrier || '',
       trackingNumber: options.trackingNumber || '',
+      trackingUrl: options.trackingUrl || '',
     },
   })
   let responseBody = data
