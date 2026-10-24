@@ -42,7 +42,7 @@ BEGIN
       FROM public.org_members AS member
      WHERE member.org_id = v_quote.org_id
        AND member.user_id = auth.uid()
-       AND lower(COALESCE(member.role, '')) IN ('owner', 'admin')
+       AND lower(COALESCE(member.role::text, '')) IN ('owner', 'admin')
   ) THEN
     RAISE EXCEPTION 'Only business owners or admins can convert quotations.'
       USING ERRCODE = '42501';
