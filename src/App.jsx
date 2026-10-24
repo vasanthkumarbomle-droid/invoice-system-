@@ -4953,107 +4953,74 @@ function OfflineStatusPage({ onRetry }) {
 }
 
 // ============================================================================
-// MANDATORY CUSTOM 404 PAGE (FEATURE 14.A)
+// CUSTOM 404 PAGE — tiny copy, big personality
 // ============================================================================
 
 function NotFoundPage() {
   const navigate = useNavigate()
 
   return (
-    <div
+    <main
       style={{
         minHeight: '100vh',
-        backgroundColor: 'var(--lf-bg)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        background: 'var(--lf-bg)',
+        display: 'grid',
+        placeItems: 'center',
         padding: '24px'
       }}
     >
-      <div
-        className="lf-card"
+      <section
         style={{
-          maxWidth: '540px',
           width: '100%',
+          maxWidth: '520px',
           textAlign: 'center',
-          padding: '48px 32px',
-          boxShadow: 'var(--lf-shadow-modal)'
+          padding: '24px'
         }}
       >
-        {/* Prominent 404 Typographic Treatment */}
         <div
+          aria-label="404"
           style={{
-            fontSize: '84px',
-            fontWeight: 900,
-            lineHeight: 1,
+            fontSize: 'clamp(100px, 22vw, 168px)',
+            fontWeight: 950,
+            lineHeight: 0.9,
+            letterSpacing: '-0.09em',
             color: 'var(--lf-brand)',
-            letterSpacing: '-0.04em',
-            marginBottom: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px'
+            margin: '0 0 28px',
+            userSelect: 'none'
           }}
         >
-          <span>4</span>
-          <span style={{ color: 'var(--lf-highlight)' }}>0</span>
-          <span>4</span>
+          4<span style={{ color: 'var(--lf-highlight)', display: 'inline-block', transform: 'rotate(-9deg)' }}>0</span>4
         </div>
 
         <h1
           style={{
-            fontSize: '22px',
-            fontWeight: 800,
+            fontSize: 'clamp(22px, 4vw, 30px)',
+            fontWeight: 850,
+            letterSpacing: '-0.04em',
             color: 'var(--lf-text)',
-            letterSpacing: '-0.02em',
-            marginBottom: '10px'
+            margin: '0 0 8px'
           }}
         >
-          Looks like this page went off the books.
+          Well, this is awkward.
         </h1>
-
-        <p
-          style={{
-            fontSize: '14px',
-            color: 'var(--lf-text-secondary)',
-            lineHeight: '1.6',
-            maxWidth: '420px',
-            margin: '0 auto 28px'
-          }}
-        >
-          The page you’re looking for doesn’t exist, may have moved, or is unavailable in your current session.
+        <p style={{ fontSize: '14px', color: 'var(--lf-text-secondary)', margin: '0 0 28px' }}>
+          Even our paperwork couldn’t find this page.
         </p>
 
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className="lf-btn lf-btn-primary lf-btn-lg"
-            onClick={() => navigate('/')}
-          >
-            <LayoutDashboard size={18} />
-            <span>Go to Dashboard</span>
-          </button>
-          <button
-            type="button"
-            className="lf-btn lf-btn-secondary lf-btn-lg"
-            onClick={() => {
-              if (window.history.length > 1) {
-                navigate(-1)
-              } else {
-                navigate('/')
-              }
-            }}
-          >
-            <ChevronLeft size={18} />
-            <span>Go Back</span>
-          </button>
-        </div>
-      </div>
-    </div>
+        <button
+          type="button"
+          className="lf-btn lf-btn-primary lf-btn-lg"
+          onClick={() => navigate('/')}
+        >
+          Take me back
+        </button>
+      </section>
+    </main>
   )
 }
 
 // ============================================================================
+
 // MANDATORY TERMS & CONDITIONS PAGE (FEATURE 14.B)
 // ============================================================================
 
