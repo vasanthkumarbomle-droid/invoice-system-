@@ -429,6 +429,14 @@ const [quotations, setQuotations] = useState([])
       return
     }
     try {
+      if (task === 'resend_invoice') {
+        if (!order.invoice?.id) throw new Error('No invoice is linked to this sales order yet.')
+        await db.sendDocumentEmail(org.id, 'invoice', order.invoice.id)
+        await Promise.all([loadSalesOrders(), loadInvoices()])
+        showToast('Invoice email accepted by the provider for ' + (order.clients?.email || 'the client') + '.', 'success')
+        return
+      }
+
       const result = await db.salesOrderAction(org.id, order.id, task, options)
 
       if (task === 'generate_invoice') {
