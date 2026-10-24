@@ -1945,6 +1945,8 @@ function DocumentEditorView({
   showToast
 }) {
   const isInvoice = mode === 'invoice'
+  const submitLockRef = useRef(false)
+  const [saving, setSaving] = useState(false)
 
   // The database assigns the permanent document number when a new document is saved.
   const documentNumber = existingDoc?.documentNumber || ''
@@ -2256,7 +2258,10 @@ function DocumentEditorView({
   const grandTotal = Math.round((taxableAmount + totalTaxAmount) * 100) / 100
 
   // Validation & Save Handler
-  const handleSubmit = (finalStatus) => {
+  // Lock synchronously as well as disabling the buttons so a rapid double-click
+  // cannot create two database records before React re-renders.
+  const handleSubmit = async (finalStatus) => {
+    if (submitLockRef.current) return
     if (!clientName.trim()) {
       showToast('Please specify a client name', 'error')
       return
@@ -2308,7 +2313,16 @@ function DocumentEditorView({
       notes: notes.trim()
     }
 
-    onSave(savedDoc)
+    submitLockRef.current = true
+    setSaving(true)
+    try {
+      await onSave(savedDoc)
+    } catch (error) {
+      showToast(error?.message || 'Could not save document', 'error')
+    } finally {
+      submitLockRef.current = false
+      setSaving(false)
+    }
   }
 
   return (
@@ -2324,23 +2338,25 @@ function DocumentEditorView({
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button type="button" className="lf-btn lf-btn-secondary" onClick={onCancel}>
+          <button type="button" className="lf-btn lf-btn-secondary" onClick={onCancel} disabled={saving}>
             Cancel
           </button>
           <button
             type="button"
             className="lf-btn lf-btn-secondary"
             onClick={() => handleSubmit('Draft')}
+            disabled={saving}
           >
-            Save as Draft
+            {saving ? 'Saving…' : 'Save as Draft'}
           </button>
           <button
             type="button"
             className="lf-btn lf-btn-primary"
-           onClick={() => handleSubmit(isInvoice ? 'Sent' : (status === 'Draft' ? 'Sent' : status))}
+            onClick={() => handleSubmit(isInvoice ? 'Sent' : status)}
+            disabled={saving}
           >
-            <Check size={16} />
-            <span>Save & Issue</span>
+            {saving ? <LoaderCircle size={16} className="lf-spin" /> : <Check size={16} />}
+            <span>{saving ? 'Saving…' : (!isInvoice && status === 'Draft' ? 'Save Quotation' : 'Save & Issue')}</span>
           </button>
         </div>
       </div>
