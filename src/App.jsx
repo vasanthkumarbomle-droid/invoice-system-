@@ -1268,22 +1268,44 @@ const [quotations, setQuotations] = useState([])
         gst_rate: Number(item.gstRate) || 0,
       }))
 
-      await db.saveQuotation(
+      const requestedStatus = String(savedDoc.status || 'draft').toLowerCase()
+      const wasDraft = !isExisting || String(editingDoc?.status || 'draft').toLowerCase() === 'draft'
+      const shouldSendIssueEmail = requestedStatus === 'sent' && wasDraft
+
+      // A quotation must not be marked Sent until the email provider accepts it.
+      // Keep it as a draft while sending so a failed email can be retried safely.
+      const quotationId = await db.saveQuotation(
         org.id,
         {
           id: isExisting ? savedDoc.id : null,
           client_id: resolvedClientId,
           issue_date: savedDoc.issueDate,
           valid_until: savedDoc.dueDate || null,
-          status: String(savedDoc.status || 'draft').toLowerCase(),
+          status: shouldSendIssueEmail ? 'draft' : requestedStatus,
           notes: savedDoc.notes || null,
           terms: savedDoc.paymentTerms || null,
         },
         items
       )
 
+      let emailError = null
+      if (shouldSendIssueEmail) {
+        try {
+          await db.sendDocumentEmail(org.id, 'quotation', quotationId)
+        } catch (error) {
+          emailError = error
+          console.error('Quotation saved, but client email could not be sent:', error)
+        }
+      }
+
       await loadQuotations()
-      showToast('Quotation saved successfully', 'success')
+      if (emailError) {
+        showToast('Quotation saved, but email was not sent: ' + (emailError.message || 'Check email configuration and try again.'), 'error')
+      } else if (shouldSendIssueEmail) {
+        showToast('Quotation issued and email accepted by the provider for ' + (savedDoc.clientEmail || 'the client'), 'success')
+      } else {
+        showToast('Quotation saved successfully', 'success')
+      }
       navigateTo('/quotations')
     } catch (e) {
       console.error('Failed to save quotation:', e)
