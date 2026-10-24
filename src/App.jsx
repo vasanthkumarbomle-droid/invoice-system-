@@ -423,6 +423,51 @@ const [quotations, setQuotations] = useState([])
   }
 }
 
+  const handleSalesOrderAction = async (order, task, options = {}) => {
+    if (!canManageBusiness) {
+      showToast('Only business owners or admins can manage sales orders.', 'error')
+      return
+    }
+    try {
+      const result = await db.salesOrderAction(org.id, order.id, task, options)
+
+      if (task === 'generate_invoice') {
+        await Promise.all([loadSalesOrders(), loadInvoices(), loadQuotations(), loadProducts()])
+        try {
+          await db.sendDocumentEmail(org.id, 'invoice', result.invoiceId)
+          await Promise.all([loadSalesOrders(), loadInvoices()])
+          showToast('Tax invoice ' + (result.invoiceNumber || '') + ' generated and email accepted by the provider.', 'success')
+          navigateTo('/invoices')
+        } catch (emailError) {
+          await Promise.all([loadSalesOrders(), loadInvoices()])
+          showToast(
+            'Invoice ' + (result.invoiceNumber || '') + ' was generated and stock was deducted, but email failed: ' +
+            (emailError?.message || 'Please retry from Sales Orders.'),
+            'warning'
+          )
+        }
+        return
+      }
+
+      if (task === 'send_proforma') {
+        showToast('Advance payment instructions accepted for sending to ' + (result.recipient || order.clients?.email || 'the client') + '.', 'success')
+      } else {
+        const messages = {
+          confirm_stock: 'Stock checked and available quantities reserved.',
+          mark_advance_paid: 'Advance payment marked as received.',
+          start_packing: 'Packing started.',
+          mark_packed: 'Order marked packed. Print its delivery challan and assign a tracking number.',
+          dispatch: 'Dispatch recorded with carrier and tracking number.',
+          cancel_order: 'Sales order cancelled and reservations released.',
+        }
+        showToast(messages[task] || 'Sales order updated.', 'success')
+      }
+      await Promise.all([loadSalesOrders(), loadProducts(), loadInvoices(), loadQuotations()])
+    } catch (error) {
+      showToast(error?.message || 'Could not update the sales order.', 'error')
+    }
+  }
+
   const handleSendDocument = async (doc) => {
     if (!isSupabaseConfigured) throw new Error('Connect Supabase before sending a document.')
     if (!doc?.id || !/^[0-9a-f]{8}-/i.test(doc.id)) throw new Error('Save the document to Supabase before sending it.')
