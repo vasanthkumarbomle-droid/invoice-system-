@@ -3058,8 +3058,9 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
 // DOCUMENT PREVIEW MODAL & A4 PRINT TEMPLATE
 // ============================================================================
 
-function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast, signatureData = '', onSignatureChange, onSendDocument }) {
+function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast, signatureData = '', onSignatureChange, onSendDocument, onGoSettings }) {
   const isInvoice = doc.type === 'invoice'
+  const missingSellerFields = [!companyProfile.gstin?.trim() && 'GSTIN', !companyProfile.address?.trim() && 'registered address', !companyProfile.bankName?.trim() && 'bank name', !companyProfile.accountNumber?.trim() && 'bank account number', !companyProfile.ifscCode?.trim() && 'IFSC code'].filter(Boolean)
   const [signatureModalOpen, setSignatureModalOpen] = useState(false)
   const [sending, setSending] = useState(false)
 
@@ -3073,6 +3074,7 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
 
   // Print Action — write the full standalone document before opening the print dialog.
   const handlePrint = () => {
+    if (missingSellerFields.length) { showToast('Complete your business profile in Settings before downloading: ' + missingSellerFields.join(', ') + '.', 'warning'); return }
     const printableHtml = generatePrintableHtml(doc, companyProfile, signatureData)
     const printWindow = window.open('', '_blank', 'width=1000,height=800')
 
@@ -3115,6 +3117,7 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
 
   // Download Standalone Self-Contained HTML Invoice
   const handleDownloadHtml = () => {
+    if (missingSellerFields.length) { showToast('Complete your business profile in Settings before downloading: ' + missingSellerFields.join(', ') + '.', 'warning'); return }
     const htmlContent = generatePrintableHtml(doc, companyProfile, signatureData)
     const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
