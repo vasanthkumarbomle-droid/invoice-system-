@@ -260,7 +260,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const carrier = String(body?.carrier || "");
     const trackingNumber = String(body?.trackingNumber || "");
     const trackingUrl = String(body?.trackingUrl || "");
-    const allowedTasks = ["confirm_stock","mark_advance_paid","start_packing","mark_packed","dispatch","cancel_order","generate_invoice","send_proforma"];
+    const allowedTasks = ["confirm_stock","mark_advance_paid","start_packing","mark_packed","dispatch","cancel_order","generate_invoice"];
     if (!/^[0-9a-f-]{36}$/i.test(orgId) || !/^[0-9a-f-]{36}$/i.test(orderId) || !allowedTasks.includes(task)) {
       return respondJson({ error: "Invalid sales-order action." }, 400);
     }
@@ -270,41 +270,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return respondJson({ error: "Only business owners or admins can manage sales orders." }, 403);
     }
 
-    if (task === "send_proforma") {
-      const { data: order, error: orderError } = await admin.from("sales_orders")
-        .select("*").eq("org_id", orgId).eq("id", orderId).maybeSingle();
-      if (orderError || !order) return respondJson({ error: "Sales order not found." }, 404);
-      if (order.payment_type !== "advance" || ["invoiced","cancelled"].includes(String(order.status))) {
-        return respondJson({ error: "Payment instructions are available only for open orders that require advance payment." }, 409);
-      }
-      const [{ data: client }, { data: quote }, { data: company }] = await Promise.all([
-        admin.from("clients").select("name,email").eq("id", order.client_id).eq("org_id", orgId).maybeSingle(),
-        admin.from("quotations").select("quote_number,grand_total").eq("id", order.quotation_id).eq("org_id", orgId).maybeSingle(),
-        admin.from("organizations").select("name,legal_name,email,bank_name,bank_account_holder,bank_account_no,bank_ifsc,upi_id").eq("id", orgId).maybeSingle(),
-      ]);
-      const recipient = String(client?.email || "").trim();
-      if (!validEmail(recipient)) return respondJson({ error: "The client needs a valid email address before sending payment instructions." }, 400);
-      if (!company || !(company.bank_name || company.bank_account_no || company.bank_ifsc || company.upi_id)) {
-        return respondJson({ error: "Add bank or UPI payment details in Business Settings before sending payment instructions." }, 400);
-      }
-      const companyName = company.name || company.legal_name || "Your supplier";
-      const paymentDetails = [
-        company.bank_name ? "Bank: " + company.bank_name : "",
-        company.bank_account_holder ? "Account holder: " + company.bank_account_holder : "",
-        company.bank_account_no ? "Account number: " + company.bank_account_no : "",
-        company.bank_ifsc ? "IFSC: " + company.bank_ifsc : "",
-        company.upi_id ? "UPI ID: " + company.upi_id : "",
-      ].filter(Boolean);
-      const amountText = "₹" + (Number(quote?.grand_total) || 0).toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2});
-      const subject = "Advance payment instructions — sales order " + order.order_number;
-      const plain = "Hello " + (client?.name || "there") + ",\n\nYour order " + order.order_number + " has been accepted. The agreed terms require advance payment.\nAmount reference for quotation " + (quote?.quote_number || "") + ": " + amountText + "\n\nPayment details:\n" + paymentDetails.join("\n") + "\n\nThis is a payment-instructions email, not a tax invoice or payment link. The tax invoice will be issued after dispatch.\n\nRegards,\n" + companyName;
-      const html = "<div style=\"font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#202b24\"><h2>Advance payment instructions</h2><p>Hello " + escapeHtml(client?.name || "there") + ",</p><p>Sales order <strong>" + escapeHtml(order.order_number) + "</strong> has been accepted. The agreed terms require advance payment.</p><p>Quotation total reference: <strong>" + amountText + "</strong></p><h3>Payment details</h3><ul>" + paymentDetails.map((item) => "<li>" + escapeHtml(item) + "</li>").join("") + "</ul><p>This is a payment-instructions email, not a tax invoice or payment link. The tax invoice will be issued after dispatch.</p><p>Regards,<br>" + escapeHtml(companyName) + "</p><p style=\"color:#68756c;font-size:11px\">Sent using LedgerFlow on behalf of " + escapeHtml(companyName) + ".</p></div>";
-      const emailPayload: Record<string, unknown> = { to: recipient, subject, body: plain, htmlBody: html, senderName: "LedgerFlow | " + companyName };
-      if (validEmail(company?.email)) emailPayload.replyTo = company.email;
-      const mailResult = await sendWithGoogleAppsScript(emailPayload);
-      if (!mailResult.ok) return respondJson({ error: "Payment instructions could not be sent.", details: mailResult.details || "The email provider rejected the message." }, 502);
-      return respondJson({ success: true, emailAcceptedByProvider: true, recipient, orderNumber: order.order_number });
-    }
 
     const { data: actionResult, error: actionError } = await admin.rpc("manage_sales_order_action", {
       p_org_id: orgId, p_order_id: orderId, p_action: task,
