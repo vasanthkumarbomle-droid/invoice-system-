@@ -131,20 +131,40 @@ export const sendDocumentEmail = async (orgId, documentType, documentId) => {
     body: { action: 'send', orgId, documentType, documentId },
   })
 
-  // Supabase FunctionsHttpError often carries the function's JSON response on
-  // error.context, while data is null for non-2xx responses. Read that body so
-  // setup/provider errors reach the UI instead of being hidden by a generic 502.
+  // FunctionsHttpError carries the raw Response in error.context. Read a clone
+  // as text first so JSON provider/setup errors survive the SDK's generic message.
   let responseBody = data
-  if (error && error.context && typeof error.context.clone === 'function') {
-    responseBody = await error.context.clone().json().catch(() => responseBody)
+  let responseText = ''
+  let responseStatus = null
+  let responseStatusText = ''
+  const context = error?.context
+  if (context && typeof context.clone === 'function') {
+    const response = context.clone()
+    responseStatus = Number(response.status) || null
+    responseStatusText = String(response.statusText || '')
+    if (typeof response.text === 'function') {
+      responseText = await response.text().catch(() => '')
+      if (responseText) {
+        try { responseBody = JSON.parse(responseText) } catch { /* Keep data when the body is not JSON. */ }
+      }
+    }
+  } else if (context && typeof context === 'object') {
+    responseBody = context.data ?? context.body ?? responseBody
   }
 
   if (error) {
-    const serverMessage = String(responseBody?.error || '').trim()
+    const serverMessage = String(
+      responseBody?.error || responseBody?.message || responseBody?.msg || ''
+    ).trim()
     const details = String(responseBody?.details || '').trim()
     const message = [serverMessage, details].filter(Boolean).join(' — ')
-    throw new Error(message || error.message || 'Could not send the document email.')
+    if (message) throw new Error(message)
+    if (responseStatus) {
+      throw new Error(`Quotation email service returned HTTP ${responseStatus}${responseStatusText ? ` ${responseStatusText}` : ''}. ${responseText.slice(0, 400)}`.trim())
+    }
+    throw new Error(error.message || 'Could not send the document email.')
   }
+
   if (responseBody?.error) {
     const details = String(responseBody?.details || '').trim()
     throw new Error([responseBody.error, details].filter(Boolean).join(' — '))
