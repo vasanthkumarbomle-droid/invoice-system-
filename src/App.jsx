@@ -2233,9 +2233,13 @@ function DocumentEditorView({
 
     setItems((prev) => {
       const updated = [...prev]
-      const qty = updated[index].quantity || 1
-      const price = product.price
-      const gst = Number(product.gstRate ?? 18)
+      // Preserve the quantity already entered and normalize catalog values
+      // before placing them in the controlled invoice/quotation fields.
+      const qty = Math.max(1, Number(updated[index]?.quantity) || 1)
+      const parsedPrice = Number(product.price)
+      const price = Number.isFinite(parsedPrice) && parsedPrice >= 0 ? parsedPrice : 0
+      const rawGst = product.gstRate == null || product.gstRate === '' ? 18 : Number(product.gstRate)
+      const gst = Number.isFinite(rawGst) && rawGst >= 0 ? rawGst : 18
       const subtotal = qty * price
       const taxAmount = (subtotal * gst) / 100
 
@@ -2832,8 +2836,8 @@ function DocumentEditorView({
           </div>
         </div>
 
-        <div className="lf-table-container">
-          <table className="lf-table">
+        <div className="lf-table-container lf-line-items-container">
+          <table className="lf-table lf-line-items-table">
             <thead>
               <tr>
                 <th style={{ width: '40px' }}>#</th>
@@ -2862,10 +2866,22 @@ function DocumentEditorView({
                       <option value="">-- Pick from catalog --</option>
                       {products.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name} ({formatINR(p.price)})
+                          {p.name} · {formatINR(p.price)} · GST {Number(p.gstRate ?? 18)}% · Stock {Number(p.stock) || 0}
                         </option>
                       ))}
                     </select>
+                    {item.productId && (() => {
+                      const selectedProduct = products.find((product) => product.id === item.productId)
+                      if (!selectedProduct) return null
+                      const catalogGst = selectedProduct.gstRate == null || selectedProduct.gstRate === ''
+                        ? 18
+                        : Number(selectedProduct.gstRate)
+                      return (
+                        <div className="lf-line-item-catalog-meta">
+                          Catalog: {formatINR(Number(selectedProduct.price) || 0)} · GST {Number.isFinite(catalogGst) ? catalogGst : 18}% · Stock {Number(selectedProduct.stock) || 0}
+                        </div>
+                      )
+                    })()}
                   </td>
                   <td>
                     <input
