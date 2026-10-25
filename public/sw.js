@@ -1,10 +1,56 @@
-const CACHE_NAME = 'ledgerflow-offline-v1';
+const CACHE_NAME = 'ledgerflow-offline-v2';
 const OFFLINE_URL = '/offline.html';
+const APP_SHELL_URLS = ['/', '/index.html', OFFLINE_URL, '/favicon.svg'];
+
+async function cacheSuccessfulResponse(cache, url, response) {
+  if (response && response.ok && response.type !== 'opaque') {
+    await cache.put(url, response.clone());
+  }
+}
+
+async function precacheAppShell() {
+  const cache = await caches.open(CACHE_NAME);
+  const results = await Promise.all(APP_SHELL_URLS.map(async (url) => {
+    try {
+      const response = await fetch(new Request(url, { cache: 'reload' }));
+      await cacheSuccessfulResponse(cache, url, response);
+      return url === '/index.html' ? response : null;
+    } catch {
+      return null;
+    }
+  }));
+
+  const indexResponse = results.find(Boolean);
+  if (indexResponse) {
+    const html = await indexResponse.clone().text();
+    const assets = new Set();
+    const pattern = /(?:src|href)="([^"\\]+\\.(?:js|css)(?:\\?[^"\\]*)?)"/g;
+    let match;
+    while ((match = pattern.exec(html))) assets.add(match[1]);
+    await Promise.all([...assets].map(async (asset) => {
+      try {
+        const response = await fetch(new Request(asset, { cache: 'reload' }));
+        await cacheSuccessfulResponse(cache, asset, response);
+      } catch {
+        // A failed asset fetch should not prevent the rest of the app shell caching.
+      }
+    }));
+  }
+
+  // Ensure a minimal retry page is available even if the build shell cannot load.
+  try {
+    if (!await cache.match(OFFLINE_URL)) {
+      const response = await fetch(OFFLINE_URL);
+      await cacheSuccessfulResponse(cache, OFFLINE_URL, response);
+    }
+  } catch {
+    // Keep install resilient: the cached index shell is the primary offline fallback.
+  }
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
-    const cache = await caches.open(CACHE_NAME);
-    await cache.add(new Request(OFFLINE_URL, { cache: 'reload' }));
+    await precacheAppShell();
     await self.skipWaiting();
   })());
 });
@@ -21,22 +67,48 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const request = event.request;
-  if (request.method !== 'GET' || request.mode !== 'navigate') return;
+  if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
+  if (request.mode === 'navigate') {
+    event.respondWith((async () => {
+      try {
+        const response = await fetch(request);
+        if (response.ok) {
+          const cache = await caches.open(CACHE_NAME);
+          await cacheSuccessfulResponse('/index.html', url.pathname === '/index.html' ? response : response.clone());
+          // All app routes are SPA routes; retain the built shell under the root key too.
+          await cacheSuccessfulResponse('/', response.clone());
+        }
+        return response;
+      } catch {
+        const cache = await caches.open(CACHE_NAME);
+        return (await cache.match('/index.html')) ||
+          (await cache.match('/')) ||
+          (await cache.match(OFFLINE_URL)) ||
+          new Response('LedgerFlow is offline. Reconnect and try again.', {
+            status: 503,
+            headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+          });
+      }
+    })());
+    return;
+  }
+
+  const cacheableAsset = ['script', 'style', 'image', 'font', 'worker'].includes(request.destination) ||
+    url.pathname.startsWith('/assets/');
+  if (!cacheableAsset) return;
+
   event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
     try {
-      return await fetch(request);
+      const response = await fetch(request);
+      if (response.ok) await cacheSuccessfulResponse(request, response);
+      return response;
     } catch {
-      const cache = await caches.open(CACHE_NAME);
-      const offlinePage = await cache.match(OFFLINE_URL);
-      if (offlinePage) return offlinePage;
-      return new Response(
-        '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>You are offline · LedgerFlow</title><body style="font:16px system-ui;background:#f4f7fb;color:#172033;display:grid;place-items:center;min-height:100vh;margin:0"><main style="background:white;border:1px solid #e2e8f0;border-radius:20px;padding:32px;max-width:520px"><h1>You are offline</h1><p>Reconnect to the internet and retry LedgerFlow.</p><button onclick="location.reload()">Retry connection</button></main></body></html>',
-        { headers: { 'Content-Type': 'text/html; charset=utf-8' }, status: 200 }
-      );
+      return (await cache.match(request)) || Response.error();
     }
   })());
 });
