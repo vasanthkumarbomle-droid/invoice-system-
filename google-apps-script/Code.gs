@@ -82,18 +82,18 @@ function ledgerFlowEmail_(item) {
   const company = org.legal_name || org.name || 'Accounts Team';
   const e = ledgerFlowEscapeHtml_;
   const htmlBody = '<!doctype html><html><head><meta charset="utf-8"></head>' +
-    '<body style="margin:0;background:#f3f6f3;font-family:Arial,Helvetica,sans-serif;color:#252b27">' +
-    '<div style="max-width:640px;margin:24px auto;background:#fff;border:1px solid #e2e9e2;border-radius:12px;overflow:hidden">' +
-    '<div style="background:#286747;padding:22px 28px;color:#fff"><div style="font-size:12px;letter-spacing:1.4px;text-transform:uppercase">' + e(company) + '</div>' +
+    '<body style="margin:0;background:#F8FAFC;font-family:Arial,Helvetica,sans-serif;color:#0F172A">' +
+    '<div style="max-width:640px;margin:24px auto;background:#fff;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">' +
+    '<div style="background:#2563EB;padding:22px 28px;color:#fff"><div style="font-size:12px;letter-spacing:1.4px;text-transform:uppercase">' + e(company) + '</div>' +
     '<div style="font-size:22px;font-weight:700;margin-top:7px">Payment ' + (isReminder ? 'reminder' : 'follow-up') + '</div></div>' +
     '<div style="padding:28px"><p>Dear ' + e(client) + ',</p><p style="line-height:1.65">' + e(lead) + ' Please review the details below and arrange payment for the outstanding balance.</p>' +
-    '<table role="presentation" style="width:100%;border-collapse:collapse;border:1px solid #e2e9e2"><tr><td style="padding:12px;background:#f5f8f5;width:42%">Invoice number</td><td style="padding:12px;font-weight:700">' + e(invoiceNo) + '</td></tr>' +
-    '<tr><td style="padding:12px;border-top:1px solid #e2e9e2;background:#f5f8f5">Due date</td><td style="padding:12px;border-top:1px solid #e2e9e2">' + e(dueDate) + '</td></tr>' +
-    '<tr><td style="padding:12px;border-top:1px solid #e2e9e2;background:#f5f8f5">Invoice total</td><td style="padding:12px;border-top:1px solid #e2e9e2">' + e(total) + '</td></tr>' +
-    '<tr><td style="padding:12px;border-top:1px solid #e2e9e2;background:#f5f8f5">Outstanding balance</td><td style="padding:12px;border-top:1px solid #e2e9e2;color:#286747;font-size:18px;font-weight:700">' + e(balance) + '</td></tr></table>' +
+    '<table role="presentation" style="width:100%;border-collapse:collapse;border:1px solid #E2E8F0"><tr><td style="padding:12px;background:#EFF6FF;width:42%">Invoice number</td><td style="padding:12px;font-weight:700">' + e(invoiceNo) + '</td></tr>' +
+    '<tr><td style="padding:12px;border-top:1px solid #E2E8F0;background:#EFF6FF">Due date</td><td style="padding:12px;border-top:1px solid #E2E8F0">' + e(dueDate) + '</td></tr>' +
+    '<tr><td style="padding:12px;border-top:1px solid #E2E8F0;background:#EFF6FF">Invoice total</td><td style="padding:12px;border-top:1px solid #E2E8F0">' + e(total) + '</td></tr>' +
+    '<tr><td style="padding:12px;border-top:1px solid #E2E8F0;background:#EFF6FF">Outstanding balance</td><td style="padding:12px;border-top:1px solid #E2E8F0;color:#2563EB;font-size:18px;font-weight:700">' + e(balance) + '</td></tr></table>' +
     '<p style="line-height:1.65;margin-top:22px">If you have already made this payment, please disregard this reminder and reply with the payment reference so we can update our records.</p>' +
     '<p style="line-height:1.6;margin-top:22px">Kind regards,<br><strong>' + e(company) + '</strong>' + (org.phone ? '<br>' + e(org.phone) : '') + (org.email ? '<br>' + e(org.email) : '') + '</p></div>' +
-    '<div style="padding:14px 28px;background:#f5f8f5;color:#687269;font-size:11px;line-height:1.5">Automated accounts reminder for an outstanding invoice. Please contact the sender if this does not match your records.</div></div></body></html>';
+    '<div style="padding:14px 28px;background:#EFF6FF;color:#64748B;font-size:11px;line-height:1.5">Automated accounts reminder for an outstanding invoice. Please contact the sender if this does not match your records.</div></div></body></html>';
   const body = 'Dear ' + client + ',\n\n' + lead + ' Please arrange payment for the outstanding balance.\n\nInvoice: ' + invoiceNo + '\nDue date: ' + dueDate + '\nInvoice total: ' + total + '\nOutstanding balance: ' + balance + '\n\nIf already paid, please disregard this reminder and reply with the payment reference.\n\nKind regards,\n' + company + (org.phone ? '\n' + org.phone : '') + (org.email ? '\n' + org.email : '');
   return { subject: subject, body: body, htmlBody: htmlBody, replyTo: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(org.email || '')) ? org.email : undefined };
 }
