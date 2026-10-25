@@ -1,10 +1,12 @@
 /**
  * LedgerFlow email bridge for Google Apps Script.
  *
- * ADD this to your EXISTING invoice-reminder Apps Script project so that the
- * existing previewinvoicereminders/runinvoicereminders functions and trigger
- * remain untouched. If that project already has a doPost(e), merge this logic
- * into the existing doPost instead of defining a second one.
+ * Add this as a SECOND .gs FILE in the existing invoice-reminder Apps Script
+ * project. The supplied runInvoiceReminders() and previewInvoiceReminders()
+ * code does not define doPost(e), so this adds the email bridge without
+ * replacing either reminder function or its trigger. If another file in that
+ * Apps Script project already defines doPost(e), merge the handler logic
+ * instead of creating a second doPost(e).
  *
  * Required Script Property:
  *   LEDGERFLOW_WEBHOOK_SECRET = the same high-entropy secret configured as
