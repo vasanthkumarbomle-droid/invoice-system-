@@ -892,7 +892,7 @@ const [quotations, setQuotations] = useState([])
           <button
             type="button"
             className={`lf-nav-item ${activeTab === 'clients' ? 'active' : ''}`}
-            onClick={() => navigateTo('/clients')
+            onClick={() => navigateTo('/clients')}
             title="Clients"
           >
             <span className="lf-nav-icon"><Users size={18} /></span>
