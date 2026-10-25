@@ -1,8 +1,11 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { lazy, Suspense, useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Routes, Route, Link, useNavigate } from 'react-router-dom'
-import ClientDocumentPage from './ClientDocumentPage.jsx'
+const ClientDocumentPage = lazy(() => import('./ClientDocumentPage.jsx'))
+const PrivacyPolicyPage = lazy(() => import('./PrivacyPolicyPage.jsx'))
+const AuthLoginPage = lazy(() => import('./AuthPages.jsx').then((module) => ({ default: module.AuthLoginPage })))
+const AuthSignupPage = lazy(() => import('./AuthPages.jsx').then((module) => ({ default: module.AuthSignupPage })))
+const AuthForgotPasswordPage = lazy(() => import('./AuthPages.jsx').then((module) => ({ default: module.AuthForgotPasswordPage })))
 import PasswordResetPage from './PasswordResetPage.jsx'
-import { AuthLoginPage, AuthSignupPage, AuthForgotPasswordPage } from './AuthPages.jsx'
 import { useOrg } from './OrgContext'
 import * as db from './lib/db'
 import {
@@ -51,6 +54,7 @@ import {
 } from 'lucide-react'
 import { Html5Qrcode } from 'html5-qrcode'
 import { isSupabaseConfigured } from './supabase'
+import SearchableCombobox from './SearchableCombobox.jsx'
 import './App.css'
 
 // ============================================================================
@@ -68,6 +72,18 @@ function formatDisplayDate(value) {
   if (!value) return ''
   const date = new Date(String(value).slice(0, 10) + 'T12:00:00')
   return Number.isNaN(date.getTime()) ? String(value) : new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(date)
+}
+
+function getDueDateUrgency(dueDate, status) {
+  if (!dueDate || ['Paid', 'Cancelled', 'Draft'].includes(status)) return null
+  const due = String(dueDate).slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) return null
+  const today = todayInIndia()
+  const days = Math.round((Date.parse(due + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000)
+  if (days < 0) return { label: `Overdue by ${Math.abs(days)} ${Math.abs(days) === 1 ? 'day' : 'days'}`, tone: 'overdue' }
+  if (days === 0) return { label: 'Due today', tone: 'today' }
+  if (days <= 7) return { label: `Due in ${days} ${days === 1 ? 'day' : 'days'}`, tone: 'soon' }
+  return null
 }
 
 const GST_STATE_NAMES = {
@@ -111,14 +127,22 @@ function mapInvoice(r) {
     const discountPct = Math.max(0, Math.min(100, Number(it.discount_pct) || 0))
     const taxableLine = it.taxable_amount != null ? Number(it.taxable_amount) : lineGross * (1 - discountPct / 100)
     const storedTax = Number(it.cgst_amount || 0) + Number(it.sgst_amount || 0) + Number(it.igst_amount || 0)
-    const tax = it.cgst_amount != null || it.sgst_amount != null || it.igst_amount != null
+    const hasStoredSplit = it.cgst_amount != null || it.sgst_amount != null || it.igst_amount != null
+    const tax = hasStoredSplit
       ? storedTax
       : it.tax_amount != null ? Number(it.tax_amount) : taxableLine * gst / 100
     const total = it.line_total != null ? Number(it.line_total) : taxableLine + tax
+    const isInterState = Number(it.igst_amount || 0) > 0 || Number(r.igst_total || 0) > 0
+    const cgstAmount = it.cgst_amount != null ? Number(it.cgst_amount) || 0 : (isInterState ? 0 : tax / 2)
+    const sgstAmount = it.sgst_amount != null ? Number(it.sgst_amount) || 0 : (isInterState ? 0 : tax / 2)
+    const igstAmount = it.igst_amount != null ? Number(it.igst_amount) || 0 : (isInterState ? tax : 0)
     return {
       id: it.id, productId: it.product_id || '', description: it.description || '', sku: it.sku || '',
       hsnSac: it.hsn_sac || '', unit: it.unit || 'unit', discountPct,
       quantity: qty, unitPrice: price, gstRate: gst, subtotal: taxableLine, taxAmount: tax, total,
+      cgstRate: isInterState ? 0 : gst / 2, cgstAmount,
+      sgstRate: isInterState ? 0 : gst / 2, sgstAmount,
+      igstRate: isInterState ? gst : 0, igstAmount,
     }
   })
   const taxable = Number(r.subtotal ?? gross) || 0
@@ -148,8 +172,8 @@ function mapInvoice(r) {
     dueDate: r.due_date,
     paymentTerms: r.payment_terms || 'Net 15',
     status, items, subtotal: gross,
-    discountType: 'percentage',
-    discountValue: rows.length ? Number(rows[0].discount_pct) || 0 : 0,
+    discountType: ['fixed', 'flat'].includes(String(r.discount_type || '').toLowerCase()) ? 'fixed' : 'percentage',
+    discountValue: r.discount_value != null ? Number(r.discount_value) || 0 : (rows.length ? Number(rows[0].discount_pct) || 0 : 0),
     discountAmount: Math.max(0, gross - taxable),
     taxableAmount: taxable,
     cgstAmount: Number(r.cgst_total) || 0,
@@ -192,8 +216,9 @@ function mapQuotationRecord(q) {
     clientAddress: client.address || '', clientGstin, clientStateCode: client.state_code || String(clientGstin).slice(0, 2),
     issueDate: q.issue_date, dueDate: q.valid_until, paymentTerms: q.terms || '',
     status: rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1), items,
-    subtotal: gross, discountType: 'percentage',
-    discountValue: rows.length ? Number(rows[0].discount_pct) || 0 : 0,
+    subtotal: gross,
+    discountType: ['fixed', 'flat'].includes(String(q.discount_type || '').toLowerCase()) ? 'fixed' : 'percentage',
+    discountValue: q.discount_value != null ? Number(q.discount_value) || 0 : (rows.length ? Number(rows[0].discount_pct) || 0 : 0),
     discountAmount: Math.max(0, gross - taxable), taxableAmount: taxable,
     cgstAmount: Number(q.cgst_total || 0), sgstAmount: Number(q.sgst_total || 0),
     igstAmount: Number(q.igst_total || 0), taxAmount: Number(q.tax_total || 0),
@@ -215,8 +240,13 @@ function mapPayment(r) {
     notes: r.notes || '',
   }
 }
+function RouteChunkFallback() {
+  return <div role="status" aria-live="polite" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--lf-bg)', color: 'var(--lf-text-muted)', fontSize: 13 }}>Loading LedgerFlow…</div>
+}
+
 export default function App() {
   return (
+    <Suspense fallback={<RouteChunkFallback />}>
     <Routes>
         <Route path="/login" element={<AuthLoginPage />} />
         <Route path="/signup" element={<AuthSignupPage />} />
@@ -233,9 +263,11 @@ export default function App() {
         <Route path="/settings" element={<LedgerFlowShell activeTab="settings" />} />
         <Route path="/client-document" element={<ClientDocumentPage />} />
         <Route path="/terms" element={<TermsConditionsPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/reset-password" element={<PasswordResetPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+    </Suspense>
   )
 }
 
@@ -382,6 +414,8 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
       due_date: d.dueDate,
       status: STATUS_TO_DB[String(d.status || '').toLowerCase()] || (d.status === 'Draft' ? 'draft' : 'pending'),
       notes: d.notes || null,
+      discount_type: d.discountType === 'fixed' ? 'fixed' : 'percentage',
+      discount_value: Number(d.discountValue) || 0,
     }, items)
     await loadInvoices()
   }
@@ -601,6 +635,8 @@ const [quotations, setQuotations] = useState([])
         status: 'draft',
         notes: doc.notes || null,
         terms: doc.paymentTerms || null,
+        discount_type: doc.discountType === 'fixed' ? 'fixed' : 'percentage',
+        discount_value: Number(doc.discountValue) || 0,
       }, items)
       const rows = await db.listQuotationsFull(org.id)
       const mapped = rows.map(mapQuotationRecord)
@@ -1164,6 +1200,7 @@ const [quotations, setQuotations] = useState([])
           {activeTab === 'settings' && (
             canManageBusiness ? <SettingsView
               profile={companyProfile}
+              orgId={org.id}
             onSaveProfile={async (updated) => {
   try {
     const termsMatch = String(updated.defaultPaymentTerms || '').match(/\d+/)
@@ -1317,6 +1354,8 @@ const [quotations, setQuotations] = useState([])
           status: shouldSendIssueEmail ? 'draft' : requestedStatus,
           notes: savedDoc.notes || null,
           terms: savedDoc.paymentTerms || null,
+          discount_type: savedDoc.discountType === 'fixed' ? 'fixed' : 'percentage',
+          discount_value: Number(savedDoc.discountValue) || 0,
         },
         items
       )
@@ -1565,7 +1604,17 @@ function RevenueTrendChart({ data }) {
           <button type="button" className="lf-chart-selection-clear" onClick={() => setSelectedBar(null)} aria-label="Clear selected chart amount">×</button>
         </div>
       )}
-      <svg className="lf-revenue-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Last six months comparing invoiced amounts with payments received">
+      {!hasActivity ? (
+        <div className="lf-chart-empty-state">
+          <div className="lf-chart-empty-icon" aria-hidden="true"><BarChart3 size={24} /></div>
+          <h4>No invoice activity yet</h4>
+          <p>Your revenue chart will come alive after you issue your first invoice.</p>
+          <Link to="/invoices/new" className="lf-btn lf-btn-primary lf-btn-sm">
+            <Plus size={15} /> Create First Invoice
+          </Link>
+        </div>
+      ) : (
+        <svg className="lf-revenue-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Last six months comparing invoiced amounts with payments received">
         {tickValues.map((tick, index) => {
           const y = yFor(tick)
           return <g key={index}>
@@ -1594,6 +1643,7 @@ function RevenueTrendChart({ data }) {
         })}
         {!hasActivity && <text x={margin.left + plotWidth / 2} y={margin.top + plotHeight / 2} textAnchor="middle" fontSize="13" fill="#64748B">Your invoice and collection activity will appear here.</text>}
       </svg>
+      )}
       <div className="lf-revenue-legend" aria-hidden="true">
         <span><i className="lf-legend-invoiced" /> Invoiced</span>
         <span><i className="lf-legend-received" /> Received</span>
@@ -1969,7 +2019,13 @@ function DocumentsListView({
                     <div style={{ fontSize: '11px', color: 'var(--lf-text-muted)' }}>{doc.clientEmail}</div>
                   </td>
                   <td>{formatDisplayDate(doc.issueDate)}</td>
-                  <td>{formatDisplayDate(doc.dueDate)}</td>
+                  <td>
+                    <div>{formatDisplayDate(doc.dueDate)}</div>
+                    {isInvoice && (() => {
+                      const urgency = getDueDateUrgency(doc.dueDate, doc.status)
+                      return urgency ? <span className={`lf-due-urgency lf-due-urgency-${urgency.tone}`}>{urgency.label}</span> : null
+                    })()}
+                  </td>
                   <td style={{ fontWeight: 700 }}>{formatINR(doc.grandTotal)}</td>
                   {isInvoice && (
                     <td style={{ fontWeight: 600, color: doc.status === 'Cancelled' ? 'var(--lf-text-muted)' : Number(doc.balanceDue) > 0 ? 'var(--lf-warning)' : 'var(--lf-text-muted)' }}>
@@ -1994,8 +2050,10 @@ function DocumentsListView({
                       <button
                         type="button"
                         className="lf-btn lf-btn-ghost lf-btn-sm"
+                        disabled={isInvoice && doc.status !== 'Draft'}
                         onClick={() => onEditDoc(doc)}
-                        title="Edit Document"
+                        title={isInvoice && doc.status !== 'Draft' ? 'Issued invoices are locked. Duplicate to prepare a correction.' : 'Edit Document'}
+                        aria-label={isInvoice && doc.status !== 'Draft' ? 'Issued invoice locked' : 'Edit document'}
                       >
                         <Edit size={15} />
                       </button>
@@ -2525,18 +2583,18 @@ function DocumentEditorView({
 
           <div className="lf-form-group" style={{ marginBottom: '12px' }}>
             <label className="lf-form-label">Select Registered Client</label>
-            <select
-              className="lf-form-select"
+            <SearchableCombobox
+              className="lf-client-picker"
+              options={clients.map((client) => ({
+                value: client.id,
+                label: `${client.name} (${client.gstin || 'No GSTIN'})`,
+                searchText: `${client.name} ${client.gstin || ''}`,
+              }))}
               value={selectedClientId}
-              onChange={(e) => handleClientChange(e.target.value)}
-            >
-              <option value="">-- Choose existing client or enter manual details --</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.gstin || 'No GSTIN'})
-                </option>
-              ))}
-            </select>
+              onChange={handleClientChange}
+              ariaLabel="Select registered client"
+              placeholder="Search clients by name or GSTIN…"
+            />
           </div>
 
           <div className="lf-form-group" style={{ marginBottom: '12px' }}>
@@ -4357,22 +4415,53 @@ function ReportsView({ invoices, payments }) {
     (sum, invoice) => sum + (Number(invoice.igstAmount) || 0),
     0
   )
-  // CSV Export
+  // GSTR-1 support export: one row per invoice line, with explicit GST rates and tax split.
+  // Document-level totals are included only on the first row to avoid double-counting.
   const handleExportCsv = () => {
     const csvCell = escapeCsvCell
-    const rows = [
-      ['Invoice Number', 'Client', 'Issue Date', 'Due Date', 'Subtotal', 'Discount', 'Taxable Amount', 'CGST', 'SGST', 'IGST', 'Tax Total', 'Grand Total', 'Status'],
-      ...filteredInvoices.map((inv) => [
-        inv.documentNumber, inv.clientName, inv.issueDate, inv.dueDate,
-        inv.subtotal, inv.discountAmount, inv.taxableAmount, inv.cgstAmount, inv.sgstAmount, inv.igstAmount, inv.taxAmount, inv.grandTotal, inv.status,
-      ]),
+    const header = [
+      'Invoice Number', 'Invoice Date', 'Client GSTIN', 'Client Name', 'Place of Supply',
+      'HSN/SAC', 'Item Description', 'Quantity', 'Unit Price', 'Taxable Value',
+      'CGST Rate', 'CGST Amount', 'SGST Rate', 'SGST Amount', 'IGST Rate', 'IGST Amount',
+      'Discount Type', 'Discount Value', 'Document Taxable Total', 'Total GST', 'Invoice Value', 'Status',
     ]
+    const rows = [header]
+    for (const inv of filteredInvoices) {
+      const items = Array.isArray(inv.items) && inv.items.length ? inv.items : [null]
+      const placeCode = String(inv.clientStateCode || inv.clientGstin?.slice(0, 2) || '')
+      const placeOfSupply = placeCode ? `${placeCode} - ${GST_STATE_NAMES[placeCode] || 'State'}` : ''
+      items.forEach((item, index) => {
+        const taxableValue = Number(item?.subtotal) || 0
+        const isInterState = Number(item?.igstAmount || 0) > 0 || Number(inv.igstAmount || 0) > 0
+        const gstRate = Number(item?.gstRate) || 0
+        const tax = Number(item?.taxAmount) || 0
+        const cgstAmount = item ? (item.cgstAmount != null ? Number(item.cgstAmount) || 0 : (isInterState ? 0 : tax / 2)) : Number(inv.cgstAmount) || 0
+        const sgstAmount = item ? (item.sgstAmount != null ? Number(item.sgstAmount) || 0 : (isInterState ? 0 : tax / 2)) : Number(inv.sgstAmount) || 0
+        const igstAmount = item ? (item.igstAmount != null ? Number(item.igstAmount) || 0 : (isInterState ? tax : 0)) : Number(inv.igstAmount) || 0
+        rows.push([
+          inv.documentNumber, inv.issueDate, inv.clientGstin, inv.clientName, placeOfSupply,
+          item?.hsnSac || '', item?.description || '', item?.quantity ?? '', item?.unitPrice ?? '',
+          item ? taxableValue : inv.taxableAmount,
+          item ? (isInterState ? 0 : gstRate / 2) : (Number(inv.cgstAmount) > 0 ? null : ''),
+          cgstAmount,
+          item ? (isInterState ? 0 : gstRate / 2) : (Number(inv.sgstAmount) > 0 ? null : ''),
+          sgstAmount,
+          item ? (isInterState ? gstRate : 0) : (Number(inv.igstAmount) > 0 ? null : ''),
+          igstAmount,
+          inv.discountType || 'percentage', inv.discountValue ?? 0,
+          index === 0 ? inv.taxableAmount : '',
+          index === 0 ? inv.taxAmount : '',
+          index === 0 ? inv.grandTotal : '',
+          inv.status,
+        ])
+      })
+    }
     const csv = '\uFEFF' + rows.map((row) => row.map(csvCell).join(',')).join('\r\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `ledgerflow_financial_report_${todayInIndia()}.csv`
+    a.download = `ledgerflow_gstr1_support_${todayInIndia()}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -4453,7 +4542,107 @@ function ReportsView({ invoices, payments }) {
 // SETTINGS VIEW (COMPANY PROFILE, INVOICING PREFERENCES & SUPABASE SYNC)
 // ============================================================================
 
-function SettingsView({ profile, onSaveProfile }) {
+function ReminderSettingsPanel({ orgId }) {
+  const [enabled, setEnabled] = useState(false)
+  const [sharedSenderAcknowledged, setSharedSenderAcknowledged] = useState(false)
+  const [schedule, setSchedule] = useState('3_days_before')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      setLoading(true)
+      setErrorMessage('')
+      try {
+        if (!db.supabase) throw new Error('Supabase is not configured for this deployment.')
+        const { data, error } = await db.supabase.functions.invoke('quotation-workflow', {
+          body: { action: 'get_reminder_settings', orgId },
+        })
+        if (error) throw new Error(data?.error || error.message || 'Could not load reminder settings.')
+        if (!data?.success) throw new Error(data?.error || 'Could not load reminder settings.')
+        if (!active) return
+        setEnabled(Boolean(data.settings?.enabled))
+        setSharedSenderAcknowledged(Boolean(data.settings?.sharedSenderAcknowledged))
+        setSchedule(data.settings?.schedule || '3_days_before')
+      } catch (error) {
+        if (active) setErrorMessage(error?.message || 'Reminder settings could not be loaded.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    if (orgId) void load()
+    else { setLoading(false); setErrorMessage('Organization details are unavailable.') }
+    return () => { active = false }
+  }, [orgId])
+
+  const saveSettings = async () => {
+    setSaving(true)
+    setNotice('')
+    setErrorMessage('')
+    try {
+      const { data, error } = await db.supabase.functions.invoke('quotation-workflow', {
+        body: { action: 'save_reminder_settings', orgId, enabled, sharedSenderAcknowledged, schedule },
+      })
+      if (error) throw new Error(data?.error || error.message || 'Could not save reminder settings.')
+      if (!data?.success) throw new Error(data?.error || 'Could not save reminder settings.')
+      setEnabled(Boolean(data.settings?.enabled))
+      setSharedSenderAcknowledged(Boolean(data.settings?.sharedSenderAcknowledged))
+      setSchedule(data.settings?.schedule || schedule)
+      setNotice(enabled ? 'Automated reminder preferences saved.' : 'Automated reminders are off.')
+    } catch (error) {
+      setErrorMessage(error?.message || 'Could not save reminder settings.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="lf-reminder-settings" aria-labelledby="lf-reminder-settings-title">
+      <div className="lf-reminder-settings-heading">
+        <div>
+          <h3 id="lf-reminder-settings-title">Automated Payment Reminders</h3>
+          <p>Choose when LedgerFlow should email clients about unpaid invoices.</p>
+        </div>
+        <span className={`lf-reminder-status ${enabled ? 'is-enabled' : 'is-disabled'}`}>
+          {enabled ? 'Enabled' : 'Off by default'}
+        </span>
+      </div>
+      <label className="lf-reminder-toggle-row">
+        <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} disabled={loading || saving} />
+        <span><strong>Enable automatic emails</strong><small>Only invoices with a remaining balance and a valid client email are considered.</small></span>
+      </label>
+      <div className="lf-form-group lf-reminder-schedule-field">
+        <label className="lf-form-label" htmlFor="lf-reminder-schedule">Reminder schedule</label>
+        <select id="lf-reminder-schedule" className="lf-form-select" value={schedule} onChange={(event) => setSchedule(event.target.value)} disabled={loading || saving}>
+          <option value="3_days_before">3 days before the due date</option>
+          <option value="due_date">On the due date</option>
+          <option value="7_days_overdue">7 days after the due date</option>
+        </select>
+        <span className="lf-reminder-help">The daily scheduler sends only on the selected day. Keep reminders off until the reminder schedule is configured in Supabase.</span>
+      </div>
+      <label className="lf-reminder-consent-row">
+        <input type="checkbox" checked={sharedSenderAcknowledged} onChange={(event) => setSharedSenderAcknowledged(event.target.checked)} disabled={loading || saving} />
+        <span>I understand reminder emails are sent by the configured shared Gmail/Apps Script sender, not directly from my business email. Clients may see the account owner as sender.</span>
+      </label>
+      {errorMessage && <p className="lf-reminder-message is-error" role="alert">{errorMessage}</p>}
+      {notice && <p className="lf-reminder-message is-success" role="status">{notice}</p>}
+      <div className="lf-reminder-actions">
+        <button type="button" className="lf-btn lf-btn-primary" onClick={saveSettings} disabled={loading || saving || (enabled && !sharedSenderAcknowledged)}>
+          {saving ? 'Saving…' : 'Save reminder settings'}
+        </button>
+      </div>
+    </section>
+  )
+}
+
+// ============================================================================
+// SETTINGS VIEW (COMPANY PROFILE, INVOICING PREFERENCES & SUPABASE SYNC)
+// ============================================================================
+
+function SettingsView({ profile, onSaveProfile, orgId }) {
   const [formData, setFormData] = useState({ ...profile })
   const [saving, setSaving] = useState(false)
   const [validationError, setValidationError] = useState('')
@@ -4570,10 +4759,16 @@ function SettingsView({ profile, onSaveProfile }) {
             </div>
             <div className="lf-form-group">
               <label className="lf-form-label">State Code (place of supply)</label>
-              <select className="lf-form-select" value={formData.stateCode || String(formData.gstin || '').slice(0, 2)} onChange={(e) => handleChange('stateCode', e.target.value)}>
-                <option value="">Select state code</option>
-                {Object.entries(GST_STATE_NAMES).sort((a, b) => a[1].localeCompare(b[1])).map(([code, name]) => <option key={code} value={code}>{code} – {name}</option>)}
-              </select>
+              <SearchableCombobox
+                className="lf-state-picker"
+                options={Object.entries(GST_STATE_NAMES).map(([value, label]) => ({
+                  value, label: `${value} – ${label}`, searchText: `${value} ${label}`,
+                }))}
+                value={formData.stateCode || String(formData.gstin || '').slice(0, 2)}
+                onChange={(value) => handleChange('stateCode', value)}
+                ariaLabel="Business state code"
+                placeholder="Search by code or state…"
+              />
             </div>
             <div className="lf-form-group">
               <label className="lf-form-label">PAN</label>
@@ -4667,6 +4862,7 @@ function SettingsView({ profile, onSaveProfile }) {
             </div>
           </div>
         </div>
+        <ReminderSettingsPanel orgId={orgId} />
       </form>
     </div>
   )
@@ -4805,7 +5001,7 @@ function TermsConditionsPage() {
               Terms & Conditions of Service
             </h1>
             <p style={{ fontSize: '12px', color: 'var(--lf-text-muted)' }}>
-              Effective Date: October 21, 2026 | Last Revised: October 2026 | Version: 1.0.0
+              Effective Date: October 25, 2026 | Last Revised: October 2026 | Version: 1.1.0
             </p>
           </div>
 
@@ -4941,13 +5137,14 @@ function TermsConditionsPage() {
               <br />
               <strong>Project:</strong> LedgerFlow — Invoice & Quotation Generation System
               <br />
-              <strong>Contact:</strong> Contact the project administrator
+              <strong>Contact:</strong> Contact your workspace administrator for service and legal requests. The service operator must publish a monitored legal contact before public commercial launch.
               <br />
-              <strong>Effective Date:</strong> October 23, 2026
+              <strong>Effective Date:</strong> October 25, 2026
             </p>
           </section>
 
-          <div style={{ borderTop: '1px solid var(--lf-border)', paddingTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ borderTop: '1px solid var(--lf-border)', paddingTop: '20px', display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Link to="/privacy" style={{ fontSize: 12, color: 'var(--lf-brand)' }}>Read the Privacy Policy</Link>
             <button
               type="button"
               className="lf-btn lf-btn-primary"

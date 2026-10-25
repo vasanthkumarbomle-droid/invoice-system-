@@ -223,6 +223,8 @@ export const saveInvoice = async (orgId, inv, items) => {
     due_date: inv.due_date,
     status: inv.status,
     notes: inv.notes,
+    discount_type: inv.discount_type ?? inv.discountType ?? 'percentage',
+    discount_value: Number(inv.discount_value ?? inv.discountValue) || 0,
   }
   return supabase.rpc('save_invoice_with_items', {
     p_org_id: orgId,
@@ -258,6 +260,8 @@ export const saveQuotation = async (orgId, quote, items = []) => {
     status: String(quote.status ?? 'draft').toLowerCase(),
     notes: quote.notes ?? null,
     terms: quote.terms ?? null,
+    discount_type: quote.discount_type ?? quote.discountType ?? 'percentage',
+    discount_value: Number(quote.discount_value ?? quote.discountValue) || 0,
   }
 
   const normalizedItems = items.map((it) => ({

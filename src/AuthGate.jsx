@@ -4,6 +4,7 @@ import { LoaderCircle, UploadCloud, ArrowRight } from 'lucide-react'
 import { supabase, getMyOrg, createOrg, updateOrg, signOut } from './lib/db'
 import { OrgContext } from './OrgContext'
 import { AuthLayout } from './AuthPages'
+import SearchableCombobox from './SearchableCombobox.jsx'
 import './auth.css'
 
 const AUTH_PATHS = new Set(['/login', '/signup', '/forgot-password'])
@@ -136,10 +137,14 @@ function CompanyOnboarding({ session, existingOrg, onCompleted, onSkip }) {
         </div>
         <div className="auth-field">
           <label htmlFor="onboarding-state">Business state <span className="auth-optional">optional</span></label>
-          <select id="onboarding-state" name="state" value={stateCode} onChange={(event) => setStateCode(event.target.value)}>
-            <option value="">Choose state</option>
-            {STATES.map(([code, state]) => <option key={code} value={code}>{state}</option>)}
-          </select>
+          <SearchableCombobox
+            className="lf-onboarding-state-picker"
+            options={STATES.map(([value, label]) => ({ value, label: `${value} – ${label}`, searchText: `${value} ${label}` }))}
+            value={stateCode}
+            onChange={setStateCode}
+            ariaLabel="Business state"
+            placeholder="Search by state or code…"
+          />
         </div>
         <div className="auth-field">
           <label htmlFor="onboarding-logo">Company logo <span className="auth-optional">optional · max 2 MB</span></label>
@@ -174,10 +179,14 @@ export default function AuthGate({ children }) {
   const signOutExplicitly = async () => {
     explicitSignOut.current = true
     try {
-      await signOut()
+      const result = await signOut()
+      if (result?.error) throw result.error
+      setOrg(undefined)
+      setOrgLoadError('')
+      setSession(null)
+      navigate('/login', { replace: true })
     } finally {
       explicitSignOut.current = false
-      navigate('/login', { replace: true })
     }
   }
 
