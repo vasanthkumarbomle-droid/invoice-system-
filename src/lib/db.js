@@ -1,23 +1,11 @@
 import { supabase } from '../supabase.js'
 import { isPastDueDate } from './finance.js'
+import { fetchAllPages } from './pagination.js'
 export { supabase }
 
 const must = ({ data, error }) => {
   if (error) throw new Error(error.message)
   return data
-}
-
-// Supabase/PostgREST caps a single response (commonly at 1,000 rows). Fetch
-// all pages so dashboards and reminder-related screens don't silently truncate.
-const fetchAllPages = async (createQuery, pageSize = 1000) => {
-  const allRows = []
-  for (let offset = 0; ; offset += pageSize) {
-    const rows = await createQuery()
-      .range(offset, offset + pageSize - 1)
-      .then(must)
-    allRows.push(...rows)
-    if (rows.length < pageSize) return allRows
-  }
 }
 
 // ---------- Auth ----------
@@ -28,7 +16,13 @@ export const getSession = () => supabase.auth.getSession().then(r => r.data.sess
 
 // ---------- Organization ----------
 export const getMyOrg = async () => {
-  const rows = await supabase.from('org_members').select('role, organizations(*)').limit(1).then(must)
+  // Choose a stable default workspace rather than an unordered membership row.
+  const rows = await supabase.from('org_members')
+    .select('role, created_at, org_id, organizations(*)')
+    .order('created_at', { ascending: true })
+    .order('org_id', { ascending: true })
+    .limit(1)
+    .then(must)
   return rows[0] ? { ...rows[0].organizations, role: rows[0].role } : null
 }
 export const createOrg = (org) => supabase.from('organizations').insert(org).select().single().then(must)
