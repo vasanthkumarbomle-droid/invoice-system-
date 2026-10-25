@@ -4591,9 +4591,9 @@ function SettingsView({ profile, onSaveProfile }) {
       const next = { ...prev, [field]: val }
       if (field === 'gstin') {
         // Normalize pasted GSTINs (including spaces/newlines) before validation.
-        next.gstin = String(val || '').toUpperCase().replace(/\\s+/g, '')
+        next.gstin = String(val || '').toUpperCase().replace(/\s+/g, '')
         const gstStateCode = next.gstin.slice(0, 2)
-        if (/^\\d{2}$/.test(gstStateCode) && GST_STATE_NAMES[gstStateCode]) {
+        if (/^\d{2}$/.test(gstStateCode) && GST_STATE_NAMES[gstStateCode]) {
           next.stateCode = gstStateCode
         }
       }
@@ -4608,7 +4608,7 @@ function SettingsView({ profile, onSaveProfile }) {
 
   const handleSaveAll = async (e) => {
     e.preventDefault()
-    const gstin = String(formData.gstin || '').toUpperCase().replace(/\\s+/g, '')
+    const gstin = String(formData.gstin || '').toUpperCase().replace(/\s+/g, '')
     const pan = String(formData.pan || '').trim().toUpperCase()
     const ifsc = String(formData.ifscCode || '').trim().toUpperCase()
     // GSTIN is 2-digit state code + 10-character PAN/TAN + entity code + Z + checksum.
