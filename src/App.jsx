@@ -1183,6 +1183,7 @@ const [quotations, setQuotations] = useState([])
           {activeTab === 'settings' && (
             canManageBusiness ? <SettingsView
               profile={companyProfile}
+              orgId={org.id}
             onSaveProfile={async (updated) => {
   try {
     const termsMatch = String(updated.defaultPaymentTerms || '').match(/\d+/)
@@ -4493,7 +4494,107 @@ function ReportsView({ invoices, payments }) {
 // SETTINGS VIEW (COMPANY PROFILE, INVOICING PREFERENCES & SUPABASE SYNC)
 // ============================================================================
 
-function SettingsView({ profile, onSaveProfile }) {
+function ReminderSettingsPanel({ orgId }) {
+  const [enabled, setEnabled] = useState(false)
+  const [sharedSenderAcknowledged, setSharedSenderAcknowledged] = useState(false)
+  const [schedule, setSchedule] = useState('3_days_before')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      setLoading(true)
+      setErrorMessage('')
+      try {
+        if (!db.supabase) throw new Error('Supabase is not configured for this deployment.')
+        const { data, error } = await db.supabase.functions.invoke('quotation-workflow', {
+          body: { action: 'get_reminder_settings', orgId },
+        })
+        if (error) throw new Error(data?.error || error.message || 'Could not load reminder settings.')
+        if (!data?.success) throw new Error(data?.error || 'Could not load reminder settings.')
+        if (!active) return
+        setEnabled(Boolean(data.settings?.enabled))
+        setSharedSenderAcknowledged(Boolean(data.settings?.sharedSenderAcknowledged))
+        setSchedule(data.settings?.schedule || '3_days_before')
+      } catch (error) {
+        if (active) setErrorMessage(error?.message || 'Reminder settings could not be loaded.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    if (orgId) void load()
+    else { setLoading(false); setErrorMessage('Organization details are unavailable.') }
+    return () => { active = false }
+  }, [orgId])
+
+  const saveSettings = async () => {
+    setSaving(true)
+    setNotice('')
+    setErrorMessage('')
+    try {
+      const { data, error } = await db.supabase.functions.invoke('quotation-workflow', {
+        body: { action: 'save_reminder_settings', orgId, enabled, sharedSenderAcknowledged, schedule },
+      })
+      if (error) throw new Error(data?.error || error.message || 'Could not save reminder settings.')
+      if (!data?.success) throw new Error(data?.error || 'Could not save reminder settings.')
+      setEnabled(Boolean(data.settings?.enabled))
+      setSharedSenderAcknowledged(Boolean(data.settings?.sharedSenderAcknowledged))
+      setSchedule(data.settings?.schedule || schedule)
+      setNotice(enabled ? 'Automated reminder preferences saved.' : 'Automated reminders are off.')
+    } catch (error) {
+      setErrorMessage(error?.message || 'Could not save reminder settings.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="lf-reminder-settings" aria-labelledby="lf-reminder-settings-title">
+      <div className="lf-reminder-settings-heading">
+        <div>
+          <h3 id="lf-reminder-settings-title">Automated Payment Reminders</h3>
+          <p>Choose when LedgerFlow should email clients about unpaid invoices.</p>
+        </div>
+        <span className={`lf-reminder-status ${enabled ? 'is-enabled' : 'is-disabled'}`}>
+          {enabled ? 'Enabled' : 'Off by default'}
+        </span>
+      </div>
+      <label className="lf-reminder-toggle-row">
+        <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} disabled={loading || saving} />
+        <span><strong>Enable automatic emails</strong><small>Only invoices with a remaining balance and a valid client email are considered.</small></span>
+      </label>
+      <div className="lf-form-group lf-reminder-schedule-field">
+        <label className="lf-form-label" htmlFor="lf-reminder-schedule">Reminder schedule</label>
+        <select id="lf-reminder-schedule" className="lf-form-select" value={schedule} onChange={(event) => setSchedule(event.target.value)} disabled={loading || saving}>
+          <option value="3_days_before">3 days before the due date</option>
+          <option value="due_date">On the due date</option>
+          <option value="7_days_overdue">7 days after the due date</option>
+        </select>
+        <span className="lf-reminder-help">The daily scheduler sends only on the selected day. Keep reminders off until the reminder schedule is configured in Supabase.</span>
+      </div>
+      <label className="lf-reminder-consent-row">
+        <input type="checkbox" checked={sharedSenderAcknowledged} onChange={(event) => setSharedSenderAcknowledged(event.target.checked)} disabled={loading || saving} />
+        <span>I understand reminder emails are sent by the configured shared Gmail/Apps Script sender, not directly from my business email. Clients may see the account owner as sender.</span>
+      </label>
+      {errorMessage && <p className="lf-reminder-message is-error" role="alert">{errorMessage}</p>}
+      {notice && <p className="lf-reminder-message is-success" role="status">{notice}</p>}
+      <div className="lf-reminder-actions">
+        <button type="button" className="lf-btn lf-btn-primary" onClick={saveSettings} disabled={loading || saving || (enabled && !sharedSenderAcknowledged)}>
+          {saving ? 'Saving…' : 'Save reminder settings'}
+        </button>
+      </div>
+    </section>
+  )
+}
+
+// ============================================================================
+// SETTINGS VIEW (COMPANY PROFILE, INVOICING PREFERENCES & SUPABASE SYNC)
+// ============================================================================
+
+function SettingsView({ profile, onSaveProfile, orgId }) {
   const [formData, setFormData] = useState({ ...profile })
   const [saving, setSaving] = useState(false)
   const [validationError, setValidationError] = useState('')
@@ -4713,6 +4814,7 @@ function SettingsView({ profile, onSaveProfile }) {
             </div>
           </div>
         </div>
+        <ReminderSettingsPanel orgId={orgId} />
       </form>
     </div>
   )
