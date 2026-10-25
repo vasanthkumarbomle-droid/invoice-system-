@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { PDFDocument, StandardFonts, rgb, PageSizes } from "https://esm.sh/pdf-lib@1.17.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,6 +46,147 @@ function todayInIndia(): string {
   const part = (type: string) => parts.find((entry) => entry.type === type)?.value ?? "";
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
+function safePdfText(value: unknown): string {
+  return String(value ?? "")
+    .replace(/₹/g, "INR ")
+    .replace(/[–—]/g, "-")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .normalize("NFKD")
+    .replace(/[^\x20-\x7E]/g, " ");
+}
+
+function pdfBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + 0x8000, bytes.length)));
+  }
+  return btoa(binary);
+}
+
+function inr(value: unknown): string {
+  return "INR " + (Number(value) || 0).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+async function createDocumentPdf(record: any, organization: any, documentType: "invoice" | "quotation", client: any, documentNumber: string): Promise<string> {
+  const pdf = await PDFDocument.create();
+  pdf.setTitle(documentNumber + " - LedgerFlow");
+  pdf.setSubject(documentType === "invoice" ? "Tax invoice" : "Price quotation");
+  pdf.setCreator("LedgerFlow");
+  const regular = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const [pageWidth, pageHeight] = PageSizes.A4;
+  let page = pdf.addPage(PageSizes.A4);
+  let y = pageHeight - 46;
+  const left = 44;
+  const right = pageWidth - 44;
+  const textColor = rgb(0.12, 0.16, 0.22);
+  const muted = rgb(0.38, 0.43, 0.50);
+  const brand = rgb(0.15, 0.39, 0.72);
+
+  const nextPage = () => {
+    page = pdf.addPage(PageSizes.A4);
+    y = pageHeight - 42;
+    page.drawText(documentNumber + " (continued)", { x: left, y, size: 9, font: bold, color: muted });
+    y -= 22;
+  };
+  const write = (value: unknown, options: { size?: number; strong?: boolean; color?: any; indent?: number } = {}) => {
+    const text = safePdfText(value);
+    const size = options.size || 9;
+    const font = options.strong ? bold : regular;
+    const maxWidth = right - left - (options.indent || 0);
+    const words = text.split(/\s+/).filter(Boolean);
+    let line = "";
+    const drawLine = (lineText: string) => {
+      if (y < 42) nextPage();
+      page.drawText(lineText, { x: left + (options.indent || 0), y, size, font, color: options.color || textColor, maxWidth });
+      y -= size + 5;
+    };
+    for (const word of words) {
+      const proposed = line ? line + " " + word : word;
+      if (line && font.widthOfTextAtSize(proposed, size) > maxWidth) {
+        drawLine(line);
+        line = word;
+      } else line = proposed;
+    }
+    if (line) drawLine(line);
+  };
+  const rule = () => {
+    if (y < 55) nextPage();
+    page.drawLine({ start: { x: left, y: y + 3 }, end: { x: right, y: y + 3 }, thickness: 0.8, color: brand });
+    y -= 11;
+  };
+
+  page.drawText(safePdfText(organization?.name || organization?.legal_name || "Business"), {
+    x: left, y, size: 18, font: bold, color: brand, maxWidth: right - left,
+  });
+  y -= 27;
+  write(organization?.legal_name || organization?.name || "", { size: 10, strong: true });
+  write(organization?.address || "");
+  const sellerContact = [organization?.email, organization?.phone].filter(Boolean).join(" | ");
+  if (sellerContact) write(sellerContact, { size: 8, color: muted });
+  if (organization?.gstin) write("GSTIN: " + organization.gstin, { size: 8, color: muted });
+  y -= 5;
+  rule();
+  write(documentType === "invoice" ? "TAX INVOICE" : "PRICE QUOTATION", { size: 16, strong: true, color: brand });
+  write("Document: " + documentNumber, { size: 10, strong: true });
+  write("Issue date: " + (record.issue_date || "-") + "    " + (documentType === "invoice" ? "Due date: " : "Valid until: ") + (documentType === "invoice" ? record.due_date || "-" : record.valid_until || "-"), { size: 9, color: muted });
+  y -= 4;
+  rule();
+  write("BILLED TO", { size: 8, strong: true, color: brand });
+  write(client?.name || "Customer", { size: 11, strong: true });
+  write(client?.address || "");
+  if (client?.gstin) write("GSTIN: " + client.gstin, { size: 8, color: muted });
+  if (client?.email) write("Email: " + client.email, { size: 8, color: muted });
+  y -= 5;
+  rule();
+  write("ITEMS", { size: 10, strong: true });
+  const itemRelation = documentType === "invoice" ? "invoice_items" : "quotation_items";
+  const sourceItems = Array.isArray(record[itemRelation]) ? record[itemRelation] : [];
+  if (sourceItems.length === 0) write("No line items.", { color: muted });
+  for (let index = 0; index < sourceItems.length; index++) {
+    const item = sourceItems[index];
+    const quantity = Number(item.quantity) || 0;
+    const unitPrice = Number(item.unit_price) || 0;
+    const gstRate = Number(item.gst_rate) || 0;
+    const itemTotal = item.line_total != null ? Number(item.line_total) : quantity * unitPrice * (1 + gstRate / 100);
+    write((index + 1) + ". " + (item.description || "Item"), { size: 9, strong: true });
+    write("Qty: " + quantity + " | Unit price: " + inr(unitPrice) + " | GST: " + gstRate + "% | Line total: " + inr(itemTotal), { size: 8, color: muted, indent: 12 });
+    y -= 2;
+  }
+  y -= 5;
+  rule();
+  const discount = Math.max(0, Number(record.subtotal || 0) - Number(record.taxable_amount ?? record.subtotal ?? 0));
+  write("Subtotal: " + inr(record.subtotal), { size: 9 });
+  write("Discount: " + inr(record.discount_amount ?? discount), { size: 9 });
+  write("Taxable value: " + inr(record.taxable_amount ?? record.subtotal), { size: 9 });
+  write("CGST: " + inr(record.cgst_total), { size: 9 });
+  write("SGST: " + inr(record.sgst_total), { size: 9 });
+  write("IGST: " + inr(record.igst_total), { size: 9 });
+  write("Total GST: " + inr(record.tax_total ?? (Number(record.cgst_total || 0) + Number(record.sgst_total || 0) + Number(record.igst_total || 0))), { size: 9 });
+  y -= 2;
+  rule();
+  write("GRAND TOTAL: " + inr(record.grand_total), { size: 14, strong: true, color: brand });
+  if (documentType === "invoice") {
+    write("Amount paid: " + inr(record.amount_paid), { size: 9 });
+    write("Balance due: " + inr(record.balance_due), { size: 10, strong: true });
+  }
+  if (record.notes) {
+    y -= 4;
+    rule();
+    write("Notes", { size: 9, strong: true });
+    write(record.notes, { size: 8 });
+  }
+  y = Math.max(34, y - 14);
+  page.drawText("Generated by LedgerFlow. Verify business, tax and payment details before use.", {
+    x: left, y, size: 7, font: regular, color: muted, maxWidth: right - left,
+  });
+  return pdfBase64(await pdf.save());
+}
+
 async function sendWithGoogleAppsScript(payload: Record<string, unknown>): Promise<{ ok: boolean; details?: string }> {
   const endpoint = Deno.env.get("GOOGLE_APPS_SCRIPT_URL");
   const sharedSecret = Deno.env.get("GOOGLE_APPS_SCRIPT_SECRET");
@@ -140,6 +282,48 @@ async function getDocument(admin: any, documentType: "invoice" | "quotation", do
   if (error) throw new Error("Could not load document details: " + error.message);
   if (!data) throw new Error("Document not found.");
   return data;
+}
+
+async function sendWithPreferredProvider(payload: Record<string, unknown>): Promise<{ ok: boolean; details?: string }> {
+  const apiKey = Deno.env.get("RESEND_API_KEY") || "";
+  const from = Deno.env.get("RESEND_FROM_EMAIL") || "";
+  if (apiKey || from) {
+    if (!apiKey || !from) {
+      return { ok: false, details: "Configure both RESEND_API_KEY and RESEND_FROM_EMAIL, or remove both to use Google Apps Script." };
+    }
+    try {
+      const attachments = Array.isArray(payload.attachments)
+        ? payload.attachments.map((attachment: any) => ({
+            filename: String(attachment?.filename || "document.pdf").replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120),
+            content: String(attachment?.content || ""),
+            content_type: String(attachment?.content_type || "application/pdf"),
+          }))
+        : [];
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from,
+          to: [String(payload.to || "")],
+          subject: String(payload.subject || ""),
+          html: String(payload.htmlBody || ""),
+          text: String(payload.body || ""),
+          ...(validEmail(payload.replyTo) ? { reply_to: String(payload.replyTo) } : {}),
+          ...(attachments.length ? { attachments } : {}),
+        }),
+      });
+      const responseText = (await response.text()).slice(0, 1200);
+      let result: any = null;
+      try { result = JSON.parse(responseText); } catch { /* Use provider text response below. */ }
+      if (!response.ok || !result?.id) {
+        return { ok: false, details: String(result?.message || result?.name || responseText || "Resend did not confirm the email.") };
+      }
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, details: error instanceof Error ? error.message : "Resend request failed." };
+    }
+  }
+  return sendWithGoogleAppsScript(payload);
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
@@ -493,6 +677,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
       organization.data?.bank_ifsc ? "IFSC: " + organization.data.bank_ifsc : "",
       organization.data?.upi_id ? "UPI ID: " + organization.data.upi_id : "",
     ].filter(Boolean);
+    const hasUsablePaymentRoute = Boolean(String(organization.data?.upi_id || "").trim()) ||
+      Boolean(String(organization.data?.bank_account_no || "").trim() && String(organization.data?.bank_ifsc || "").trim());
+    if (documentType === "invoice" && !hasUsablePaymentRoute) {
+      await admin.from("document_share_tokens").delete().eq("id", tokenRow.id);
+      return respondJson({
+        error: "Invoice email was not sent because payment instructions are incomplete.",
+        details: "Add a UPI ID or a bank account number plus IFSC code in Settings, then send the invoice again.",
+      }, 422);
+    }
     const paymentHtml = documentType === "invoice"
       ? "<h3>Payment details</h3>" + (paymentDetails.length ? "<ul>" + paymentDetails.map((item) => "<li>" + escapeHtml(item) + "</li>").join("") + "</ul>" : "<p>Payment details are not configured. Please contact the business before paying.</p>")
       : "";
@@ -518,7 +711,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         ? Number(item.line_total)
         : (Number(item.quantity) || 0) * (Number(item.unit_price) || 0) * (1 + (Number(item.gst_rate) || 0) / 100);
       return "<tr><td style=\"padding:8px;border-bottom:1px solid #E2E8F0\">" +
-        escapeHtml(item.description) + "</td><td style=\"padding:8px;text-align:right;border-bottom:1px solid #E2E8F0\">" +
+        escapeHtml(titleCase(item.description || "Item")) + "</td><td style=\"padding:8px;text-align:right;border-bottom:1px solid #E2E8F0\">" +
         escapeHtml(item.quantity) + "</td><td style=\"padding:8px;text-align:right;border-bottom:1px solid #E2E8F0\">₹" +
         lineTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "</td></tr>";
     }).join("");
@@ -531,7 +724,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const html = "<div style=\"font-family:Arial,sans-serif;max-width:680px;margin:auto;color:#0F172A\">" +
       "<div style=\"background:#2563EB;color:#fff;padding:20px 24px;border-radius:10px 10px 0 0\"><strong style=\"font-size:20px\">" +
       escapeHtml(companyName) + "</strong><div style=\"font-size:12px;margin-top:6px\">" + escapeHtml(title) + " #" + escapeHtml(documentNumber) + "</div></div>" +
-      "<div style=\"border:1px solid #E2E8F0;padding:24px;border-radius:0 0 10px 10px\"><p>Hello " + escapeHtml(client.name || "there") + ",</p><p>" +
+      "<div style=\"border:1px solid #E2E8F0;padding:24px;border-radius:0 0 10px 10px\"><p>Hello " + escapeHtml(titleCase(client.name || "there")) + ",</p><p>" +
       intro + "</p><table style=\"width:100%;border-collapse:collapse;font-size:13px\"><thead><tr><th style=\"text-align:left;padding:8px;background:#EFF6FF\">Item</th><th style=\"text-align:right;padding:8px;background:#EFF6FF\">Qty</th><th style=\"text-align:right;padding:8px;background:#EFF6FF\">Amount</th></tr></thead><tbody>" +
       itemRows + "</tbody></table><p style=\"text-align:right;font-size:18px;font-weight:700\">Total: " + amountText + "</p>" +
       trackingHtml + paymentHtml +
@@ -544,18 +737,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
       (documentType === "invoice" ? "Payment details:\n" + (paymentDetails.join("\n") || "Not configured; contact the business before paying.") + "\n" : "") +
       "\nOpen: " + link + "\n\nThis message was sent using LedgerFlow on behalf of " + companyName + "."
 
+    const documentPdf = await createDocumentPdf(record, organization.data, documentType, client, documentNumber);
     const emailPayload: Record<string, unknown> = {
       to: recipient,
       subject: title + " " + documentNumber + " from " + companyName,
       htmlBody: html,
       body: textBody,
+      attachments: [{ filename: documentNumber + ".pdf", content: documentPdf, content_type: "application/pdf" }],
       // Be transparent about the sender identity: MailApp sends from the
       // Google account that owns the Apps Script, not the business profile email.
       senderName: "LedgerFlow | " + companyName,
     };
     if (validEmail(organization.data?.email)) emailPayload.replyTo = organization.data.email;
 
-    const mailResponse = await sendWithGoogleAppsScript(emailPayload);
+    const mailResponse = await sendWithPreferredProvider(emailPayload);
     if (!mailResponse.ok) {
       await admin.from("document_share_tokens").delete().eq("id", tokenRow.id);
       return respondJson({
@@ -709,11 +904,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
             const bodyHtml = "<div style=\"font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#0F172A\">" +
               "<div style=\"background:#2563EB;color:#fff;padding:20px 24px\"><strong style=\"font-size:20px\">" +
               escapeHtml(companyName) + "</strong><div style=\"font-size:12px;margin-top:6px\">Order confirmation</div></div>" +
-              "<div style=\"border:1px solid #E2E8F0;padding:24px\"><p>Hello " + escapeHtml(quote.clients?.name || "there") + ",</p>" +
+              "<div style=\"border:1px solid #E2E8F0;padding:24px\"><p>Hello " + escapeHtml(titleCase(quote.clients?.name || "there")) + ",</p>" +
               "<p>Thank you. We recorded your acceptance of quotation <strong>" + escapeHtml(quoteNumber) + "</strong>.</p>" +
               "<p style=\"font-size:18px\"><strong>Sales order " + escapeHtml(salesOrderNumber) + "</strong></p>" +
               "<p>Status: " + escapeHtml(titleCase(orderStatus)) + " — " + escapeHtml(stockMessage) + "</p><ul>" +
-              (quote.quotation_items || []).map((item: any) => "<li>" + escapeHtml(item.description || "Item") + " × " + escapeHtml(item.quantity || 0) + "</li>").join("") +
+              (quote.quotation_items || []).map((item: any) => "<li>" + escapeHtml(titleCase(item.description || "Item")) + " × " + escapeHtml(item.quantity || 0) + "</li>").join("") +
               "</ul>" +
               (paymentType === "advance" ? "<p>The agreed terms require advance payment. The business will send payment instructions separately.</p>" : "") +
               "<p>No tax invoice has been issued yet. The tax invoice will be generated and sent after packing and dispatch.</p>" +
@@ -724,7 +919,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
               senderName: "LedgerFlow | " + companyName,
             };
             if (validEmail(company?.email)) emailPayload.replyTo = company.email;
-            const mailResult = await sendWithGoogleAppsScript(emailPayload);
+            const mailResult = await sendWithPreferredProvider(emailPayload);
             orderConfirmationEmailSent = mailResult.ok;
             if (!mailResult.ok) orderConfirmationEmailError = mailResult.details || "The email provider did not accept the order confirmation.";
           }
@@ -753,7 +948,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           const message = decision === "accepted"
             ? "The client " + (quote.clients?.name || "customer") + " accepted quotation " + quoteNumber + ". Sales order " + (salesOrderNumber || "") + " is now " + titleCase(orderStatus) + "."
             : "The client " + (quote.clients?.name || "customer") + " rejected quotation " + quoteNumber + " from " + businessName + ".";
-          const mailResult = await sendWithGoogleAppsScript({
+          const mailResult = await sendWithPreferredProvider({
             to: ownerEmail,
             subject,
             body: message + String.fromCharCode(10, 10) + "Open LedgerFlow to review the recorded response.",
