@@ -78,9 +78,9 @@ self.addEventListener('fetch', (event) => {
         const response = await fetch(request);
         if (response.ok) {
           const cache = await caches.open(CACHE_NAME);
-          await cacheSuccessfulResponse('/index.html', url.pathname === '/index.html' ? response : response.clone());
+          await cacheSuccessfulResponse(cache, '/index.html', url.pathname === '/index.html' ? response : response.clone());
           // All app routes are SPA routes; retain the built shell under the root key too.
-          await cacheSuccessfulResponse('/', response.clone());
+          await cacheSuccessfulResponse(cache, '/', response.clone());
         }
         return response;
       } catch {
@@ -105,7 +105,7 @@ self.addEventListener('fetch', (event) => {
     const cache = await caches.open(CACHE_NAME);
     try {
       const response = await fetch(request);
-      if (response.ok) await cacheSuccessfulResponse(request, response);
+      if (response.ok) await cacheSuccessfulResponse(cache, request, response);
       return response;
     } catch {
       return (await cache.match(request)) || Response.error();
