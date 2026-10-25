@@ -1,8 +1,11 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { lazy, Suspense, useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Routes, Route, Link, useNavigate } from 'react-router-dom'
-import ClientDocumentPage from './ClientDocumentPage.jsx'
+const ClientDocumentPage = lazy(() => import('./ClientDocumentPage.jsx'))
+const PrivacyPolicyPage = lazy(() => import('./PrivacyPolicyPage.jsx'))
+const AuthLoginPage = lazy(() => import('./AuthPages.jsx').then((module) => ({ default: module.AuthLoginPage })))
+const AuthSignupPage = lazy(() => import('./AuthPages.jsx').then((module) => ({ default: module.AuthSignupPage })))
+const AuthForgotPasswordPage = lazy(() => import('./AuthPages.jsx').then((module) => ({ default: module.AuthForgotPasswordPage })))
 import PasswordResetPage from './PasswordResetPage.jsx'
-import { AuthLoginPage, AuthSignupPage, AuthForgotPasswordPage } from './AuthPages.jsx'
 import { useOrg } from './OrgContext'
 import * as db from './lib/db'
 import {
@@ -237,8 +240,13 @@ function mapPayment(r) {
     notes: r.notes || '',
   }
 }
+function RouteChunkFallback() {
+  return <div role="status" aria-live="polite" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--lf-bg)', color: 'var(--lf-text-muted)', fontSize: 13 }}>Loading LedgerFlow…</div>
+}
+
 export default function App() {
   return (
+    <Suspense fallback={<RouteChunkFallback />}>
     <Routes>
         <Route path="/login" element={<AuthLoginPage />} />
         <Route path="/signup" element={<AuthSignupPage />} />
@@ -255,9 +263,11 @@ export default function App() {
         <Route path="/settings" element={<LedgerFlowShell activeTab="settings" />} />
         <Route path="/client-document" element={<ClientDocumentPage />} />
         <Route path="/terms" element={<TermsConditionsPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/reset-password" element={<PasswordResetPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+    </Suspense>
   )
 }
 
@@ -4992,7 +5002,7 @@ function TermsConditionsPage() {
               Terms & Conditions of Service
             </h1>
             <p style={{ fontSize: '12px', color: 'var(--lf-text-muted)' }}>
-              Effective Date: October 21, 2026 | Last Revised: October 2026 | Version: 1.0.0
+              Effective Date: October 25, 2026 | Last Revised: October 2026 | Version: 1.1.0
             </p>
           </div>
 
@@ -5128,13 +5138,14 @@ function TermsConditionsPage() {
               <br />
               <strong>Project:</strong> LedgerFlow — Invoice & Quotation Generation System
               <br />
-              <strong>Contact:</strong> Contact the project administrator
+              <strong>Contact:</strong> Contact your workspace administrator for service and legal requests. The service operator must publish a monitored legal contact before public commercial launch.
               <br />
-              <strong>Effective Date:</strong> October 23, 2026
+              <strong>Effective Date:</strong> October 25, 2026
             </p>
           </section>
 
-          <div style={{ borderTop: '1px solid var(--lf-border)', paddingTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ borderTop: '1px solid var(--lf-border)', paddingTop: '20px', display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Link to="/privacy" style={{ fontSize: 12, color: 'var(--lf-brand)' }}>Read the Privacy Policy</Link>
             <button
               type="button"
               className="lf-btn lf-btn-primary"
