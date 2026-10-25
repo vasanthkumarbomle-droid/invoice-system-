@@ -2363,3 +2363,8 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
     justify-content: flex-start;
   }
 }
+
+/* Keep the LedgerFlow wordmark aligned with the blue brand identity. */
+.lf-brand-title {
+  color: #2563EB !important;
+}
