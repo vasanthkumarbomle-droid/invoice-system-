@@ -2583,3 +2583,124 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   background: #FEFCE8;
   border-color: #FEF08A;
 }
+
+
+/* Opt-in reminder controls (server-authorized through the Edge Function). */
+.lf-reminder-settings {
+  margin-top: 22px;
+  padding: 20px;
+  border: 1px solid var(--lf-border);
+  border-radius: 12px;
+  background: #FFFFFF;
+}
+.lf-reminder-settings-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 17px;
+}
+.lf-reminder-settings-heading h3 {
+  margin: 0 0 6px;
+  color: var(--lf-text);
+  font-size: 15px;
+  font-weight: 800;
+}
+.lf-reminder-settings-heading p {
+  margin: 0;
+  max-width: 560px;
+  color: var(--lf-text-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.lf-reminder-status {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--lf-border);
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 10px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.lf-reminder-status.is-enabled {
+  border-color: #BBF7D0;
+  color: #166534;
+  background: #F0FDF4;
+}
+.lf-reminder-status.is-disabled {
+  color: var(--lf-text-muted);
+  background: #F8FAFC;
+}
+.lf-reminder-toggle-row,
+.lf-reminder-consent-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 16px;
+  color: var(--lf-text);
+  font-size: 12px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.lf-reminder-toggle-row input,
+.lf-reminder-consent-row input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--lf-brand);
+}
+.lf-reminder-toggle-row strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 13px;
+}
+.lf-reminder-toggle-row small {
+  display: block;
+  max-width: 580px;
+  color: var(--lf-text-muted);
+  font-size: 11px;
+}
+.lf-reminder-schedule-field {
+  max-width: 520px;
+  margin: 18px 0;
+}
+.lf-reminder-help {
+  display: block;
+  margin-top: 6px;
+  color: var(--lf-text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.lf-reminder-consent-row {
+  max-width: 760px;
+  color: var(--lf-text-secondary);
+}
+.lf-reminder-message {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.lf-reminder-message.is-error {
+  border: 1px solid #FECACA;
+  color: #991B1B;
+  background: #FEF2F2;
+}
+.lf-reminder-message.is-success {
+  border: 1px solid #BBF7D0;
+  color: #166534;
+  background: #F0FDF4;
+}
+.lf-reminder-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+@media (max-width: 560px) {
+  .lf-reminder-settings { padding: 15px; }
+  .lf-reminder-settings-heading { flex-direction: column; }
+  .lf-reminder-actions .lf-btn { width: 100%; justify-content: center; }
+}
