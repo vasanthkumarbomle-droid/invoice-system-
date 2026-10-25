@@ -11,6 +11,7 @@ import * as db from './lib/db'
 import {
   addDaysToDateString,
   calculateDocumentAmounts,
+  calculateBillingAdjustments,
   escapeCsvCell,
   indianFinancialYearLabel,
   numberToWordsINR,
@@ -2463,14 +2464,21 @@ function DocumentEditorView({
   const cgstAmount = hasTaxJurisdiction && !isInterState ? totalTaxAmount / 2 : 0
   const sgstAmount = hasTaxJurisdiction && !isInterState ? totalTaxAmount / 2 : 0
   const igstAmount = hasTaxJurisdiction && isInterState ? totalTaxAmount : 0
-  const shippingChargeAmount = Math.max(0, Number(shippingCharge) || 0)
-  const tdsAmount = Math.round((taxableAmount * Math.max(0, Number(tdsRate) || 0) / 100) * 100) / 100
-  const tcsAmount = Math.round((taxableAmount * Math.max(0, Number(tcsRate) || 0) / 100) * 100) / 100
-  const totalBeforeRoundOff = taxableAmount + totalTaxAmount + shippingChargeAmount + tcsAmount - tdsAmount
-  const roundOffAmount = roundOffMode === 'nearest_rupee'
-    ? Math.round(totalBeforeRoundOff) - totalBeforeRoundOff
-    : Number(roundOffValue) || 0
-  const grandTotal = Math.round((totalBeforeRoundOff + roundOffAmount) * 100) / 100
+  const {
+    shippingChargeAmount,
+    tdsAmount,
+    tcsAmount,
+    roundOffAmount,
+    grandTotal,
+  } = calculateBillingAdjustments({
+    taxableAmount,
+    taxAmount: totalTaxAmount,
+    shippingCharge,
+    tdsRate,
+    tcsRate,
+    roundOffMode,
+    roundOffValue,
+  })
 
   const livePreviewDoc = {
     ...(existingDoc || {}),
