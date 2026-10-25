@@ -2704,3 +2704,60 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   .lf-reminder-settings-heading { flex-direction: column; }
   .lf-reminder-actions .lf-btn { width: 100%; justify-content: center; }
 }
+
+
+/* Invoice/quotation line-item editor: preserve readable numeric fields.
+   Keep the catalog, quantity, rate and GST columns from collapsing into
+   unreadable slivers; the existing container provides horizontal scrolling. */
+.lf-line-items-container {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-gutter: stable;
+}
+.lf-line-items-table {
+  width: 100%;
+  min-width: 1240px;
+  table-layout: fixed;
+}
+.lf-line-items-table th,
+.lf-line-items-table td {
+  overflow-wrap: normal;
+}
+.lf-line-items-table th:nth-child(1),
+.lf-line-items-table td:nth-child(1) { width: 42px; }
+.lf-line-items-table th:nth-child(2),
+.lf-line-items-table td:nth-child(2) { width: 220px; }
+.lf-line-items-table th:nth-child(3),
+.lf-line-items-table td:nth-child(3) { width: 220px; }
+.lf-line-items-table th:nth-child(4),
+.lf-line-items-table td:nth-child(4) { width: 100px; }
+.lf-line-items-table th:nth-child(5),
+.lf-line-items-table td:nth-child(5) { width: 110px; }
+.lf-line-items-table th:nth-child(6),
+.lf-line-items-table td:nth-child(6) { width: 80px; }
+.lf-line-items-table th:nth-child(7),
+.lf-line-items-table td:nth-child(7) { width: 110px; }
+.lf-line-items-table th:nth-child(8),
+.lf-line-items-table td:nth-child(8) { width: 100px; }
+.lf-line-items-table th:nth-child(9),
+.lf-line-items-table td:nth-child(9) { width: 120px; }
+.lf-line-items-table th:nth-child(10),
+.lf-line-items-table td:nth-child(10) { width: 48px; }
+.lf-line-items-table .lf-form-input,
+.lf-line-items-table .lf-form-select {
+  box-sizing: border-box;
+  min-width: 0;
+  padding-left: 7px;
+  padding-right: 7px;
+  font-variant-numeric: tabular-nums;
+}
+.lf-line-item-catalog-meta {
+  margin-top: 5px;
+  color: var(--lf-text-muted);
+  font-size: 10px;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
