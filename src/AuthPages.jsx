@@ -378,11 +378,8 @@ export function AuthLoginPage() {
           {busy ? <><LoaderCircle className="auth-spinner" size={17} /> Signing you in…</> : <>Sign in <ArrowRight size={16} /></>}
         </button>
       </form>
-      <div className="auth-divider"><span>or continue with</span></div>
-      {googleEnabled ? (
+      {googleEnabled && (
         <button type="button" className="auth-btn auth-btn-secondary" onClick={googleLogin} disabled={busy}><GoogleMark /> Continue with Google</button>
-      ) : (
-        <p className="auth-provider-note">Google sign-in is off. Enable Google in Supabase Dashboard → Authentication → Sign In / Providers → Google, add your Google OAuth Client ID and Secret, then set VITE_SUPABASE_GOOGLE_ENABLED=true in Vercel Preview and redeploy. See the PR test plan for the Google callback URL.</p>
       )}
       <button type="button" className="auth-magic-link" onClick={sendMagicLink} disabled={busy}><Mail size={16} /> Email me a magic link</button>
       <p className="auth-switch-prompt">New to LedgerFlow? <button type="button" className="auth-inline-link" onClick={() => navigate('/signup' + (redirect !== '/' ? '?redirect=' + encodeURIComponent(redirect) : ''))}>Create an account</button></p>
