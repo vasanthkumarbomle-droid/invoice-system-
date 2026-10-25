@@ -44,7 +44,6 @@ import {
   HelpCircle,
   Eye,
   Receipt,
-  FileDown,
   PenLine,
   Eraser,
   Send,
@@ -1452,8 +1451,7 @@ const [quotations, setQuotations] = useState([])
           showToast={showToast}
           signatureData={documentSignatures[previewDoc.id] || ''}
           onSignatureChange={(value) => handleSaveDocumentSignature(previewDoc, value)}
-          onSendDocument={handleSendDocument}
-          onGoSettings={() => { setPreviewDoc(null); navigateTo('/settings') }}
+            onGoSettings={() => { setPreviewDoc(null); navigateTo('/settings') }}
         />
       )}
 
@@ -3221,20 +3219,10 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
 // DOCUMENT PREVIEW MODAL & A4 PRINT TEMPLATE
 // ============================================================================
 
-function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast, signatureData = '', onSignatureChange, onSendDocument, onGoSettings }) {
+function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast, signatureData = '', onSignatureChange, onGoSettings }) {
   const isInvoice = doc.type === 'invoice'
   const missingSellerFields = [!companyProfile.gstin?.trim() && 'GSTIN', !companyProfile.address?.trim() && 'registered address', !companyProfile.bankName?.trim() && 'bank name', !companyProfile.accountNumber?.trim() && 'bank account number', !companyProfile.ifscCode?.trim() && 'IFSC code'].filter(Boolean)
   const [signatureModalOpen, setSignatureModalOpen] = useState(false)
-  const [sending, setSending] = useState(false)
-
-  const handleSendDocument = async () => {
-    if (!onSendDocument) return
-    setSending(true)
-    try { await onSendDocument(doc) }
-    catch (error) { showToast(error.message || 'Could not send document', 'error') }
-    finally { setSending(false) }
-  }
-
   // Print Action — write the full standalone document before opening the print dialog.
   const handlePrint = () => {
     const printableHtml = generatePrintableHtml(doc, companyProfile, signatureData)
@@ -3277,43 +3265,28 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
     }
   }
 
-  // Download Standalone Self-Contained HTML Invoice
-  const handleDownloadHtml = () => {
-    const htmlContent = generatePrintableHtml(doc, companyProfile, signatureData)
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${doc.documentNumber}.html`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    showToast(`Downloaded ${doc.documentNumber}.html ready to print or save as PDF`, 'success')
-  }
-
   return (
     <>
     <div className="lf-modal-backdrop lf-non-printable">
       <div className="lf-modal lf-modal-lg" style={{ maxHeight: '92vh' }}>
         {missingSellerFields.length > 0 && (
           <div className="lf-profile-completion-alert" role="status">
-            <div className="lf-profile-completion-copy"><strong>Complete your business details</strong><span>To make this document more professional, add: {missingSellerFields.join(', ')}. You can still preview, send or download it now.</span></div>
+            <div className="lf-profile-completion-copy"><strong>Complete your business details</strong><span>To make this document more professional, add: {missingSellerFields.join(', ')}. You can still preview or download it now.</span></div>
             <button type="button" className="lf-btn lf-btn-secondary lf-btn-sm" onClick={onGoSettings}>Edit profile</button>
           </div>
         )}
         {/* Modal Top Bar */}
-        <div className="lf-modal-header">
-          <div>
-            <h3 className="lf-modal-title">
-              {isInvoice ? 'Tax Invoice Preview' : 'Price Quotation Preview'}  -  {doc.documentNumber}
+        <div className="lf-modal-header lf-document-preview-header">
+          <div className="lf-document-preview-heading">
+            <h3 className="lf-modal-title lf-document-preview-title">
+              {isInvoice ? 'Tax Invoice Preview' : 'Price Quotation Preview'} - {doc.documentNumber}
             </h3>
             <span className={`lf-badge lf-badge-${doc.status.toLowerCase().replace(/\s+/g, '-')}`}>
               {doc.status}
             </span>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="lf-document-preview-actions">
             <button
               type="button"
               className="lf-btn lf-btn-primary lf-btn-sm"
@@ -3322,25 +3295,6 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
             >
               <PrintIcon size={15} />
               <span>Download / Save PDF</span>
-            </button>
-            <button
-              type="button"
-              className="lf-btn lf-btn-secondary lf-btn-sm"
-              disabled={sending || !doc.clientEmail}
-              title={!doc.clientEmail ? 'Add a valid client email first' : 'Send a secure document link to the client'}
-              onClick={handleSendDocument}
-            >
-              {sending ? <LoaderCircle size={15} className="lf-spin" /> : <Send size={15} />}
-              <span>{sending ? 'Sending…' : 'Send to Client'}</span>
-            </button>
-            <button
-              type="button"
-              className="lf-btn lf-btn-secondary lf-btn-sm"
-              onClick={handleDownloadHtml}
-              title="Download standalone file"
-            >
-              <FileDown size={15} />
-              <span>Download HTML</span>
             </button>
             <button type="button" className="lf-btn lf-btn-secondary lf-btn-sm" onClick={onEdit}>
               <Edit size={15} />
