@@ -53,6 +53,31 @@ function doPost(e) {
     if (htmlBody) message.htmlBody = htmlBody;
     if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyTo)) message.replyTo = replyTo;
 
+    var incomingAttachments = Array.isArray(request.attachments) ? request.attachments : [];
+    if (incomingAttachments.length > 3) {
+      return ledgerFlowJson_({ success: false, error: "A maximum of 3 PDF attachments is allowed." });
+    }
+    var attachments = [];
+    var attachmentBytesTotal = 0;
+    for (var i = 0; i < incomingAttachments.length; i++) {
+      var item = incomingAttachments[i] || {};
+      var filename = String(item.filename || "document.pdf").replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
+      var content = String(item.content || "");
+      var contentType = String(item.content_type || "application/pdf").toLowerCase();
+      if (contentType !== "application/pdf" || !filename.toLowerCase().endsWith(".pdf")) {
+        return ledgerFlowJson_({ success: false, error: "Only PDF attachments are accepted." });
+      }
+      if (!content || content.length > 8000000 || !/^[A-Za-z0-9+/]*={0,2}$/.test(content)) {
+        return ledgerFlowJson_({ success: false, error: "A PDF attachment is invalid or too large." });
+      }
+      attachmentBytesTotal += content.length;
+      if (attachmentBytesTotal > 8000000) {
+        return ledgerFlowJson_({ success: false, error: "Total PDF attachment size is too large." });
+      }
+      attachments.push(Utilities.newBlob(Utilities.base64Decode(content), "application/pdf", filename));
+    }
+    if (attachments.length) message.attachments = attachments;
+
     MailApp.sendEmail(message);
     return ledgerFlowJson_({ success: true });
   } catch (error) {
