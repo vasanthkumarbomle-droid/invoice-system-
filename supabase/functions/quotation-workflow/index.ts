@@ -658,19 +658,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const appBase = (configuredAppBase || "https://ledgerflowhq.vercel.app").replace(/\/+$/, "");
     const scriptUrl = String(Deno.env.get("GOOGLE_APPS_SCRIPT_URL") || "").trim();
     const scriptSecret = String(Deno.env.get("GOOGLE_APPS_SCRIPT_SECRET") || "");
+    const resendApiKey = String(Deno.env.get("RESEND_API_KEY") || "");
+    const resendFromEmail = String(Deno.env.get("RESEND_FROM_EMAIL") || "");
+    const hasResendConfiguration = Boolean(resendApiKey || resendFromEmail);
     const missingEmailSettings: string[] = [];
     if (!/^https:\/\//i.test(appBase)) missingEmailSettings.push("PUBLIC_APP_URL (must be an HTTPS URL)");
-    if (!scriptUrl) missingEmailSettings.push("GOOGLE_APPS_SCRIPT_URL");
-    if (!scriptSecret) missingEmailSettings.push("GOOGLE_APPS_SCRIPT_SECRET");
-    if (scriptUrl) {
-      try {
-        const parsedScriptUrl = new URL(scriptUrl);
-        if (parsedScriptUrl.protocol !== "https:" || parsedScriptUrl.hostname !== "script.google.com" ||
-            !parsedScriptUrl.pathname.startsWith("/macros/s/") || !parsedScriptUrl.pathname.endsWith("/exec")) {
-          missingEmailSettings.push("GOOGLE_APPS_SCRIPT_URL (must be a deployed Google Apps Script Web App URL ending in /exec)");
+
+    // Validate the provider the sender will actually use. A working Resend
+    // setup must not be blocked just because the optional Apps Script fallback
+    // is not configured; partial Resend settings must still fail clearly.
+    if (hasResendConfiguration) {
+      if (!resendApiKey) missingEmailSettings.push("RESEND_API_KEY");
+      if (!resendFromEmail) missingEmailSettings.push("RESEND_FROM_EMAIL");
+    } else {
+      if (!scriptUrl) missingEmailSettings.push("GOOGLE_APPS_SCRIPT_URL");
+      if (!scriptSecret) missingEmailSettings.push("GOOGLE_APPS_SCRIPT_SECRET");
+      if (scriptUrl) {
+        try {
+          const parsedScriptUrl = new URL(scriptUrl);
+          if (parsedScriptUrl.protocol !== "https:" || parsedScriptUrl.hostname !== "script.google.com" ||
+              !parsedScriptUrl.pathname.startsWith("/macros/s/") || !parsedScriptUrl.pathname.endsWith("/exec")) {
+            missingEmailSettings.push("GOOGLE_APPS_SCRIPT_URL (must be a deployed Google Apps Script Web App URL ending in /exec)");
+          }
+        } catch {
+          missingEmailSettings.push("GOOGLE_APPS_SCRIPT_URL (not a valid URL)");
         }
-      } catch {
-        missingEmailSettings.push("GOOGLE_APPS_SCRIPT_URL (not a valid URL)");
       }
     }
     if (missingEmailSettings.length > 0) {
