@@ -46,6 +46,7 @@ import {
   Receipt,
   FileDown,
   PenLine,
+  Eraser,
   Send,
   LoaderCircle,
   LogOut
@@ -3421,6 +3422,7 @@ function SignaturePadModal({ initialSignature, onClose, onSave }) {
   const drawingRef = useRef(false)
   const hasDrawingRef = useRef(false)
   const [hasDrawing, setHasDrawing] = useState(Boolean(initialSignature))
+  const [signatureTool, setSignatureTool] = useState('pen')
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -3451,7 +3453,8 @@ function SignaturePadModal({ initialSignature, onClose, onSave }) {
     const context = canvas.getContext('2d')
     context.beginPath()
     context.moveTo(point.x, point.y)
-    context.lineWidth = 3
+    context.globalCompositeOperation = signatureTool === 'eraser' ? 'destination-out' : 'source-over'
+    context.lineWidth = signatureTool === 'eraser' ? 26 : 3
     context.strokeStyle = '#1D4ED8'
     context.lineCap = 'round'
     context.lineJoin = 'round'
@@ -3478,12 +3481,21 @@ function SignaturePadModal({ initialSignature, onClose, onSave }) {
           <button type="button" className="lf-icon-btn" onClick={onClose} aria-label="Close signature pad"><X size={16} /></button>
         </div>
         <div className="lf-modal-body">
-          <p style={{ marginTop: 0, color: 'var(--lf-text-muted)', fontSize: '12px' }}>Draw with a mouse, trackpad or touchscreen. The signature is embedded in the printable document.</p>
+          <p style={{ marginTop: 0, color: 'var(--lf-text-muted)', fontSize: '12px' }}>Draw with a mouse, trackpad or touchscreen. Select Eraser to remove unwanted strokes without clearing your whole signature.</p>
+          <div className="lf-signature-tools" role="toolbar" aria-label="Signature tools">
+            <button type="button" className={`lf-btn lf-btn-sm ${signatureTool === 'pen' ? 'lf-btn-primary' : 'lf-btn-secondary'}`} aria-pressed={signatureTool === 'pen'} onClick={() => setSignatureTool('pen')}>
+              <PenLine size={15} /> Pen
+            </button>
+            <button type="button" className={`lf-btn lf-btn-sm ${signatureTool === 'eraser' ? 'lf-btn-primary' : 'lf-btn-secondary'}`} aria-pressed={signatureTool === 'eraser'} onClick={() => setSignatureTool('eraser')}>
+              <Eraser size={15} /> Eraser
+            </button>
+            <span className="lf-signature-tool-hint">{signatureTool === 'eraser' ? 'Erase unwanted strokes' : 'Draw in LedgerFlow blue'}</span>
+          </div>
           <canvas ref={canvasRef} width={680} height={180} aria-label="Signature drawing area"
             onPointerDown={startDrawing} onPointerMove={draw}
             onPointerUp={() => { drawingRef.current = false }} onPointerCancel={() => { drawingRef.current = false }}
             onPointerLeave={() => { drawingRef.current = false }}
-            style={{ display: 'block', width: '100%', height: 'auto', border: '1px dashed var(--lf-border-strong)', borderRadius: '8px', background: '#fff', touchAction: 'none', cursor: 'crosshair' }} />
+            style={{ display: 'block', width: '100%', height: 'auto', border: '1px dashed var(--lf-border-strong)', borderRadius: '8px', background: '#fff', touchAction: 'none', cursor: signatureTool === 'eraser' ? 'cell' : 'crosshair' }} />
         </div>
         <div className="lf-modal-footer" style={{ justifyContent: 'space-between' }}>
           <button type="button" className="lf-btn lf-btn-secondary" onClick={clearSignature}>Clear</button>
