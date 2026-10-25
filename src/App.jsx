@@ -1568,7 +1568,7 @@ const [quotations, setQuotations] = useState([])
 // ============================================================================
 // DASHBOARD (OVERVIEW) VIEW
 // ============================================================================
-function RevenueTrendChart({ data, onCreateInvoice }) {
+function RevenueTrendChart({ data }) {
   const [selectedBar, setSelectedBar] = useState(null)
   const [chartWidth, setChartWidth] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 480 ? 360 : 720)
   useEffect(() => {
@@ -1610,9 +1610,9 @@ function RevenueTrendChart({ data, onCreateInvoice }) {
           <div className="lf-chart-empty-icon" aria-hidden="true"><BarChart3 size={24} /></div>
           <h4>No invoice activity yet</h4>
           <p>Your revenue chart will come alive after you issue your first invoice.</p>
-          <button type="button" className="lf-btn lf-btn-primary lf-btn-sm" onClick={onCreateInvoice}>
+          <Link to="/invoices/new" className="lf-btn lf-btn-primary lf-btn-sm">
             <Plus size={15} /> Create First Invoice
-          </button>
+          </Link>
         </div>
       ) : (
         <svg className="lf-revenue-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Last six months comparing invoiced amounts with payments received">
