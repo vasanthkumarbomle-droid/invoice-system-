@@ -363,7 +363,9 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
           barcode: r.barcode || '',
           category: r.category || 'Hardware',
           price: Number(r.price),
-          gstRate: Number(r.gst_rate),
+          gstRate: r.gst_rate == null || r.gst_rate === ''
+            ? Number(companyProfile.defaultGstRate ?? 18)
+            : Number(r.gst_rate),
           hsnSac: r.hsn_sac || '',
           stock,
           reservedStock,
@@ -374,7 +376,7 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
     } catch (e) {
       console.error('Failed to load products and reservations:', e)
     }
-  }, [org.id])
+  }, [org.id, companyProfile.defaultGstRate])
 
   useEffect(() => {
     loadProducts()
