@@ -7,7 +7,7 @@ Last reviewed against GitHub `main` on 2026-10-23. This is a source-code review 
 - [x] CSV cells are quoted, embedded quotes are escaped, and spreadsheet formula-leading text is prefixed in `src/lib/finance.js`.
 - [x] Missing invoice and quotation numbers have display fallbacks in the record mappers.
 - [x] Dashboard invoice totals exclude Draft and Cancelled documents.
-- [x] India-local date helper and payment-terms-based due-date calculation are used in the editor.
+- [x] India-local date helper and payment-erms-based due-date calculation are used in the editor.
 - [x] HSN/SAC is represented in product and document line items and included in the standalone invoice HTML.
 - [x] Manual client details can be saved by creating a client record before saving a document.
 - [x] Payment modal filters out Draft, Cancelled and Paid invoices; amount input allows paise-level values (minimum ₹0.01); payment notes are passed to the database.
