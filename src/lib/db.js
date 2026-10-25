@@ -96,8 +96,6 @@ export const createQuotation = async (orgId, clientId, validUntil, items, notes 
   return getQuotation(orgId, id)
 }
 export const setQuotationStatus = (orgId, id, status) => supabase.from('quotations').update({ status }).eq('org_id', orgId).eq('id', id).select('id').single().then(must)
-export const convertQuotationToInvoice = (id, dueDate = null) =>
-  supabase.rpc('convert_quotation_to_invoice', { p_quote_id: id, p_due_date: dueDate }).then(must)
 
 // Reservations are operational stock, so every page must be included in this calculation.
 export const listReservedProductQuantities = async (orgId) => {
@@ -133,8 +131,39 @@ export const listReservedProductQuantities = async (orgId) => {
   return totals
 }
 
-// Backward-compatible alias for older callers.
-export const convertQuotation = convertQuotationToInvoice
+export const listSalesOrdersFull = (orgId) =>
+  fetchAllPages(() => supabase.from('sales_orders')
+    .select('*, clients(name,email), quotations!sales_orders_quotation_id_fkey(quote_number,grand_total,issue_date,valid_until), sales_order_items(*), invoices!invoices_sales_order_id_fkey(id,invoice_number,status)')
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false }))
+
+export const manageSalesOrderAction = async (orgId, orderId, action, fields = {}) => {
+  const { data, error } = await supabase.functions.invoke('quotation-workflow', {
+    body: {
+      action: 'manage_order', orgId, orderId, orderAction: action,
+      carrier: fields.carrier || '',
+      trackingNumber: fields.trackingNumber || '',
+      trackingUrl: fields.trackingUrl || '',
+    },
+  })
+  let responseData = data
+  const context = error?.context
+  if (error && context && typeof context.clone === 'function') {
+    const response = context.clone()
+    const body = await response.text().catch(() => '')
+    if (body) {
+      try { responseData = JSON.parse(body) } catch { /* Keep SDK data when non-JSON. */ }
+    }
+  }
+  if (error || responseData?.error) {
+    const message = String(responseData?.error || responseData?.message || '').trim()
+    const details = String(responseData?.details || '').trim()
+    throw new Error([message, details].filter(Boolean).join(' — ') || error?.message || 'Sales-order action failed.')
+  }
+  if (responseData?.success !== true) throw new Error('The sales-order service did not confirm the update.')
+  return responseData
+}
 
 export const saveDocumentSignature = async (orgId, documentType, documentId, signatureData) => {
   const { data, error } = await supabase.functions.invoke('quotation-workflow', {
