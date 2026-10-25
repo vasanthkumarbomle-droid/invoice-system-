@@ -131,9 +131,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   if (action === "pending") {
     // Fail closed: only companies that opted in AND acknowledged the shared Gmail sender qualify.
-    const { data: enabledRows, error: settingsError } = await fetchAllPages<{ org_id: string; reminder_schedule?: string | null }>((from, to) =>
+    const { data: enabledRows, error: settingsError } = await fetchAllPages<{ org_id: string }>((from, to) =>
       supabase.from("organization_reminder_settings")
-        .select("org_id,reminder_schedule")
+        .select("org_id")
         .eq("enabled", true)
         .eq("shared_sender_acknowledged", true)
         .order("org_id", { ascending: true })
@@ -147,10 +147,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       }, 500);
     }
 
-    const scheduleByOrgId = new Map<string, string>(
-      (enabledRows ?? []).map((row) => [String(row.org_id), String(row.reminder_schedule || "3_days_before")]),
-    );
-    const enabledOrgIds = [...scheduleByOrgId.keys()];
+    const enabledOrgIds = [...new Set(
+      (enabledRows ?? []).map((row) => String(row.org_id)),
+    )];
 
     if (enabledOrgIds.length === 0) {
       return jsonResponse({
@@ -221,15 +220,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const days = daysUntilDue(today, due);
       let reminderType: "due_soon" | "due_today" | "overdue" | null = null;
       let referenceDate = today;
-      const schedule = scheduleByOrgId.get(invoice.org_id) || "3_days_before";
 
-      if (schedule === "3_days_before" && days === 3) {
+      if (days >= 1 && days <= 3) {
         reminderType = "due_soon";
         referenceDate = due;
-      } else if (schedule === "due_date" && days === 0) {
+      } else if (days === 0) {
         reminderType = "due_today";
         referenceDate = due;
-      } else if (schedule === "7_days_overdue" && days === -7) {
+      } else if (days < 0) {
         reminderType = "overdue";
         referenceDate = today;
       } else {
