@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   addDaysToDateString,
   calculateDocumentAmounts,
+  calculateBillingAdjustments,
   escapeCsvCell,
   numberToWordsINR,
   isPastDueDate,
@@ -65,4 +66,32 @@ test('escapeCsvCell escapes quotes and protects formula-leading text', () => {
 
 test('numberToWordsINR preserves paise', () => {
   assert.equal(numberToWordsINR(12.34), 'Rupees Twelve and Paise Thirty Four Only')
+})
+
+test('calculateBillingAdjustments includes shipping, TDS and TCS in total', () => {
+  const result = calculateBillingAdjustments({
+    taxableAmount: 1000, taxAmount: 180, shippingCharge: 50,
+    tdsRate: 2, tcsRate: 1, roundOffMode: 'manual', roundOffValue: 0,
+  })
+  assert.equal(result.tdsAmount, 20)
+  assert.equal(result.tcsAmount, 10)
+  assert.equal(result.shippingChargeAmount, 50)
+  assert.equal(result.roundOffAmount, 0)
+  assert.equal(result.grandTotal, 1220)
+})
+
+test('calculateBillingAdjustments rounds to the nearest rupee', () => {
+  const result = calculateBillingAdjustments({ taxableAmount: 100, taxAmount: 18, roundOffMode: 'nearest_rupee' })
+  assert.equal(result.roundOffAmount, 0)
+  assert.equal(result.grandTotal, 118)
+  const paiseCase = calculateBillingAdjustments({ taxableAmount: 100, taxAmount: 18.38, roundOffMode: 'nearest_rupee' })
+  assert.equal(paiseCase.roundOffAmount, -0.38)
+  assert.equal(paiseCase.grandTotal, 118)
+})
+
+test('calculateBillingAdjustments caps manual round-off and normalizes negative inputs', () => {
+  const result = calculateBillingAdjustments({ taxableAmount: -1, taxAmount: 18, shippingCharge: -10, roundOffValue: 8 })
+  assert.equal(result.shippingChargeAmount, 0)
+  assert.equal(result.roundOffAmount, 1)
+  assert.equal(result.grandTotal, 19)
 })
