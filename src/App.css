@@ -20,7 +20,7 @@
   --lf-border: #E2E8F0;
   --lf-border-strong: #CBD5E1;
   --lf-border-focus: #2563EB;
-  --lf-success: #16A34A;
+  --lf-success: #2563EB;
   --lf-success-bg: #F0FDF4;
   --lf-warning: #D97706;
   --lf-warning-bg: #FFFBEB;
@@ -1290,7 +1290,7 @@ a:hover {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    border-bottom: 2pt solid #B87842;
+    border-bottom: 2pt solid #2563EB;
     padding-bottom: 14pt;
     margin-bottom: 18pt;
   }
@@ -1298,7 +1298,7 @@ a:hover {
   .lf-print-company-name {
     font-size: 18pt;
     font-weight: 700;
-    color: #B87842;
+    color: #2563EB;
   }
 
   .lf-print-doc-title {
@@ -1322,10 +1322,10 @@ a:hover {
   }
 
   .lf-print-table th {
-    background-color: #FBF0E7 !important;
-    color: #B87842 !important;
+    background-color: #EFF6FF !important;
+    color: #2563EB !important;
     font-weight: 700;
-    border-bottom: 1.5pt solid #B87842;
+    border-bottom: 1.5pt solid #2563EB;
     padding: 6pt 8pt;
     text-align: left;
     font-size: 10pt;
@@ -1333,14 +1333,14 @@ a:hover {
 
   .lf-print-table td {
     padding: 7pt 8pt;
-    border-bottom: 0.5pt solid #E6E1DA;
+    border-bottom: 0.5pt solid #E2E8F0;
     font-size: 10pt;
   }
 
   .lf-print-summary-box {
     margin-left: auto;
     width: 260pt;
-    border: 1pt solid #E6E1DA;
+    border: 1pt solid #E2E8F0;
     border-radius: 4pt;
     padding: 8pt 12pt;
     margin-bottom: 20pt;
@@ -1354,16 +1354,16 @@ a:hover {
   }
 
   .lf-print-grand-total {
-    border-top: 1.5pt solid #B87842;
+    border-top: 1.5pt solid #2563EB;
     margin-top: 6pt;
     padding-top: 6pt;
     font-weight: 800;
     font-size: 13pt;
-    color: #B87842;
+    color: #2563EB;
   }
 
   .lf-print-footer {
-    border-top: 1pt solid #E6E1DA;
+    border-top: 1pt solid #E2E8F0;
     padding-top: 12pt;
     display: flex;
     justify-content: space-between;
@@ -2040,7 +2040,7 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .lf-print-paper { position: relative; }
 .lf-paper-watermark { position: absolute; z-index: 1; top: 42%; left: 50%; transform: translate(-50%, -50%) rotate(-24deg); padding: 8px 18px; border: 3px solid currentColor; border-radius: 6px; font-size: clamp(22px, 3vw, 42px); font-weight: 900; letter-spacing: .12em; opacity: .10; pointer-events: none; white-space: nowrap; }
 .lf-paper-watermark-draft { color: #64748B; }
-.lf-paper-watermark-paid { color: #16A34A; opacity: .18; }
+.lf-paper-watermark-paid { color: #2563EB; opacity: .18; }
 .lf-paper-watermark-cancelled { color: #DC2626; opacity: .16; }
 .lf-paper-watermark-sent { color: #2563EB; opacity: .12; }
 
@@ -2088,8 +2088,8 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   display: inline-block;
   border-radius: 3px;
 }
-.lf-legend-invoiced { background: #24775B; }
-.lf-legend-received { background: #E8A04B; }
+.lf-legend-invoiced { background: #2563EB; }
+.lf-legend-received { background: #D97706; }
 .lf-revenue-legend .lf-chart-period {
   margin-left: auto;
   color: #84958A;
@@ -2294,4 +2294,29 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   .lf-modal-header .lf-btn span { font-size: 11px; }
   .lf-chart-summary-item strong { font-size: 12px; }
   .lf-dashboard-grid > .lf-card { padding: 13px; }
+}
+
+/* Final motion and accessible action polish */
+.lf-dashboard-hero { animation: lf-dashboard-enter .45s cubic-bezier(.2,.75,.2,1) both; }
+.lf-metrics-grid .lf-metric-card { animation: lf-dashboard-enter .42s cubic-bezier(.2,.75,.2,1) both; }
+.lf-metrics-grid .lf-metric-card:nth-child(2) { animation-delay: .04s; }
+.lf-metrics-grid .lf-metric-card:nth-child(3) { animation-delay: .08s; }
+.lf-metrics-grid .lf-metric-card:nth-child(4) { animation-delay: .12s; }
+@keyframes lf-dashboard-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.lf-signature-action {
+  border-color: var(--lf-brand-subtle);
+  background: var(--lf-brand-light);
+  color: var(--lf-brand-hover);
+}
+.lf-signature-action:hover {
+  border-color: var(--lf-brand);
+  background: var(--lf-brand-subtle);
+}
+@media (prefers-reduced-motion: reduce) {
+  .lf-dashboard-hero, .lf-metrics-grid .lf-metric-card, .lf-chart-bar {
+    animation: none !important;
+  }
 }
