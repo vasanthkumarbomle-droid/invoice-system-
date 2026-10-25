@@ -3501,6 +3501,13 @@ function SignaturePadModal({ initialSignature, onClose, onSave }) {
 // Pure Printable Template Component
 function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', showSignatureControl = false, onRequestSignature }) {
   const isInvoice = doc.type === 'invoice'
+  // The QR service receives only merchant UPI ID, payee name, amount and invoice reference.
+  const upiPayUri = isInvoice && companyProfile.upiId && Number(doc.grandTotal) > 0
+    ? `upi://pay?pa=${encodeURIComponent(String(companyProfile.upiId).trim())}&pn=${encodeURIComponent(String(companyProfile.tradeName || companyProfile.companyName || 'Business'))}&am=${Number(doc.grandTotal).toFixed(2)}&cu=INR&tn=${encodeURIComponent(String(doc.documentNumber || 'Invoice'))}`
+    : ''
+  const upiQrSrc = upiPayUri
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&format=png&data=${encodeURIComponent(upiPayUri)}`
+    : ''
   const sellerStateCode = String(companyProfile.stateCode || companyProfile.gstin?.slice(0, 2) || '')
   const buyerStateCode = String(doc.clientStateCode || doc.clientGstin?.slice(0, 2) || '')
   const hasPlaceOfSupply = /^\d{2}$/.test(sellerStateCode) && /^\d{2}$/.test(buyerStateCode)
@@ -3625,6 +3632,10 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
               {companyProfile.accountHolder && <div>A/C Name: <strong>{companyProfile.accountHolder}</strong></div>}
               {companyProfile.accountNumber && <div>A/C Number: <strong>{companyProfile.accountNumber}</strong></div>}
               {(companyProfile.ifscCode || companyProfile.upiId) && <div>{companyProfile.ifscCode && <>IFSC Code: <strong>{companyProfile.ifscCode}</strong></>}{companyProfile.ifscCode && companyProfile.upiId ? ' | ' : ''}{companyProfile.upiId && <>UPI ID: <strong>{companyProfile.upiId}</strong></>}</div>}
+              {upiQrSrc && <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '10px' }}>
+                <img src={upiQrSrc} alt={`UPI payment QR for invoice ${doc.documentNumber}`} width="92" height="92" loading="lazy" style={{ width: '92px', height: '92px', objectFit: 'contain', background: '#fff', border: '1px solid #E6E1DA', borderRadius: '4px' }} />
+                <div><div style={{ fontWeight: 700, marginBottom: '4px' }}>Scan to pay {formatINR(doc.grandTotal)}</div><div style={{ color: '#7B818B', fontSize: '10px' }}>UPI payment link includes this invoice reference.</div><a href={upiPayUri} style={{ display: 'inline-block', marginTop: '5px', color: '#2563EB' }}>Open UPI app</a></div>
+              </div>}
             </div>
           )}
           {doc.notes && (
