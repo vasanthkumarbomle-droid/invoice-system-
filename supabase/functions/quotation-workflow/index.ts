@@ -156,6 +156,76 @@ Deno.serve(async (req: Request): Promise<Response> => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  // Organization owners/admins manage server-only reminder settings through this
+  // authenticated action; the browser never gets direct table access.
+  if (action === "get_reminder_settings" || action === "save_reminder_settings") {
+    const authorization = req.headers.get("authorization") || "";
+    const publishableKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+    if (!authorization || !publishableKey) {
+      return respondJson({ error: "Sign in before changing payment reminders." }, 401);
+    }
+    const caller = createClient(supabaseUrl, publishableKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: userData, error: authError } = await caller.auth.getUser();
+    const user = userData?.user;
+    if (authError || !user) return respondJson({ error: "Your session is invalid. Sign in again." }, 401);
+
+    const orgId = String(body?.orgId || "");
+    if (!/^[0-9a-f-]{36}$/i.test(orgId)) return respondJson({ error: "Invalid organization." }, 400);
+
+    const { data: membership, error: memberError } = await admin.from("org_members")
+      .select("role").eq("org_id", orgId).eq("user_id", user.id).maybeSingle();
+    if (memberError || !membership || !["owner", "admin"].includes(String(membership.role || "").toLowerCase())) {
+      return respondJson({ error: "Only organization owners or admins can change reminder settings." }, 403);
+    }
+
+    if (action === "get_reminder_settings") {
+      const { data, error } = await admin.from("organization_reminder_settings")
+        .select("enabled,shared_sender_acknowledged,reminder_schedule")
+        .eq("org_id", orgId).maybeSingle();
+      if (error) return respondJson({ error: "Could not load reminder preferences.", details: error.message }, 500);
+      return respondJson({
+        success: true,
+        settings: {
+          enabled: Boolean(data?.enabled),
+          sharedSenderAcknowledged: Boolean(data?.shared_sender_acknowledged),
+          schedule: data?.reminder_schedule || "3_days_before",
+        },
+      });
+    }
+
+    const enabled = body?.enabled === true;
+    const sharedSenderAcknowledged = body?.sharedSenderAcknowledged === true;
+    const schedule = String(body?.schedule || "3_days_before");
+    if (!["3_days_before", "due_date", "7_days_overdue"].includes(schedule)) {
+      return respondJson({ error: "Choose a valid reminder schedule." }, 400);
+    }
+    if (enabled && !sharedSenderAcknowledged) {
+      return respondJson({ error: "Acknowledge the shared sender identity before enabling automated reminders." }, 400);
+    }
+    const now = new Date().toISOString();
+    const { data, error } = await admin.from("organization_reminder_settings").upsert({
+      org_id: orgId,
+      enabled,
+      shared_sender_acknowledged: sharedSenderAcknowledged,
+      reminder_schedule: schedule,
+      enabled_by: enabled ? user.id : null,
+      enabled_at: enabled ? now : null,
+      updated_at: now,
+    }, { onConflict: "org_id" }).select("enabled,shared_sender_acknowledged,reminder_schedule").single();
+    if (error || !data) return respondJson({ error: "Could not save reminder preferences.", details: error?.message || "" }, 500);
+    return respondJson({
+      success: true,
+      settings: {
+        enabled: Boolean(data.enabled),
+        sharedSenderAcknowledged: Boolean(data.shared_sender_acknowledged),
+        schedule: data.reminder_schedule,
+      },
+    });
+  }
+
   if (action === "manage_order") {
     const authorization = req.headers.get("authorization") || "";
     const publishableKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
