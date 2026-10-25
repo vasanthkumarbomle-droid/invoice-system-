@@ -1587,6 +1587,7 @@ const [quotations, setQuotations] = useState([])
 // DASHBOARD (OVERVIEW) VIEW
 // ============================================================================
 function RevenueTrendChart({ data }) {
+  const [selectedBar, setSelectedBar] = useState(null)
   const [chartWidth, setChartWidth] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 480 ? 360 : 720)
   useEffect(() => {
     const updateWidth = () => setChartWidth(window.innerWidth <= 480 ? 360 : 720)
@@ -1615,6 +1616,13 @@ function RevenueTrendChart({ data }) {
 
   return (
     <div className="lf-revenue-chart">
+      {selectedBar && (
+        <div className="lf-chart-selection" role="status" aria-live="polite">
+          <span>{selectedBar.month} · {selectedBar.label}</span>
+          <strong>{formatINR(selectedBar.amount)}</strong>
+          <button type="button" className="lf-chart-selection-clear" onClick={() => setSelectedBar(null)} aria-label="Clear selected chart amount">×</button>
+        </div>
+      )}
       <svg className="lf-revenue-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Last six months comparing invoiced amounts with payments received">
         {tickValues.map((tick, index) => {
           const y = yFor(tick)
@@ -1633,11 +1641,11 @@ function RevenueTrendChart({ data }) {
           const invoiceY = yFor(invoiced)
           const receivedY = yFor(received)
           return <g key={row.month}>
-            <rect className="lf-chart-bar lf-chart-bar-invoiced" x={firstX} y={invoiceY} width={barWidth} height={Math.max(hasActivity && invoiced > 0 ? 2 : 0, baseY - invoiceY)} rx="4" fill="#2563EB">
-              <title>{row.month} invoiced: {formatINR(invoiced)}</title>
+            <rect className="lf-chart-bar lf-chart-bar-invoiced" x={firstX} y={invoiceY} width={barWidth} height={Math.max(hasActivity && invoiced > 0 ? 2 : 0, baseY - invoiceY)} rx="4" fill="#2563EB" role="button" tabIndex="0" style={{ cursor: 'pointer', outline: 'none' }} aria-label={`${row.month} invoiced: ${formatINR(invoiced)}`} aria-pressed={selectedBar?.month === row.month && selectedBar?.label === 'Invoiced'} onClick={() => setSelectedBar({ month: row.month, label: 'Invoiced', amount: invoiced })} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedBar({ month: row.month, label: 'Invoiced', amount: invoiced }) } }}>
+              <title>{row.month} invoiced: {formatINR(invoiced)} — click to view amount</title>
             </rect>
-            <rect className="lf-chart-bar lf-chart-bar-received" x={firstX + barWidth + 8} y={receivedY} width={barWidth} height={Math.max(hasActivity && received > 0 ? 2 : 0, baseY - receivedY)} rx="4" fill="#D97706">
-              <title>{row.month} received: {formatINR(received)}</title>
+            <rect className="lf-chart-bar lf-chart-bar-received" x={firstX + barWidth + 8} y={receivedY} width={barWidth} height={Math.max(hasActivity && received > 0 ? 2 : 0, baseY - receivedY)} rx="4" fill="#D97706" role="button" tabIndex="0" style={{ cursor: 'pointer', outline: 'none' }} aria-label={`${row.month} received: ${formatINR(received)}`} aria-pressed={selectedBar?.month === row.month && selectedBar?.label === 'Received'} onClick={() => setSelectedBar({ month: row.month, label: 'Received', amount: received })} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedBar({ month: row.month, label: 'Received', amount: received }) } }}>
+              <title>{row.month} received: {formatINR(received)} — click to view amount</title>
             </rect>
             <text x={groupX + slotWidth / 2} y={height - 19} textAnchor="middle" fontSize="12" fill="#64748B">{row.month}</text>
           </g>
