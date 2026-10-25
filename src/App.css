@@ -2368,3 +2368,39 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .lf-brand-title {
   color: #2563EB !important;
 }
+
+/* Click/tap readout for the dashboard revenue chart. */
+.lf-chart-selection {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 10px;
+  padding: 9px 12px;
+  border: 1px solid #BFDBFE;
+  border-radius: 10px;
+  background: #EFF6FF;
+  color: #1E40AF;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+.lf-chart-selection strong {
+  font-size: 14px;
+  color: #1D4ED8;
+  font-variant-numeric: tabular-nums;
+}
+.lf-chart-selection-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: 2px;
+  border-radius: 6px;
+  color: #1D4ED8;
+  font-size: 18px;
+  line-height: 1;
+}
+.lf-chart-selection-clear:hover { background: #DBEAFE; }
+.lf-chart-bar:focus-visible { stroke: #172033; stroke-width: 2; }
