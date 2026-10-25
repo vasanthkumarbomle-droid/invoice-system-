@@ -225,6 +225,11 @@ export const saveInvoice = async (orgId, inv, items) => {
     notes: inv.notes,
     discount_type: inv.discount_type ?? inv.discountType ?? 'percentage',
     discount_value: Number(inv.discount_value ?? inv.discountValue) || 0,
+    shipping_charge: Number(inv.shipping_charge ?? inv.shippingCharge) || 0,
+    round_off_mode: inv.round_off_mode ?? inv.roundOffMode ?? 'manual',
+    round_off_value: Number(inv.round_off_value ?? inv.roundOffValue) || 0,
+    tds_rate: Number(inv.tds_rate ?? inv.tdsRate) || 0,
+    tcs_rate: Number(inv.tcs_rate ?? inv.tcsRate) || 0,
   }
   return supabase.rpc('save_invoice_with_items', {
     p_org_id: orgId,
@@ -262,6 +267,11 @@ export const saveQuotation = async (orgId, quote, items = []) => {
     terms: quote.terms ?? null,
     discount_type: quote.discount_type ?? quote.discountType ?? 'percentage',
     discount_value: Number(quote.discount_value ?? quote.discountValue) || 0,
+    shipping_charge: Number(quote.shipping_charge ?? quote.shippingCharge) || 0,
+    round_off_mode: quote.round_off_mode ?? quote.roundOffMode ?? 'manual',
+    round_off_value: Number(quote.round_off_value ?? quote.roundOffValue) || 0,
+    tds_rate: Number(quote.tds_rate ?? quote.tdsRate) || 0,
+    tcs_rate: Number(quote.tcs_rate ?? quote.tcsRate) || 0,
   }
 
   const normalizedItems = items.map((it) => ({
