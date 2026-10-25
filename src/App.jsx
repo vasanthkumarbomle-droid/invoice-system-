@@ -810,14 +810,16 @@ const [quotations, setQuotations] = useState([])
             <svg className="lf-logo-icon" viewBox="0 0 40 40" role="img" aria-label="LedgerFlow logo" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <linearGradient id="ledgerflow-mark-gradient" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#344054" />
-                  <stop offset="100%" stopColor="#1F2937" />
+                  <stop offset="0%" stopColor="#3B82F6" />
+                  <stop offset="100%" stopColor="#1D4ED8" />
                 </linearGradient>
               </defs>
               <rect x="1" y="1" width="38" height="38" rx="11" fill="url(#ledgerflow-mark-gradient)" />
-              <path d="M11 13.5h18M11 20h11M11 26.5h7" fill="none" stroke="#F8F5F0" strokeWidth="2.4" strokeLinecap="round" />
-              <circle cx="27.5" cy="26.5" r="5.5" fill="#D79A62" />
-              <path d="M27.5 23.5v6M29.2 24.7c-.5-.5-1-.7-1.7-.7-1 0-1.7.5-1.7 1.3 0 2 3.4.8 3.4 2.5 0 .8-.7 1.3-1.7 1.3-.7 0-1.4-.3-1.9-.8" fill="none" stroke="#263445" strokeWidth="1.1" strokeLinecap="round" />
+              <path d="M10 11.5h7.5c2.1 0 3.5 1.2 3.5 3.1v14c-1.1-1.2-2.2-1.7-4-1.7H10z" fill="#FFFFFF" />
+              <path d="M30 11.5h-5.5c-2.1 0-3.5 1.2-3.5 3.1v14c1.1-1.2 2.2-1.7 4-1.7H30z" fill="#DBEAFE" />
+              <path d="M12.5 16h5M12.5 20h5M24 16h3.5M24 20h3.5" stroke="#2563EB" strokeWidth="1.3" strokeLinecap="round" />
+              <circle cx="29.2" cy="28.2" r="5" fill="#F59E0B" />
+              <path d="M26.8 28.2h4.5m-1.8-1.8 1.8 1.8-1.8 1.8" fill="none" stroke="#FFFFFF" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             {!sidebarCollapsed && (
               <div className="lf-brand-text">
@@ -1008,27 +1010,31 @@ const [quotations, setQuotations] = useState([])
               )}
             </div>
 
-            {/* Contextual primary action */}
-            <button type="button" className="lf-btn lf-btn-primary" onClick={() => {
-              if (activeTab === 'quotations') handleStartNewDoc('quotation')
-              else if (activeTab === 'clients') { setEditingClient(null); setClientModalOpen(true) }
-              else if (activeTab === 'products') { setEditingProduct(null); setProductModalOpen(true) }
-              else handleStartNewDoc('invoice')
-            }}>
-              <Plus size={16} />
-              <span>{activeTab === 'quotations' ? 'New Quotation' : activeTab === 'clients' ? 'New Client' : activeTab === 'products' ? 'New Product' : 'New Invoice'}</span>
-            </button>
-            <div className="lf-quick-create">
-              <button type="button" className="lf-btn lf-btn-secondary" aria-expanded={quickCreateOpen} onClick={() => setQuickCreateOpen((open) => !open)}>
-                <Plus size={15} /><span>New</span><ChevronDown size={14} />
-              </button>
-              {quickCreateOpen && <div className="lf-dropdown-menu lf-quick-create-menu">
-                <button type="button" className="lf-dropdown-item" onClick={() => { setQuickCreateOpen(false); handleStartNewDoc('invoice') }}><FileText size={15} /><span>Invoice</span></button>
-                <button type="button" className="lf-dropdown-item" onClick={() => { setQuickCreateOpen(false); handleStartNewDoc('quotation') }}><FileSpreadsheet size={15} /><span>Quotation</span></button>
-                <button type="button" className="lf-dropdown-item" onClick={() => { setQuickCreateOpen(false); setEditingClient(null); setClientModalOpen(true) }}><Users size={15} /><span>Client</span></button>
-                <button type="button" className="lf-dropdown-item" onClick={() => { setQuickCreateOpen(false); setEditingProduct(null); setProductModalOpen(true) }}><Package size={15} /><span>Product</span></button>
-              </div>}
-            </div>
+            {/* Contextual create actions are hidden on Overview to keep the header calm. */}
+            {activeTab !== 'dashboard' && (
+              <>
+                <button type="button" className="lf-btn lf-btn-primary" onClick={() => {
+                  if (activeTab === 'quotations') handleStartNewDoc('quotation')
+                  else if (activeTab === 'clients') { setEditingClient(null); setClientModalOpen(true) }
+                  else if (activeTab === 'products') { setEditingProduct(null); setProductModalOpen(true) }
+                  else handleStartNewDoc('invoice')
+                }}>
+                  <Plus size={16} />
+                  <span>{activeTab === 'quotations' ? 'New Quotation' : activeTab === 'clients' ? 'New Client' : activeTab === 'products' ? 'New Product' : 'New Invoice'}</span>
+                </button>
+                <div className="lf-quick-create">
+                  <button type="button" className="lf-btn lf-btn-secondary" aria-expanded={quickCreateOpen} onClick={() => setQuickCreateOpen((open) => !open)}>
+                    <Plus size={15} /><span>New</span><ChevronDown size={14} />
+                  </button>
+                  {quickCreateOpen && <div className="lf-dropdown-menu lf-quick-create-menu">
+                    <button type="button" className="lf-dropdown-item" onClick={() => { setQuickCreateOpen(false); handleStartNewDoc('invoice') }}><FileText size={15} /><span>Invoice</span></button>
+                    <button type="button" className="lf-dropdown-item" onClick={() => { setQuickCreateOpen(false); handleStartNewDoc('quotation') }}><FileSpreadsheet size={15} /><span>Quotation</span></button>
+                    <button type="button" className="lf-dropdown-item" onClick={() => { setQuickCreateOpen(false); setEditingClient(null); setClientModalOpen(true) }}><Users size={15} /><span>Client</span></button>
+                    <button type="button" className="lf-dropdown-item" onClick={() => { setQuickCreateOpen(false); setEditingProduct(null); setProductModalOpen(true) }}><Package size={15} /><span>Product</span></button>
+                  </div>}
+                </div>
+              </>
+            )}
 
             {/* Notifications Panel */}
             <div style={{ position: 'relative' }}>
@@ -1628,9 +1634,16 @@ const [quotations, setQuotations] = useState([])
 // DASHBOARD (OVERVIEW) VIEW
 // ============================================================================
 function RevenueTrendChart({ data }) {
-  const width = 720
+  const [chartWidth, setChartWidth] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 480 ? 360 : 720)
+  useEffect(() => {
+    const updateWidth = () => setChartWidth(window.innerWidth <= 480 ? 360 : 720)
+    window.addEventListener('resize', updateWidth)
+    return () => window.removeEventListener('resize', updateWidth)
+  }, [])
+
+  const width = chartWidth
   const height = 270
-  const margin = { top: 16, right: 16, bottom: 42, left: 76 }
+  const margin = { top: 16, right: chartWidth <= 420 ? 8 : 16, bottom: 42, left: chartWidth <= 420 ? 58 : 76 }
   const plotWidth = width - margin.left - margin.right
   const plotHeight = height - margin.top - margin.bottom
   const values = data.flatMap((row) => [Number(row.Invoiced) || 0, Number(row.Received) || 0])
@@ -1638,7 +1651,7 @@ function RevenueTrendChart({ data }) {
   const scaleMax = maxValue > 0 ? Math.ceil(maxValue / 4) * 4 : 4
   const tickValues = Array.from({ length: 5 }, (_, index) => scaleMax * index / 4)
   const slotWidth = plotWidth / Math.max(data.length, 1)
-  const barWidth = Math.min(25, slotWidth * 0.25)
+  const barWidth = Math.min(chartWidth <= 420 ? 14 : 25, slotWidth * 0.25)
   const yFor = (value) => margin.top + plotHeight - ((Number(value) || 0) / scaleMax) * plotHeight
   const axisMoney = (value) => {
     if (value >= 1000000) return '₹' + (value / 1000000).toFixed(1) + 'm'
@@ -1649,12 +1662,12 @@ function RevenueTrendChart({ data }) {
 
   return (
     <div className="lf-revenue-chart">
-      <svg className="lf-revenue-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Six-month chart comparing invoiced totals and payments received">
+      <svg className="lf-revenue-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Last six months comparing invoiced amounts with payments received">
         {tickValues.map((tick, index) => {
           const y = yFor(tick)
           return <g key={index}>
-            <line x1={margin.left} y1={y} x2={width - margin.right} y2={y} stroke="#E2E8DF" strokeDasharray={index === 0 ? '0' : '3 5'} />
-            <text x={margin.left - 10} y={y + 4} textAnchor="end" fontSize="11" fill="#75877C">{axisMoney(tick)}</text>
+            <line x1={margin.left} y1={y} x2={width - margin.right} y2={y} stroke="#E2E8F0" strokeDasharray={index === 0 ? '0' : '3 5'} />
+            <text x={margin.left - 8} y={y + 4} textAnchor="end" fontSize="11" fill="#64748B">{axisMoney(tick)}</text>
           </g>
         })}
         {data.map((row, index) => {
@@ -1667,16 +1680,16 @@ function RevenueTrendChart({ data }) {
           const invoiceY = yFor(invoiced)
           const receivedY = yFor(received)
           return <g key={row.month}>
-            <rect x={firstX} y={invoiceY} width={barWidth} height={Math.max(hasActivity && invoiced > 0 ? 2 : 0, baseY - invoiceY)} rx="4" fill="#24775B">
+            <rect className="lf-chart-bar lf-chart-bar-invoiced" x={firstX} y={invoiceY} width={barWidth} height={Math.max(hasActivity && invoiced > 0 ? 2 : 0, baseY - invoiceY)} rx="4" fill="#2563EB">
               <title>{row.month} invoiced: {formatINR(invoiced)}</title>
             </rect>
-            <rect x={firstX + barWidth + 8} y={receivedY} width={barWidth} height={Math.max(hasActivity && received > 0 ? 2 : 0, baseY - receivedY)} rx="4" fill="#E8A04B">
+            <rect className="lf-chart-bar lf-chart-bar-received" x={firstX + barWidth + 8} y={receivedY} width={barWidth} height={Math.max(hasActivity && received > 0 ? 2 : 0, baseY - receivedY)} rx="4" fill="#D97706">
               <title>{row.month} received: {formatINR(received)}</title>
             </rect>
-            <text x={groupX + slotWidth / 2} y={height - 19} textAnchor="middle" fontSize="12" fill="#65796D">{row.month}</text>
+            <text x={groupX + slotWidth / 2} y={height - 19} textAnchor="middle" fontSize="12" fill="#64748B">{row.month}</text>
           </g>
         })}
-        {!hasActivity && <text x={margin.left + plotWidth / 2} y={margin.top + plotHeight / 2} textAnchor="middle" fontSize="14" fill="#75877C">Nothing billed yet — your numbers will show here.</text>}
+        {!hasActivity && <text x={margin.left + plotWidth / 2} y={margin.top + plotHeight / 2} textAnchor="middle" fontSize="13" fill="#64748B">Your invoice and collection activity will appear here.</text>}
       </svg>
       <div className="lf-revenue-legend" aria-hidden="true">
         <span><i className="lf-legend-invoiced" /> Invoiced</span>
@@ -1686,6 +1699,7 @@ function RevenueTrendChart({ data }) {
     </div>
   )
 }
+
 
 function DashboardView({ invoices, payments, quotations, companyProfile, userName, onViewDoc, onGoSettings }) {
   const reportableInvoices = useMemo(() => invoices.filter((invoice) => !['Draft', 'Cancelled'].includes(invoice.status)), [invoices])
@@ -1770,8 +1784,8 @@ function DashboardView({ invoices, payments, quotations, companyProfile, userNam
           <section className="lf-profile-checklist" aria-label="Complete your business profile">
             <div className="lf-profile-checklist-head">
               <div>
-                <h3 className="lf-card-title">Business profile (optional for now)</h3>
-                <p className="lf-card-subtitle">Optional for this demo — add these details later in Settings.</p>
+                <h3 className="lf-card-title">Complete your business profile</h3>
+                <p className="lf-card-subtitle">Add your business details once to personalize invoices and quotations.</p>
               </div>
               <button type="button" className="lf-btn lf-btn-secondary lf-btn-sm" onClick={onGoSettings}>Go to Settings</button>
             </div>
@@ -1840,10 +1854,24 @@ function DashboardView({ invoices, payments, quotations, companyProfile, userNam
         <div className="lf-card">
           <div className="lf-card-header">
             <div>
-              <h3 className="lf-card-title">Invoicing & Collections Trend</h3>
-              <p className="lf-card-subtitle">Monthly billed volume vs. payments collected (&#8377;)</p>
+              <h3 className="lf-card-title">Invoice performance</h3>
+              <p className="lf-card-subtitle">Monthly invoiced value vs. payments received</p>
             </div>
             <span className="lf-badge lf-badge-sent">{indianFinancialYearLabel()}</span>
+          </div>
+          <div className="lf-chart-summary" aria-label="Six-month invoicing totals">
+            <div className="lf-chart-summary-item is-invoiced">
+              <span>Total invoiced · 6 months</span>
+              <strong>{formatINR(chartData.reduce((sum, row) => sum + (Number(row.Invoiced) || 0), 0))}</strong>
+            </div>
+            <div className="lf-chart-summary-item is-received">
+              <span>Total received · 6 months</span>
+              <strong>{formatINR(chartData.reduce((sum, row) => sum + (Number(row.Received) || 0), 0))}</strong>
+            </div>
+            <div className="lf-chart-summary-item is-outstanding">
+              <span>Outstanding now</span>
+              <strong>{formatINR(outstandingBalance)}</strong>
+            </div>
           </div>
           <div className="lf-chart-wrap">
             <RevenueTrendChart data={chartData} />
@@ -1854,8 +1882,8 @@ function DashboardView({ invoices, payments, quotations, companyProfile, userNam
         <div className="lf-card">
           <div className="lf-card-header">
             <div>
-              <h3 className="lf-card-title">Recent Invoices</h3>
-              <p className="lf-card-subtitle">Latest issued billing documents</p>
+              <h3 className="lf-card-title">Latest invoice activity</h3>
+              <p className="lf-card-subtitle">Recent documents, amounts and payment status</p>
             </div>
           </div>
           <div className="lf-table-container">
@@ -3285,9 +3313,9 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
     <div className="lf-modal-backdrop lf-non-printable">
       <div className="lf-modal lf-modal-lg" style={{ maxHeight: '92vh' }}>
         {missingSellerFields.length > 0 && (
-          <div className="lf-profile-completion-alert" role="alert">
-            <div className="lf-profile-completion-copy"><strong>Business details are optional for now</strong><span>Not set yet: {missingSellerFields.join(', ')}. You can still send or download.</span></div>
-            <button type="button" className="lf-btn lf-btn-secondary lf-btn-sm" onClick={onGoSettings}>Go to Settings</button>
+          <div className="lf-profile-completion-alert" role="status">
+            <div className="lf-profile-completion-copy"><strong>Complete your business details</strong><span>To make this document more professional, add: {missingSellerFields.join(', ')}. You can still preview, send or download it now.</span></div>
+            <button type="button" className="lf-btn lf-btn-secondary lf-btn-sm" onClick={onGoSettings}>Edit profile</button>
           </div>
         )}
         {/* Modal Top Bar */}
@@ -3341,17 +3369,8 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
         </div>
 
         {/* Modal Scrollable Body Previewing A4 Document */}
-        <div className="lf-modal-body" style={{ background: '#F1E7DE', padding: '24px', display: 'flex', justifyContent: 'center' }}>
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '780px',
-              backgroundColor: '#FFFFFF',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-              borderRadius: '4px',
-              padding: '40px'
-            }}
-          >
+        <div className="lf-modal-body lf-preview-canvas">
+          <div className="lf-preview-paper">
             <PrintableInvoiceTemplate doc={doc} companyProfile={companyProfile} signatureData={signatureData} showSignatureControl onRequestSignature={() => setSignatureModalOpen(true)} />
           </div>
         </div>
@@ -3421,6 +3440,7 @@ function SignaturePadModal({ initialSignature, onClose, onSave }) {
     context.beginPath()
     context.moveTo(point.x, point.y)
     context.lineWidth = 3
+    context.strokeStyle = '#1D4ED8'
     context.lineCap = 'round'
     context.lineJoin = 'round'
   }
@@ -3480,9 +3500,9 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
     <div className={`lf-print-paper lf-print-paper-${String(doc.status || 'draft').toLowerCase().replace(/\s+/g, '-')}`} style={{ position: 'relative', fontFamily: 'Arial, sans-serif', color: '#252A32' }}>
       {['Draft', 'Paid', 'Cancelled'].includes(doc.status) || doc.status === 'Sent' ? <div className={`lf-paper-watermark lf-paper-watermark-${String(doc.status || 'draft').toLowerCase().replace(/\s+/g, '-')}`} aria-label={`Document status: ${doc.status}`}>{doc.status === 'Sent' ? 'ISSUED' : String(doc.status || 'Draft').toUpperCase()}</div> : null}
       {/* Top Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #B87842', paddingBottom: '16px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #2563EB', paddingBottom: '16px', marginBottom: '20px' }}>
         <div>
-          <div style={{ fontSize: '22px', fontWeight: 800, color: '#B87842' }}>
+          <div style={{ fontSize: '22px', fontWeight: 800, color: '#2563EB' }}>
             {companyProfile.tradeName || companyProfile.companyName}
           </div>
           <div style={{ fontSize: '11px', color: '#7B818B', maxWidth: '340px', marginTop: '4px', lineHeight: '1.4' }}>
@@ -3500,7 +3520,7 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
           <div style={{ fontSize: '24px', fontWeight: 800, color: '#252A32', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             {isInvoice ? 'Tax Invoice' : 'Price Quotation'}
           </div>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: '#B87842', marginTop: '4px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: '#2563EB', marginTop: '4px' }}>
             #{doc.documentNumber}
           </div>
           <div style={{ fontSize: '11px', color: '#7B818B', marginTop: '4px' }}>
@@ -3512,7 +3532,7 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
       {/* Meta Grid: Billed To & Document Details */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
         <div style={{ padding: '12px', background: '#F6F4F0', borderRadius: '4px', border: '1px solid #E6E1DA' }}>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: '#B87842', textTransform: 'uppercase', marginBottom: '6px' }}>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: '#2563EB', textTransform: 'uppercase', marginBottom: '6px' }}>
             Billed To / Customer Details
           </div>
           <div style={{ fontSize: '14px', fontWeight: 700, color: '#252A32' }}>{doc.clientName}</div>
@@ -3528,7 +3548,7 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
         </div>
 
         <div style={{ padding: '12px', background: '#F6F4F0', borderRadius: '4px', border: '1px solid #E6E1DA' }}>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: '#B87842', textTransform: 'uppercase', marginBottom: '6px' }}>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: '#2563EB', textTransform: 'uppercase', marginBottom: '6px' }}>
             Document Reference & Terms
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
@@ -3557,15 +3577,15 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
       {/* Items Table */}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px', fontSize: '11px' }}>
         <thead>
-          <tr style={{ backgroundColor: '#FBF0E7', borderBottom: '1.5px solid #B87842' }}>
-            <th style={{ padding: '8px', textAlign: 'left', width: '30px', color: '#B87842' }}>#</th>
-            <th style={{ padding: '8px', textAlign: 'left', color: '#B87842' }}>Description</th>
-            <th style={{ padding: '8px', textAlign: 'left', width: '70px', color: '#B87842' }}>SKU</th>
-            <th style={{ padding: '8px', textAlign: 'left', width: '70px', color: '#B87842' }}>HSN / SAC</th>
-            <th style={{ padding: '8px', textAlign: 'right', width: '50px', color: '#B87842' }}>Qty</th>
-            <th style={{ padding: '8px', textAlign: 'right', width: '80px', color: '#B87842' }}>Rate (&#8377;)</th>
-            <th style={{ padding: '8px', textAlign: 'right', width: '60px', color: '#B87842' }}>GST</th>
-            <th style={{ padding: '8px', textAlign: 'right', width: '90px', color: '#B87842' }}>Total (&#8377;)</th>
+          <tr style={{ backgroundColor: '#FBF0E7', borderBottom: '1.5px solid #2563EB' }}>
+            <th style={{ padding: '8px', textAlign: 'left', width: '30px', color: '#2563EB' }}>#</th>
+            <th style={{ padding: '8px', textAlign: 'left', color: '#2563EB' }}>Description</th>
+            <th style={{ padding: '8px', textAlign: 'left', width: '70px', color: '#2563EB' }}>SKU</th>
+            <th style={{ padding: '8px', textAlign: 'left', width: '70px', color: '#2563EB' }}>HSN / SAC</th>
+            <th style={{ padding: '8px', textAlign: 'right', width: '50px', color: '#2563EB' }}>Qty</th>
+            <th style={{ padding: '8px', textAlign: 'right', width: '80px', color: '#2563EB' }}>Rate (&#8377;)</th>
+            <th style={{ padding: '8px', textAlign: 'right', width: '60px', color: '#2563EB' }}>GST</th>
+            <th style={{ padding: '8px', textAlign: 'right', width: '90px', color: '#2563EB' }}>Total (&#8377;)</th>
           </tr>
         </thead>
         <tbody>
@@ -3590,7 +3610,7 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
         <div style={{ flex: 1 }}>
           {(companyProfile.bankName || companyProfile.accountHolder || companyProfile.accountNumber || companyProfile.ifscCode || companyProfile.upiId) && (
             <div style={{ padding: '10px 14px', background: '#F6F4F0', border: '1px solid #E6E1DA', borderRadius: '4px', marginBottom: '12px', fontSize: '11px' }}>
-              <div style={{ fontWeight: 700, color: '#B87842', marginBottom: '4px' }}>BANK PAYMENT DETAILS</div>
+              <div style={{ fontWeight: 700, color: '#2563EB', marginBottom: '4px' }}>BANK PAYMENT DETAILS</div>
               {companyProfile.bankName && <div>Bank: <strong>{companyProfile.bankName}</strong></div>}
               {companyProfile.accountHolder && <div>A/C Name: <strong>{companyProfile.accountHolder}</strong></div>}
               {companyProfile.accountNumber && <div>A/C Number: <strong>{companyProfile.accountNumber}</strong></div>}
@@ -3612,7 +3632,7 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
           </div>
 
           {doc.discountAmount > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', color: '#B87842' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', color: '#2563EB' }}>
               <span>Discount:</span>
               <span>-{formatINR(doc.discountAmount)}</span>
             </div>
@@ -3641,9 +3661,9 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
             </>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 4px', borderTop: '2px solid #B87842', marginTop: '6px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 800, color: '#B87842' }}>Total:</span>
-            <span style={{ fontSize: '14px', fontWeight: 800, color: '#B87842' }}>{formatINR(doc.grandTotal)}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 4px', borderTop: '2px solid #2563EB', marginTop: '6px' }}>
+            <span style={{ fontSize: '13px', fontWeight: 800, color: '#2563EB' }}>Total:</span>
+            <span style={{ fontSize: '14px', fontWeight: 800, color: '#2563EB' }}>{formatINR(doc.grandTotal)}</span>
           </div>
 
           <div style={{ fontSize: '9px', color: '#7B818B', textAlign: 'right', marginTop: '2px' }}>
@@ -3658,7 +3678,7 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
           This is a computer generated document. Generated via LedgerFlow.
         </div>
         <div style={{ textAlign: 'center', minWidth: '170px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#B87842', marginBottom: '6px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#2563EB', marginBottom: '6px' }}>
             For {companyProfile.tradeName || companyProfile.companyName}
           </div>
           <div className="lf-signature-area" style={{ position: 'relative', width: '170px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 3px' }}>
@@ -3695,14 +3715,14 @@ function generatePrintableHtml(doc, profile, signatureData = '') {
 <title>${esc(doc.documentNumber)} - ${esc(profile.tradeName)}</title>
 <style>
 *{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;margin:32px;color:#252b27;background:#fff}
-.header{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #B87842;padding-bottom:16px;margin-bottom:20px}
-.title{font-size:24px;font-weight:800;color:#B87842}.muted{font-size:12px;color:#6b756d;margin-top:4px}
+.header{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #2563EB;padding-bottom:16px;margin-bottom:20px}
+.title{font-size:24px;font-weight:800;color:#2563EB}.muted{font-size:12px;color:#6b756d;margin-top:4px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
 .box{padding:12px;background:#f8faf8;border:1px solid #e6eae5;border-radius:4px;font-size:12px;overflow-wrap:anywhere}
-table{width:100%;border-collapse:collapse;margin-bottom:24px;font-size:12px}th{background:#eef5f1;color:#B87842;text-align:left;padding:8px;border-bottom:1.5px solid #B87842}
+table{width:100%;border-collapse:collapse;margin-bottom:24px;font-size:12px}th{background:#eef5f1;color:#2563EB;text-align:left;padding:8px;border-bottom:1.5px solid #2563EB}
 td{padding:8px;border-bottom:1px solid #e6eae5}.num{text-align:right;white-space:nowrap}
 .total-box{margin-left:auto;width:280px;max-width:100%;border:1px solid #e6eae5;border-radius:4px;padding:12px;font-size:12px}
-.row{display:flex;justify-content:space-between;gap:12px;padding:3px 0}.grand{border-top:2px solid #B87842;margin-top:6px;padding-top:6px;font-size:15px;font-weight:800;color:#B87842}
+.row{display:flex;justify-content:space-between;gap:12px;padding:3px 0}.grand{border-top:2px solid #2563EB;margin-top:6px;padding-top:6px;font-size:15px;font-weight:800;color:#2563EB}
 .footer{margin-top:36px;border-top:1px solid #e6eae5;padding-top:12px;font-size:11px;color:#6b756d}.signature-image{display:block;max-width:160px;max-height:42px;object-fit:contain;margin:0 auto 4px}
 @media(max-width:600px){body{margin:14px}.header{flex-direction:column}.grid{grid-template-columns:1fr}table{font-size:10px}th,td{padding:5px}}
 @media print{body{margin:0}.no-print{display:none}}
@@ -3711,7 +3731,7 @@ td{padding:8px;border-bottom:1px solid #e6eae5}.num{text-align:right;white-space
 <div class="muted">${esc(profile.address)}</div><div class="muted">GSTIN: ${esc(profile.gstin)} | PAN: ${esc(profile.pan)}</div>
 <div class="muted">${esc(profile.email)} ${profile.phone ? ' | ' + esc(profile.phone) : ''}</div></div>
 <div style="text-align:right"><div style="font-size:24px;font-weight:800;text-transform:uppercase">${isInvoice ? 'Tax Invoice' : 'Price Quotation'}</div>
-<div style="font-size:14px;font-weight:700;color:#B87842">#${esc(doc.documentNumber)}</div><div class="muted">Date: ${esc(doc.issueDate)}</div></div></div>
+<div style="font-size:14px;font-weight:700;color:#2563EB">#${esc(doc.documentNumber)}</div><div class="muted">Date: ${esc(doc.issueDate)}</div></div></div>
 <div class="grid"><div class="box"><strong>Billed To:</strong><br><strong>${esc(doc.clientName)}</strong><br>
 ${esc(doc.clientAddress)}<br>${doc.clientGstin ? 'GSTIN: ' + esc(doc.clientGstin) : ''}<br>${esc(doc.clientEmail)}</div>
 <div class="box"><strong>Payment & Due Details:</strong><br>Due Date: ${esc(doc.dueDate)}<br>Terms: ${esc(doc.paymentTerms)}<br>Place of Supply (state code): ${esc(supplyState || 'Not specified')}<br>
@@ -3723,7 +3743,7 @@ Bank: ${esc(profile.bankName)} (A/C: ${esc(profile.accountNumber)}, IFSC: ${esc(
 ${taxRows}
 <div class="row grand"><span>Total:</span><span>&#8377;${money(doc.grandTotal)}</span></div></div>
 <div class="footer">Generated via LedgerFlow.
-<div style="float:right;text-align:center;min-width:170px"><div style="font-weight:700;color:#B87842">For ${esc(profile.tradeName || profile.companyName)}</div>
+<div style="float:right;text-align:center;min-width:170px"><div style="font-weight:700;color:#2563EB">For ${esc(profile.tradeName || profile.companyName)}</div>
 ${signatureData ? `<img class="signature-image" src="${esc(signatureData)}" alt="Authorized signatory signature">` : '<div style="height:42px"></div>'}
 <div style="border-top:1px solid #252b27;padding-top:3px">Authorized Signatory</div></div>
 <div style="margin-top:8px;white-space:pre-wrap;clear:both">${esc(doc.notes)}</div></div>
@@ -4938,14 +4958,16 @@ function TermsConditionsPage() {
             <svg className="lf-logo-icon" viewBox="0 0 40 40" role="img" aria-label="LedgerFlow logo" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <linearGradient id="ledgerflow-mark-gradient" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#344054" />
-                  <stop offset="100%" stopColor="#1F2937" />
+                  <stop offset="0%" stopColor="#3B82F6" />
+                  <stop offset="100%" stopColor="#1D4ED8" />
                 </linearGradient>
               </defs>
               <rect x="1" y="1" width="38" height="38" rx="11" fill="url(#ledgerflow-mark-gradient)" />
-              <path d="M11 13.5h18M11 20h11M11 26.5h7" fill="none" stroke="#F8F5F0" strokeWidth="2.4" strokeLinecap="round" />
-              <circle cx="27.5" cy="26.5" r="5.5" fill="#D79A62" />
-              <path d="M27.5 23.5v6M29.2 24.7c-.5-.5-1-.7-1.7-.7-1 0-1.7.5-1.7 1.3 0 2 3.4.8 3.4 2.5 0 .8-.7 1.3-1.7 1.3-.7 0-1.4-.3-1.9-.8" fill="none" stroke="#263445" strokeWidth="1.1" strokeLinecap="round" />
+              <path d="M10 11.5h7.5c2.1 0 3.5 1.2 3.5 3.1v14c-1.1-1.2-2.2-1.7-4-1.7H10z" fill="#FFFFFF" />
+              <path d="M30 11.5h-5.5c-2.1 0-3.5 1.2-3.5 3.1v14c1.1-1.2 2.2-1.7 4-1.7H30z" fill="#DBEAFE" />
+              <path d="M12.5 16h5M12.5 20h5M24 16h3.5M24 20h3.5" stroke="#2563EB" strokeWidth="1.3" strokeLinecap="round" />
+              <circle cx="29.2" cy="28.2" r="5" fill="#F59E0B" />
+              <path d="M26.8 28.2h4.5m-1.8-1.8 1.8 1.8-1.8 1.8" fill="none" stroke="#FFFFFF" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             <div>
               <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--lf-text)' }}>LedgerFlow</div>
