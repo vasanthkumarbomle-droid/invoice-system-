@@ -133,7 +133,7 @@ export function calculateBillingAdjustments({
   const totalBeforeRoundOff = taxable + tax + shippingChargeAmount + tcsAmount - tdsAmount
   const safeRoundOffValue = Math.max(-1, Math.min(1, Number(roundOffValue) || 0))
   const roundOffAmount = roundOffMode === 'nearest_rupee'
-    ? Math.round(totalBeforeRoundOff) - totalBeforeRoundOff
+    ? Math.round((Math.round(totalBeforeRoundOff) - totalBeforeRoundOff) * 100) / 100
     : safeRoundOffValue
   return {
     shippingChargeAmount,
