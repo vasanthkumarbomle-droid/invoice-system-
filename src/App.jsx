@@ -3736,6 +3736,22 @@ function generatePrintableHtml(doc, profile, signatureData = '') {
   const taxRows = Number(doc.igstAmount) > 0
     ? `<div class="row"><span>IGST:</span><span>&#8377;${money(doc.igstAmount)}</span></div>`
     : `<div class="row"><span>CGST:</span><span>&#8377;${money(doc.cgstAmount)}</span></div><div class="row"><span>SGST:</span><span>&#8377;${money(doc.sgstAmount)}</span></div>`
+  const financeRows = [
+    Number(doc.shippingCharge) > 0 ? `<div class="row"><span>Shipping / delivery:</span><span>&#8377;${money(doc.shippingCharge)}</span></div>` : '',
+    Number(doc.tdsAmount) > 0 ? `<div class="row"><span>TDS withheld:</span><span>-&#8377;${money(doc.tdsAmount)}</span></div>` : '',
+    Number(doc.tcsAmount) > 0 ? `<div class="row"><span>TCS collected:</span><span>+&#8377;${money(doc.tcsAmount)}</span></div>` : '',
+    Math.abs(Number(doc.roundOffAmount) || 0) >= 0.005 ? `<div class="row"><span>Round-off:</span><span>${Number(doc.roundOffAmount) > 0 ? '+' : ''}&#8377;${money(doc.roundOffAmount)}</span></div>` : '',
+  ].join('')
+  const upiPaymentAmount = Number(doc.balanceDue) > 0 ? Number(doc.balanceDue) : Number(doc.grandTotal)
+  const upiPayUri = isInvoice && profile.upiId && upiPaymentAmount > 0
+    ? `upi://pay?pa=${encodeURIComponent(String(profile.upiId).trim())}&pn=${encodeURIComponent(String(profile.tradeName || profile.companyName || 'Business'))}&am=${upiPaymentAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(String(doc.documentNumber || 'Invoice'))}`
+    : ''
+  const upiQrSrc = upiPayUri
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&format=png&data=${encodeURIComponent(upiPayUri)}`
+    : ''
+  const upiQrHtml = upiQrSrc
+    ? `<div class="box" style="margin-top:16px;display:flex;align-items:center;gap:14px"><img src="${esc(upiQrSrc)}" alt="UPI payment QR" width="110" height="110" style="width:110px;height:110px"><div><strong>Scan to pay &#8377;${money(upiPaymentAmount)}</strong><br><a href="${esc(upiPayUri)}">Open UPI app</a></div></div>`
+    : ''
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(doc.documentNumber)} - ${esc(profile.tradeName)}</title>
@@ -3767,7 +3783,9 @@ Bank: ${esc(profile.bankName)} (A/C: ${esc(profile.accountNumber)}, IFSC: ${esc(
 <div class="total-box"><div class="row"><span>Subtotal:</span><span>&#8377;${money(doc.subtotal)}</span></div>
 <div class="row"><span>Discount:</span><span>&#8377;${money(doc.discountAmount)}</span></div>
 ${taxRows}
+${financeRows}
 <div class="row grand"><span>Total:</span><span>&#8377;${money(doc.grandTotal)}</span></div></div>
+${upiQrHtml}
 <div class="footer">Generated via LedgerFlow.
 <div style="float:right;text-align:center;min-width:170px"><div style="font-weight:700;color:#2563EB">For ${esc(profile.tradeName || profile.companyName)}</div>
 ${signatureData ? `<img class="signature-image" src="${esc(signatureData)}" alt="Authorized signatory signature">` : '<div style="height:42px"></div>'}
