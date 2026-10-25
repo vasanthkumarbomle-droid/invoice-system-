@@ -211,6 +211,23 @@ function getLoginAttemptKey(email) {
   return 'lf-login-attempts:' + String(email || '').trim().toLowerCase().slice(0, 180)
 }
 
+function getAuthEmailDeliveryMessage(error, fallback) {
+  const message = String(error?.message || '')
+  const normalized = message.toLowerCase()
+
+  if (/over_email_send_rate_limit|email rate limit|rate limit exceeded|only request this after/.test(normalized)) {
+    return 'Supabase is temporarily rate-limiting verification emails. Wait before retrying. For reliable delivery to all users, configure a custom SMTP sender in Supabase Authentication → SMTP Settings.'
+  }
+  if (/email address not authorized|email_not_authorized/.test(normalized)) {
+    return 'Supabase’s built-in email sender only delivers to project team addresses. Configure custom SMTP in Supabase Authentication → SMTP Settings to send verification emails to other users.'
+  }
+  if (/smtp|mail provider|email provider|error sending confirmation email/.test(normalized)) {
+    return 'Supabase could not send the verification email. Check the SMTP settings in Supabase Authentication → SMTP Settings, then try again.'
+  }
+
+  return message || fallback
+}
+
 export function AuthLoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -427,14 +444,14 @@ export function AuthSignupPage() {
         navigate(redirect, { replace: true })
       } else {
         setConfirmEmail(true)
-        setResendCooldown(30)
+        setResendCooldown(60)
       }
     } catch (signupError) {
       const message = String(signupError?.message || '')
       if (/already registered|already exists|user already/i.test(message)) {
         setError('We could not create an account with those details. Try signing in or resetting your password.')
       } else {
-        setError(message || 'Could not create your account. Please try again.')
+        setError(getAuthEmailDeliveryMessage(signupError, 'Could not create your account. Please try again.'))
       }
     } finally {
       setBusy(false)
@@ -448,9 +465,9 @@ export function AuthSignupPage() {
     try {
       const { error: resendError } = await supabase.auth.resend({ type: 'signup', email: email.trim(), options: { emailRedirectTo: getAuthRedirectUrl('/login?redirect=' + encodeURIComponent(redirect)) } })
       if (resendError) throw resendError
-      setResendCooldown(30)
-    } catch {
-      setError('Could not resend the confirmation email just now. Please try again later.')
+      setResendCooldown(60)
+    } catch (resendError) {
+      setError(getAuthEmailDeliveryMessage(resendError, 'Could not resend the confirmation email just now. Please try again later.'))
     } finally {
       setBusy(false)
     }
