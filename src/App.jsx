@@ -176,6 +176,14 @@ function mapInvoice(r) {
     discountValue: r.discount_value != null ? Number(r.discount_value) || 0 : (rows.length ? Number(rows[0].discount_pct) || 0 : 0),
     discountAmount: Math.max(0, gross - taxable),
     taxableAmount: taxable,
+    shippingCharge: Number(r.shipping_charge) || 0,
+    roundOffMode: r.round_off_mode || 'manual',
+    roundOffValue: Number(r.round_off_value) || 0,
+    roundOffAmount: Number(r.round_off_amount) || 0,
+    tdsRate: Number(r.tds_rate) || 0,
+    tdsAmount: Number(r.tds_amount) || 0,
+    tcsRate: Number(r.tcs_rate) || 0,
+    tcsAmount: Number(r.tcs_amount) || 0,
     cgstAmount: Number(r.cgst_total) || 0,
     sgstAmount: Number(r.sgst_total) || 0,
     igstAmount: Number(r.igst_total) || 0,
@@ -220,6 +228,14 @@ function mapQuotationRecord(q) {
     discountType: ['fixed', 'flat'].includes(String(q.discount_type || '').toLowerCase()) ? 'fixed' : 'percentage',
     discountValue: q.discount_value != null ? Number(q.discount_value) || 0 : (rows.length ? Number(rows[0].discount_pct) || 0 : 0),
     discountAmount: Math.max(0, gross - taxable), taxableAmount: taxable,
+    shippingCharge: Number(q.shipping_charge) || 0,
+    roundOffMode: q.round_off_mode || 'manual',
+    roundOffValue: Number(q.round_off_value) || 0,
+    roundOffAmount: Number(q.round_off_amount) || 0,
+    tdsRate: Number(q.tds_rate) || 0,
+    tdsAmount: Number(q.tds_amount) || 0,
+    tcsRate: Number(q.tcs_rate) || 0,
+    tcsAmount: Number(q.tcs_amount) || 0,
     cgstAmount: Number(q.cgst_total || 0), sgstAmount: Number(q.sgst_total || 0),
     igstAmount: Number(q.igst_total || 0), taxAmount: Number(q.tax_total || 0),
     grandTotal, amountPaid: 0, balanceDue: grandTotal, notes: q.notes || '',
@@ -416,6 +432,11 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
       notes: d.notes || null,
       discount_type: d.discountType === 'fixed' ? 'fixed' : 'percentage',
       discount_value: Number(d.discountValue) || 0,
+      shipping_charge: Number(d.shippingCharge) || 0,
+      round_off_mode: d.roundOffMode === 'nearest_rupee' ? 'nearest_rupee' : 'manual',
+      round_off_value: Number(d.roundOffValue) || 0,
+      tds_rate: Number(d.tdsRate) || 0,
+      tcs_rate: Number(d.tcsRate) || 0,
     }, items)
     await loadInvoices()
   }
@@ -1356,6 +1377,11 @@ const [quotations, setQuotations] = useState([])
           terms: savedDoc.paymentTerms || null,
           discount_type: savedDoc.discountType === 'fixed' ? 'fixed' : 'percentage',
           discount_value: Number(savedDoc.discountValue) || 0,
+          shipping_charge: Number(savedDoc.shippingCharge) || 0,
+          round_off_mode: savedDoc.roundOffMode === 'nearest_rupee' ? 'nearest_rupee' : 'manual',
+          round_off_value: Number(savedDoc.roundOffValue) || 0,
+          tds_rate: Number(savedDoc.tdsRate) || 0,
+          tcs_rate: Number(savedDoc.tcsRate) || 0,
         },
         items
       )
@@ -2176,6 +2202,11 @@ function DocumentEditorView({
   // Discount
   const [discountType, setDiscountType] = useState(existingDoc?.discountType || 'percentage')
   const [discountValue, setDiscountValue] = useState(existingDoc?.discountValue || 0)
+  const [shippingCharge, setShippingCharge] = useState(existingDoc?.shippingCharge ?? 0)
+  const [roundOffMode, setRoundOffMode] = useState(existingDoc?.roundOffMode || 'nearest_rupee')
+  const [roundOffValue, setRoundOffValue] = useState(existingDoc?.roundOffValue ?? 0)
+  const [tdsRate, setTdsRate] = useState(existingDoc?.tdsRate ?? 0)
+  const [tcsRate, setTcsRate] = useState(existingDoc?.tcsRate ?? 0)
 
   // Barcode Scanner Modal State
   const [scannerOpen, setScannerOpen] = useState(false)
@@ -2432,7 +2463,14 @@ function DocumentEditorView({
   const cgstAmount = hasTaxJurisdiction && !isInterState ? totalTaxAmount / 2 : 0
   const sgstAmount = hasTaxJurisdiction && !isInterState ? totalTaxAmount / 2 : 0
   const igstAmount = hasTaxJurisdiction && isInterState ? totalTaxAmount : 0
-  const grandTotal = Math.round((taxableAmount + totalTaxAmount) * 100) / 100
+  const shippingChargeAmount = Math.max(0, Number(shippingCharge) || 0)
+  const tdsAmount = Math.round((taxableAmount * Math.max(0, Number(tdsRate) || 0) / 100) * 100) / 100
+  const tcsAmount = Math.round((taxableAmount * Math.max(0, Number(tcsRate) || 0) / 100) * 100) / 100
+  const totalBeforeRoundOff = taxableAmount + totalTaxAmount + shippingChargeAmount + tcsAmount - tdsAmount
+  const roundOffAmount = roundOffMode === 'nearest_rupee'
+    ? Math.round(totalBeforeRoundOff) - totalBeforeRoundOff
+    : Number(roundOffValue) || 0
+  const grandTotal = Math.round((totalBeforeRoundOff + roundOffAmount) * 100) / 100
 
   const livePreviewDoc = {
     ...(existingDoc || {}),
@@ -2452,6 +2490,14 @@ function DocumentEditorView({
     subtotal,
     discountAmount,
     taxableAmount,
+    shippingCharge: shippingChargeAmount,
+    roundOffMode,
+    roundOffValue: Number(roundOffValue) || 0,
+    roundOffAmount,
+    tdsRate: Number(tdsRate) || 0,
+    tdsAmount,
+    tcsRate: Number(tcsRate) || 0,
+    tcsAmount,
     cgstAmount,
     sgstAmount,
     igstAmount,
@@ -2503,6 +2549,14 @@ function DocumentEditorView({
       discountValue: Number(discountValue) || 0,
       discountAmount,
       taxableAmount,
+      shippingCharge: shippingChargeAmount,
+      roundOffMode,
+      roundOffValue: Number(roundOffValue) || 0,
+      roundOffAmount,
+      tdsRate: Number(tdsRate) || 0,
+      tdsAmount,
+      tcsRate: Number(tcsRate) || 0,
+      tcsAmount,
       cgstAmount,
       sgstAmount,
       igstAmount,
@@ -2945,6 +2999,32 @@ function DocumentEditorView({
             <span style={{ fontWeight: 600 }}>{formatINR(taxableAmount)}</span>
           </div>
 
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: '8px', padding: '10px 0' }}>
+            <div className="lf-form-group" style={{ marginBottom: 0 }}>
+              <label className="lf-form-label">Shipping / delivery (₹)</label>
+              <input type="number" min="0" step="0.01" className="lf-form-input" value={shippingCharge} onChange={(e) => setShippingCharge(e.target.value)} />
+            </div>
+            <div className="lf-form-group" style={{ marginBottom: 0 }}>
+              <label className="lf-form-label">TDS withheld (%)</label>
+              <input type="number" min="0" max="100" step="0.01" className="lf-form-input" value={tdsRate} onChange={(e) => setTdsRate(e.target.value)} />
+            </div>
+            <div className="lf-form-group" style={{ marginBottom: 0 }}>
+              <label className="lf-form-label">TCS collected (%)</label>
+              <input type="number" min="0" max="100" step="0.01" className="lf-form-input" value={tcsRate} onChange={(e) => setTcsRate(e.target.value)} />
+            </div>
+          </div>
+          <div className="lf-form-group" style={{ marginBottom: '8px' }}>
+            <label className="lf-form-label">Round-off handling</label>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <select className="lf-form-select" value={roundOffMode} onChange={(e) => setRoundOffMode(e.target.value)}>
+                <option value="nearest_rupee">Round to nearest rupee automatically</option>
+                <option value="manual">Manual adjustment</option>
+              </select>
+              {roundOffMode === 'manual' && <input aria-label="Manual round-off adjustment in rupees" type="number" min="-1" max="1" step="0.01" className="lf-form-input" style={{ maxWidth: '112px' }} value={roundOffValue} onChange={(e) => setRoundOffValue(e.target.value)} />}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--lf-text-muted)', marginTop: '4px' }}>Shipping is entered separately in this calculation. Verify its GST treatment and any TDS/TCS rates for your transaction before issuing.</div>
+          </div>
+
           {isInterState ? (
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px', color: 'var(--lf-text-secondary)' }}>
               <span>IGST (Integrated Tax):</span>
@@ -2963,6 +3043,10 @@ function DocumentEditorView({
             </>
           )}
 
+          {shippingChargeAmount > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px' }}><span>Shipping / delivery:</span><span>{formatINR(shippingChargeAmount)}</span></div>}
+          {tdsAmount > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px', color: 'var(--lf-text-secondary)' }}><span>TDS deduction ({Number(tdsRate) || 0}%):</span><span>-{formatINR(tdsAmount)}</span></div>}
+          {tcsAmount > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px', color: 'var(--lf-text-secondary)' }}><span>TCS addition ({Number(tcsRate) || 0}%):</span><span>+{formatINR(tcsAmount)}</span></div>}
+          {Math.abs(roundOffAmount) >= 0.005 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px', color: 'var(--lf-text-secondary)' }}><span>Round-off:</span><span>{roundOffAmount > 0 ? '+' : ''}{formatINR(roundOffAmount)}</span></div>}
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 6px', borderTop: '2px solid var(--lf-brand)', marginTop: '8px' }}>
             <span style={{ fontSize: '16px', fontWeight: 800, color: 'var(--lf-brand)' }}>Grand Total:</span>
             <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--lf-brand)' }}>{formatINR(grandTotal)}</span>
@@ -3587,6 +3671,10 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
             </>
           )}
 
+          {Number(doc.shippingCharge) > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}><span>Shipping / delivery:</span><span>{formatINR(doc.shippingCharge)}</span></div>}
+          {Number(doc.tdsAmount) > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}><span>TDS deduction:</span><span>-{formatINR(doc.tdsAmount)}</span></div>}
+          {Number(doc.tcsAmount) > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}><span>TCS addition:</span><span>+{formatINR(doc.tcsAmount)}</span></div>}
+          {Math.abs(Number(doc.roundOffAmount) || 0) >= 0.005 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}><span>Round-off:</span><span>{Number(doc.roundOffAmount) > 0 ? '+' : ''}{formatINR(doc.roundOffAmount)}</span></div>}
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 4px', borderTop: '2px solid #2563EB', marginTop: '6px' }}>
             <span style={{ fontSize: '13px', fontWeight: 800, color: '#2563EB' }}>Total:</span>
             <span style={{ fontSize: '14px', fontWeight: 800, color: '#2563EB' }}>{formatINR(doc.grandTotal)}</span>
