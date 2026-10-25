@@ -47,7 +47,6 @@ import {
   Receipt,
   PenLine,
   Eraser,
-  Send,
   LoaderCircle,
   LogOut
 } from 'lucide-react'
@@ -446,17 +445,6 @@ const [quotations, setQuotations] = useState([])
       console.error('Sales order action failed:', e)
       showToast(e?.message || 'Could not update the sales order.', 'error')
     }
-  }
-
-   const handleSendDocument = async (doc) => {
-    if (!isSupabaseConfigured) throw new Error('Connect Supabase before sending a document.')
-    if (!doc?.id || !/^[0-9a-f]{8}-/i.test(doc.id)) throw new Error('Save the document to Supabase before sending it.')
-    if (!doc.clientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(doc.clientEmail.trim())) throw new Error('Add a valid client email address before sending.')
-    await db.sendDocumentEmail(org.id, doc.type, doc.id)
-    if (doc.type === 'quotation') await loadQuotations()
-    else await loadInvoices()
-    setPreviewDoc((current) => current?.id === doc.id ? { ...current, status: 'Sent' } : current)
-    showToast('Email accepted by the email provider for ' + doc.clientEmail, 'success')
   }
 
   const handleSaveDocumentSignature = async (doc, signatureData) => {
@@ -4930,51 +4918,6 @@ function SettingsView({ profile, onSaveProfile }) {
         </div>
       </form>
     </div>
-  )
-}
-
-// ============================================================================
-// OFFLINE FALLBACK — separate from the 404 page (which handles unknown routes)
-// ============================================================================
-
-function OfflineStatusPage({ onRetry }) {
-  return (
-    <main style={{
-      minHeight: '100vh', display: 'grid', placeItems: 'center',
-      padding: 24, background: '#f4f7fb', color: '#172033',
-      fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif'
-    }}>
-      <section style={{
-        width: 'min(100%, 560px)', background: '#fff', border: '1px solid #e2e8f0',
-        borderRadius: 24, padding: 'clamp(24px, 6vw, 44px)',
-        boxShadow: '0 24px 70px rgba(15,23,42,.08)', textAlign: 'center'
-      }}>
-        <div aria-hidden="true" style={{
-          width: 64, height: 64, margin: '0 auto 22px', display: 'grid', placeItems: 'center',
-          borderRadius: 20, background: '#fff4e8', color: '#ea580c', fontSize: 30
-        }}>↯</div>
-        <p style={{ margin: '0 0 8px', fontSize: 12, letterSpacing: '.16em', fontWeight: 800, color: '#64748b' }}>LEDGERFLOW</p>
-        <h1 style={{ margin: '0 0 12px', fontSize: 'clamp(27px, 5vw, 36px)', letterSpacing: '-.04em' }}>You’re offline</h1>
-        <p style={{ margin: '0 auto 26px', maxWidth: 420, lineHeight: 1.7, color: '#64748b', fontSize: 15 }}>
-          Your internet connection was interrupted. LedgerFlow can’t sync invoices, quotations, payments or inventory until you reconnect.
-        </p>
-        <div style={{
-          display: 'flex', gap: 9, justifyContent: 'center', alignItems: 'center',
-          padding: '11px 14px', borderRadius: 12, background: '#f8fafc',
-          color: '#64748b', fontSize: 12, marginBottom: 24
-        }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f97316', display: 'inline-block' }} />
-          Changes are not being saved while offline
-        </div>
-        <button type="button" onClick={onRetry} style={{
-          border: 0, borderRadius: 12, padding: '13px 22px', background: '#2563eb',
-          color: '#fff', fontWeight: 750, fontSize: 14, cursor: 'pointer'
-        }}>Retry connection ↻</button>
-        <p style={{ margin: '18px 0 0', fontSize: 12, color: '#94a3b8' }}>
-          Your data remains in your account. Reconnect and retry any action that did not finish.
-        </p>
-      </section>
-    </main>
   )
 }
 
