@@ -912,7 +912,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
               "</ul>" +
               (paymentType === "advance" ? "<p>The agreed terms require advance payment. The business will send payment instructions separately.</p>" : "") +
               "<p>No tax invoice has been issued yet. The tax invoice will be generated and sent after packing and dispatch.</p>" +
-              "<p style="margin:24px 0"><a href="" + escapeHtml(link) + "\" style=\"display:inline-block;background:#2563EB;color:#fff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:7px\">View accepted quotation</a></p>" +
+              "<p style=\"margin:24px 0\"><a href=\"" + escapeHtml(link) + "\" style=\"display:inline-block;background:#2563EB;color:#fff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:7px\">View accepted quotation</a></p>" +
               "<p>Regards,<br>" + escapeHtml(companyName) + "</p><p style=\"font-size:11px;color:#64748B\">Sent using LedgerFlow on behalf of " + escapeHtml(companyName) + ".</p></div></div>";
             const emailPayload: Record<string, unknown> = {
               to: recipient, subject, body: bodyText, htmlBody: bodyHtml,
