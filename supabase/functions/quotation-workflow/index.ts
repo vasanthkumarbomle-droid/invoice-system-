@@ -902,9 +902,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
             const linkBase = (String(Deno.env.get("PUBLIC_APP_URL") || "https://ledgerflowhq.vercel.app").replace(/\/+$/, ""));
             const link = linkBase + "/client-document?token=" + encodeURIComponent(rawToken);
             const bodyHtml = "<div style=\"font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#0F172A\">" +
-              "<div style=\"background:#2563EB;color:#fff;padding:20px 24px\"><strong style=\"font-size:20px\">" +
+              "<div style=\"background:#2563EB;color:#fff;padding:20px 24px;border-radius:10px 10px 0 0\"><strong style=\"font-size:20px\">" +
               escapeHtml(companyName) + "</strong><div style=\"font-size:12px;margin-top:6px\">Order confirmation</div></div>" +
-              "<div style=\"border:1px solid #E2E8F0;padding:24px\"><p>Hello " + escapeHtml(titleCase(quote.clients?.name || "there")) + ",</p>" +
+              "<div style=\"border:1px solid #E2E8F0;padding:24px;border-radius:0 0 10px 10px\"><p>Hello " + escapeHtml(titleCase(quote.clients?.name || "there")) + ",</p>" +
               "<p>Thank you. We recorded your acceptance of quotation <strong>" + escapeHtml(quoteNumber) + "</strong>.</p>" +
               "<p style=\"font-size:18px\"><strong>Sales order " + escapeHtml(salesOrderNumber) + "</strong></p>" +
               "<p>Status: " + escapeHtml(titleCase(orderStatus)) + " — " + escapeHtml(stockMessage) + "</p><ul>" +
@@ -912,7 +912,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
               "</ul>" +
               (paymentType === "advance" ? "<p>The agreed terms require advance payment. The business will send payment instructions separately.</p>" : "") +
               "<p>No tax invoice has been issued yet. The tax invoice will be generated and sent after packing and dispatch.</p>" +
-              "<p><a href=\"" + escapeHtml(link) + "\">View accepted quotation</a></p>" +
+              "<p style="margin:24px 0"><a href="" + escapeHtml(link) + "\" style=\"display:inline-block;background:#2563EB;color:#fff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:7px\">View accepted quotation</a></p>" +
               "<p>Regards,<br>" + escapeHtml(companyName) + "</p><p style=\"font-size:11px;color:#64748B\">Sent using LedgerFlow on behalf of " + escapeHtml(companyName) + ".</p></div></div>";
             const emailPayload: Record<string, unknown> = {
               to: recipient, subject, body: bodyText, htmlBody: bodyHtml,
