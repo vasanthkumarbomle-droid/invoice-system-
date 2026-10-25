@@ -161,8 +161,8 @@ function mapInvoice(r) {
     dueDate: r.due_date,
     paymentTerms: r.payment_terms || 'Net 15',
     status, items, subtotal: gross,
-    discountType: 'percentage',
-    discountValue: rows.length ? Number(rows[0].discount_pct) || 0 : 0,
+    discountType: ['fixed', 'flat'].includes(String(r.discount_type || '').toLowerCase()) ? 'fixed' : 'percentage',
+    discountValue: r.discount_value != null ? Number(r.discount_value) || 0 : (rows.length ? Number(rows[0].discount_pct) || 0 : 0),
     discountAmount: Math.max(0, gross - taxable),
     taxableAmount: taxable,
     cgstAmount: Number(r.cgst_total) || 0,
@@ -205,8 +205,9 @@ function mapQuotationRecord(q) {
     clientAddress: client.address || '', clientGstin, clientStateCode: client.state_code || String(clientGstin).slice(0, 2),
     issueDate: q.issue_date, dueDate: q.valid_until, paymentTerms: q.terms || '',
     status: rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1), items,
-    subtotal: gross, discountType: 'percentage',
-    discountValue: rows.length ? Number(rows[0].discount_pct) || 0 : 0,
+    subtotal: gross,
+    discountType: ['fixed', 'flat'].includes(String(q.discount_type || '').toLowerCase()) ? 'fixed' : 'percentage',
+    discountValue: q.discount_value != null ? Number(q.discount_value) || 0 : (rows.length ? Number(rows[0].discount_pct) || 0 : 0),
     discountAmount: Math.max(0, gross - taxable), taxableAmount: taxable,
     cgstAmount: Number(q.cgst_total || 0), sgstAmount: Number(q.sgst_total || 0),
     igstAmount: Number(q.igst_total || 0), taxAmount: Number(q.tax_total || 0),
@@ -395,6 +396,8 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
       due_date: d.dueDate,
       status: STATUS_TO_DB[String(d.status || '').toLowerCase()] || (d.status === 'Draft' ? 'draft' : 'pending'),
       notes: d.notes || null,
+      discount_type: d.discountType === 'fixed' ? 'fixed' : 'percentage',
+      discount_value: Number(d.discountValue) || 0,
     }, items)
     await loadInvoices()
   }
@@ -614,6 +617,8 @@ const [quotations, setQuotations] = useState([])
         status: 'draft',
         notes: doc.notes || null,
         terms: doc.paymentTerms || null,
+        discount_type: doc.discountType === 'fixed' ? 'fixed' : 'percentage',
+        discount_value: Number(doc.discountValue) || 0,
       }, items)
       const rows = await db.listQuotationsFull(org.id)
       const mapped = rows.map(mapQuotationRecord)
@@ -1331,6 +1336,8 @@ const [quotations, setQuotations] = useState([])
           status: shouldSendIssueEmail ? 'draft' : requestedStatus,
           notes: savedDoc.notes || null,
           terms: savedDoc.paymentTerms || null,
+          discount_type: savedDoc.discountType === 'fixed' ? 'fixed' : 'percentage',
+          discount_value: Number(savedDoc.discountValue) || 0,
         },
         items
       )
