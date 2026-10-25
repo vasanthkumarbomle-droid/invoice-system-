@@ -2404,3 +2404,182 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 }
 .lf-chart-selection-clear:hover { background: #DBEAFE; }
 .lf-chart-bar:focus-visible { stroke: #172033; stroke-width: 2; }
+
+
+/* Searchable, keyboard-accessible pickers for long client and state lists. */
+.lf-search-combobox {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+.lf-search-combobox-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.lf-search-combobox-control input {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 9px 38px 9px 34px;
+  border: 1px solid var(--lf-border);
+  border-radius: var(--lf-radius-md, 8px);
+  background: var(--lf-surface, #fff);
+  color: var(--lf-text);
+  outline: none;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.lf-search-combobox-control input:focus {
+  border-color: var(--lf-brand);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+}
+.lf-search-combobox-control input:disabled {
+  cursor: not-allowed;
+  opacity: .6;
+}
+.lf-search-combobox-search {
+  position: absolute;
+  z-index: 1;
+  left: 11px;
+  color: var(--lf-text-muted);
+  pointer-events: none;
+}
+.lf-search-combobox-toggle {
+  position: absolute;
+  right: 5px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  color: var(--lf-text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+.lf-search-combobox-toggle:hover:not(:disabled) {
+  background: var(--lf-bg);
+  color: var(--lf-text);
+}
+.lf-search-combobox-options {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  max-height: 270px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 5px;
+  border: 1px solid var(--lf-border);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, .16);
+}
+.lf-search-combobox-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  text-align: left;
+  color: var(--lf-text);
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+}
+.lf-search-combobox-option:hover,
+.lf-search-combobox-option.is-active {
+  color: var(--lf-brand);
+  background: #EFF6FF;
+}
+.lf-search-combobox-option[aria-selected="true"] {
+  font-weight: 700;
+}
+.lf-search-combobox-empty {
+  padding: 14px 10px;
+  color: var(--lf-text-muted);
+  font-size: 12px;
+}
+.lf-onboarding-state-picker .lf-search-combobox-control input {
+  min-height: 44px;
+}
+@media (max-width: 520px) {
+  .lf-search-combobox-options {
+    max-height: min(250px, 45vh);
+  }
+}
+
+/* Clear chart empty state rather than drawing a grid of zero-height bars. */
+.lf-chart-empty-state {
+  min-height: 270px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 18px;
+  text-align: center;
+  border: 1px dashed #CBD5E1;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+}
+.lf-chart-empty-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  color: var(--lf-brand);
+  background: #EFF6FF;
+  border: 1px solid #DBEAFE;
+  border-radius: 14px;
+  margin-bottom: 2px;
+}
+.lf-chart-empty-state h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 750;
+  color: var(--lf-text);
+}
+.lf-chart-empty-state p {
+  max-width: 310px;
+  margin: 0 0 7px;
+  color: var(--lf-text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* Invoice due dates communicate the next action without overpowering the table. */
+.lf-due-urgency {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  margin-top: 5px;
+  padding: 3px 7px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.lf-due-urgency-overdue {
+  color: #B91C1C;
+  background: #FEF2F2;
+  border-color: #FECACA;
+}
+.lf-due-urgency-today {
+  color: #9A3412;
+  background: #FFF7ED;
+  border-color: #FED7AA;
+}
+.lf-due-urgency-soon {
+  color: #854D0E;
+  background: #FEFCE8;
+  border-color: #FEF08A;
+}
