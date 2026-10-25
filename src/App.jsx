@@ -20,6 +20,7 @@ import {
   FileSpreadsheet,
   Users,
   Package,
+  Truck,
   CreditCard,
   BarChart3,
   Settings,
@@ -217,29 +218,6 @@ function mapPayment(r) {
   }
 }
 export default function App() {
-  const [isOnline, setIsOnline] = useState(() =>
-    typeof navigator === 'undefined' ? true : navigator.onLine
-  )
-
-  useEffect(() => {
-    const updateOnlineStatus = () => setIsOnline(navigator.onLine)
-    window.addEventListener('online', updateOnlineStatus)
-    window.addEventListener('offline', updateOnlineStatus)
-    return () => {
-      window.removeEventListener('online', updateOnlineStatus)
-      window.removeEventListener('offline', updateOnlineStatus)
-    }
-  }, [])
-
-  if (!isOnline) {
-    return <OfflineStatusPage onRetry={() => {
-      if (navigator.onLine) {
-        setIsOnline(true)
-        window.location.reload()
-      }
-    }} />
-  }
-
   return (
     <Routes>
         <Route path="/login" element={<AuthLoginPage />} />
@@ -250,6 +228,7 @@ export default function App() {
         <Route path="/invoices/new" element={<LedgerFlowShell activeTab="editor" initialMode="invoice" />} />
         <Route path="/quotations" element={<LedgerFlowShell activeTab="quotations" />} />
         <Route path="/quotations/new" element={<LedgerFlowShell activeTab="editor" initialMode="quotation" />} />
+        <Route path="/sales-orders" element={<LedgerFlowShell activeTab="sales-orders" />} />
         <Route path="/clients" element={<LedgerFlowShell activeTab="clients" />} />
         <Route path="/products" element={<LedgerFlowShell activeTab="products" />} />
         <Route path="/payments" element={<LedgerFlowShell activeTab="payments" />} />
@@ -425,29 +404,51 @@ const [quotations, setQuotations] = useState([])
     loadQuotations()
   }, [loadQuotations])
 
- const handleConvertQuotation = async (quote) => {
-  if (!quote?.id || String(quote.status).toLowerCase() !== 'accepted') {
-    showToast('Only accepted quotations can be converted', 'error')
-    return
+  const [salesOrders, setSalesOrders] = useState([])
+  const loadSalesOrders = useCallback(async () => {
+    try {
+      const rows = await db.listSalesOrdersFull(org.id)
+      setSalesOrders(rows)
+    } catch (e) {
+      console.error('Failed to load sales orders:', e)
+    }
+  }, [org.id])
+
+  useEffect(() => {
+    loadSalesOrders()
+  }, [loadSalesOrders])
+
+  const handleSalesOrderAction = async (order, action, fields = {}) => {
+    if (!canManageBusiness) {
+      showToast('Only business owners or admins can update sales orders.', 'error')
+      return
+    }
+    try {
+      const result = await db.manageSalesOrderAction(org.id, order.id, action, fields)
+      await Promise.all([loadSalesOrders(), loadInvoices(), loadQuotations(), loadProducts()])
+      if (action === 'generate_invoice') {
+        showToast(result?.invoiceCreated === false
+          ? `Invoice ${result.invoiceNumber || ''} already exists for this order.`.trim()
+          : `Invoice ${result?.invoiceNumber || ''} generated successfully.`.trim(), 'success')
+        navigateTo('/invoices')
+      } else {
+        const labels = {
+          confirm_stock: 'Stock confirmed and reserved.',
+          mark_advance_paid: 'Advance payment marked as received.',
+          start_packing: 'Packing started.',
+          mark_packed: 'Order marked packed.',
+          dispatch: 'Order dispatched and tracking saved.',
+          cancel_order: 'Order cancelled and reservations released.',
+        }
+        showToast(labels[action] || 'Sales order updated.', 'success')
+      }
+    } catch (e) {
+      console.error('Sales order action failed:', e)
+      showToast(e?.message || 'Could not update the sales order.', 'error')
+    }
   }
 
-  try {
-    await db.convertQuotationToInvoice(quote.id, null)
-
-    await Promise.all([
-      loadInvoices(),
-      loadQuotations(),
-    ])
-
-    showToast('Quotation converted to invoice successfully', 'success')
-    navigateTo('/invoices')
-  } catch (e) {
-    console.error('Quotation conversion failed:', e)
-    showToast(e.message || 'Failed to convert quotation', 'error')
-  }
-}
-
-  const handleSendDocument = async (doc) => {
+   const handleSendDocument = async (doc) => {
     if (!isSupabaseConfigured) throw new Error('Connect Supabase before sending a document.')
     if (!doc?.id || !/^[0-9a-f]{8}-/i.test(doc.id)) throw new Error('Save the document to Supabase before sending it.')
     if (!doc.clientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(doc.clientEmail.trim())) throw new Error('Add a valid client email address before sending.')
@@ -877,8 +878,21 @@ const [quotations, setQuotations] = useState([])
 
           <button
             type="button"
+            className={`lf-nav-item ${activeTab === 'sales-orders' ? 'active' : ''}`}
+            onClick={() => navigateTo('/sales-orders')}
+            title="Sales Orders"
+          >
+            <span className="lf-nav-icon"><Truck size={18} /></span>
+            {!sidebarCollapsed && <span>Sales Orders</span>}
+            {!sidebarCollapsed && salesOrders.length > 0 && (
+              <span className="lf-nav-badge">{salesOrders.length}</span>
+            )}
+          </button>
+
+          <button
+            type="button"
             className={`lf-nav-item ${activeTab === 'clients' ? 'active' : ''}`}
-            onClick={() => navigateTo('/clients')}
+            onClick={() => navigateTo('/clients')
             title="Clients"
           >
             <span className="lf-nav-icon"><Users size={18} /></span>
@@ -965,6 +979,7 @@ const [quotations, setQuotations] = useState([])
                 {activeTab === 'dashboard' && 'Financial Overview'}
                 {activeTab === 'invoices' && 'Invoices'}
                 {activeTab === 'quotations' && 'Quotations & Estimates'}
+                {activeTab === 'sales-orders' && 'Sales Orders & Fulfillment'}
                 {activeTab === 'clients' && 'Client Directory'}
                 {activeTab === 'products' && 'Product Catalogue & Inventory'}
                 {activeTab === 'payments' && 'Payment Transactions'}
@@ -1153,8 +1168,15 @@ const [quotations, setQuotations] = useState([])
               onViewDoc={(doc) => setPreviewDoc(doc)}
               onEditDoc={handleEditDoc}
               onDuplicateDoc={handleDuplicateDoc}
-              onConvertToInvoice={handleConvertQuotation}
               onDeleteDoc={(doc) => confirmDelete('quotation', doc.id, doc.documentNumber)}
+            />
+          )}
+
+          {activeTab === 'sales-orders' && (
+            <SalesOrdersView
+              orders={salesOrders}
+              canManage={canManageBusiness}
+              onAction={handleSalesOrderAction}
             />
           )}
 
@@ -1905,7 +1927,6 @@ function DocumentsListView({
   onEditDoc,
   onDuplicateDoc,
    onDeleteDoc,
-  onConvertToInvoice,
   onRecordPayment
 }) {
   const [filterStatus, setFilterStatus] = useState('All')
@@ -2066,19 +2087,6 @@ function DocumentsListView({
                       >
                         <Copy size={15} />
                       </button>
-                      {!isInvoice &&
-                      doc.status.toLowerCase() === 'accepted' &&
-                      onConvertToInvoice && (
-                      <button
-                      type="button"
-                      className="lf-btn lf-btn-outline-brand lf-btn-sm"
-                      onClick={() => onConvertToInvoice(doc)}
-                      title="Convert accepted quotation to invoice"
-    >
-      <FileText size={14} />
-      <span>Convert</span>
-    </button>
-  )}
                       {isInvoice && !['Paid', 'Cancelled', 'Draft'].includes(doc.status) && Number(doc.balanceDue) > 0 && onRecordPayment && (
                         <button
                           type="button"
