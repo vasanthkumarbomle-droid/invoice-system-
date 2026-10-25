@@ -51,6 +51,7 @@ import {
 } from 'lucide-react'
 import { Html5Qrcode } from 'html5-qrcode'
 import { isSupabaseConfigured } from './supabase'
+import SearchableCombobox from './SearchableCombobox.jsx'
 import './App.css'
 
 // ============================================================================
@@ -68,6 +69,18 @@ function formatDisplayDate(value) {
   if (!value) return ''
   const date = new Date(String(value).slice(0, 10) + 'T12:00:00')
   return Number.isNaN(date.getTime()) ? String(value) : new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(date)
+}
+
+function getDueDateUrgency(dueDate, status) {
+  if (!dueDate || ['Paid', 'Cancelled', 'Draft'].includes(status)) return null
+  const due = String(dueDate).slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) return null
+  const today = todayInIndia()
+  const days = Math.round((Date.parse(due + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000)
+  if (days < 0) return { label: `Overdue by ${Math.abs(days)} ${Math.abs(days) === 1 ? 'day' : 'days'}`, tone: 'overdue' }
+  if (days === 0) return { label: 'Due today', tone: 'today' }
+  if (days <= 7) return { label: `Due in ${days} ${days === 1 ? 'day' : 'days'}`, tone: 'soon' }
+  return null
 }
 
 const GST_STATE_NAMES = {
@@ -1065,6 +1078,7 @@ const [quotations, setQuotations] = useState([])
               userName={org.user?.user_metadata?.full_name || org.full_name || (org.email ? org.email.split('@')[0] : 'there')}
               onViewDoc={(doc) => setPreviewDoc(doc)}
               onGoSettings={() => navigateTo('/settings')}
+              onCreateInvoice={() => handleStartNewDoc('invoice')}
             />
           )}
 
@@ -1528,7 +1542,7 @@ const [quotations, setQuotations] = useState([])
 // ============================================================================
 // DASHBOARD (OVERVIEW) VIEW
 // ============================================================================
-function RevenueTrendChart({ data }) {
+function RevenueTrendChart({ data, onCreateInvoice }) {
   const [selectedBar, setSelectedBar] = useState(null)
   const [chartWidth, setChartWidth] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 480 ? 360 : 720)
   useEffect(() => {
@@ -1565,7 +1579,17 @@ function RevenueTrendChart({ data }) {
           <button type="button" className="lf-chart-selection-clear" onClick={() => setSelectedBar(null)} aria-label="Clear selected chart amount">×</button>
         </div>
       )}
-      <svg className="lf-revenue-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Last six months comparing invoiced amounts with payments received">
+      {!hasActivity ? (
+        <div className="lf-chart-empty-state">
+          <div className="lf-chart-empty-icon" aria-hidden="true"><BarChart3 size={24} /></div>
+          <h4>No invoice activity yet</h4>
+          <p>Your revenue chart will come alive after you issue your first invoice.</p>
+          <button type="button" className="lf-btn lf-btn-primary lf-btn-sm" onClick={onCreateInvoice}>
+            <Plus size={15} /> Create First Invoice
+          </button>
+        </div>
+      ) : (
+        <svg className="lf-revenue-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Last six months comparing invoiced amounts with payments received">
         {tickValues.map((tick, index) => {
           const y = yFor(tick)
           return <g key={index}>
@@ -1594,6 +1618,7 @@ function RevenueTrendChart({ data }) {
         })}
         {!hasActivity && <text x={margin.left + plotWidth / 2} y={margin.top + plotHeight / 2} textAnchor="middle" fontSize="13" fill="#64748B">Your invoice and collection activity will appear here.</text>}
       </svg>
+      )}
       <div className="lf-revenue-legend" aria-hidden="true">
         <span><i className="lf-legend-invoiced" /> Invoiced</span>
         <span><i className="lf-legend-received" /> Received</span>
@@ -1604,7 +1629,7 @@ function RevenueTrendChart({ data }) {
 }
 
 
-function DashboardView({ invoices, payments, quotations, companyProfile, userName, onViewDoc, onGoSettings }) {
+function DashboardView({ invoices, payments, quotations, companyProfile, userName, onViewDoc, onGoSettings, onCreateInvoice }) {
   const reportableInvoices = useMemo(() => invoices.filter((invoice) => !['Draft', 'Cancelled'].includes(invoice.status)), [invoices])
   const reportableInvoiceIds = useMemo(() => new Set(reportableInvoices.map((invoice) => invoice.id)), [reportableInvoices])
   const totalInvoiced = useMemo(() => reportableInvoices.reduce((sum, i) => sum + (Number(i.grandTotal) || 0), 0), [reportableInvoices])
@@ -1969,7 +1994,13 @@ function DocumentsListView({
                     <div style={{ fontSize: '11px', color: 'var(--lf-text-muted)' }}>{doc.clientEmail}</div>
                   </td>
                   <td>{formatDisplayDate(doc.issueDate)}</td>
-                  <td>{formatDisplayDate(doc.dueDate)}</td>
+                  <td>
+                    <div>{formatDisplayDate(doc.dueDate)}</div>
+                    {isInvoice && (() => {
+                      const urgency = getDueDateUrgency(doc.dueDate, doc.status)
+                      return urgency ? <span className={`lf-due-urgency lf-due-urgency-${urgency.tone}`}>{urgency.label}</span> : null
+                    })()}
+                  </td>
                   <td style={{ fontWeight: 700 }}>{formatINR(doc.grandTotal)}</td>
                   {isInvoice && (
                     <td style={{ fontWeight: 600, color: doc.status === 'Cancelled' ? 'var(--lf-text-muted)' : Number(doc.balanceDue) > 0 ? 'var(--lf-warning)' : 'var(--lf-text-muted)' }}>
@@ -1994,8 +2025,10 @@ function DocumentsListView({
                       <button
                         type="button"
                         className="lf-btn lf-btn-ghost lf-btn-sm"
+                        disabled={isInvoice && doc.status !== 'Draft'}
                         onClick={() => onEditDoc(doc)}
-                        title="Edit Document"
+                        title={isInvoice && doc.status !== 'Draft' ? 'Issued invoices are locked. Duplicate to prepare a correction.' : 'Edit Document'}
+                        aria-label={isInvoice && doc.status !== 'Draft' ? 'Issued invoice locked' : 'Edit document'}
                       >
                         <Edit size={15} />
                       </button>
@@ -2525,18 +2558,18 @@ function DocumentEditorView({
 
           <div className="lf-form-group" style={{ marginBottom: '12px' }}>
             <label className="lf-form-label">Select Registered Client</label>
-            <select
-              className="lf-form-select"
+            <SearchableCombobox
+              className="lf-client-picker"
+              options={clients.map((client) => ({
+                value: client.id,
+                label: `${client.name} (${client.gstin || 'No GSTIN'})`,
+                searchText: `${client.name} ${client.gstin || ''}`,
+              }))}
               value={selectedClientId}
-              onChange={(e) => handleClientChange(e.target.value)}
-            >
-              <option value="">-- Choose existing client or enter manual details --</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.gstin || 'No GSTIN'})
-                </option>
-              ))}
-            </select>
+              onChange={handleClientChange}
+              ariaLabel="Select registered client"
+              placeholder="Search clients by name or GSTIN…"
+            />
           </div>
 
           <div className="lf-form-group" style={{ marginBottom: '12px' }}>
@@ -4570,10 +4603,16 @@ function SettingsView({ profile, onSaveProfile }) {
             </div>
             <div className="lf-form-group">
               <label className="lf-form-label">State Code (place of supply)</label>
-              <select className="lf-form-select" value={formData.stateCode || String(formData.gstin || '').slice(0, 2)} onChange={(e) => handleChange('stateCode', e.target.value)}>
-                <option value="">Select state code</option>
-                {Object.entries(GST_STATE_NAMES).sort((a, b) => a[1].localeCompare(b[1])).map(([code, name]) => <option key={code} value={code}>{code} – {name}</option>)}
-              </select>
+              <SearchableCombobox
+                className="lf-state-picker"
+                options={Object.entries(GST_STATE_NAMES).map(([value, label]) => ({
+                  value, label: `${value} – ${label}`, searchText: `${value} ${label}`,
+                }))}
+                value={formData.stateCode || String(formData.gstin || '').slice(0, 2)}
+                onChange={(value) => handleChange('stateCode', value)}
+                ariaLabel="Business state code"
+                placeholder="Search by code or state…"
+              />
             </div>
             <div className="lf-form-group">
               <label className="lf-form-label">PAN</label>
