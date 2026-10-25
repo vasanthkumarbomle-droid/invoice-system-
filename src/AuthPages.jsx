@@ -17,6 +17,14 @@ import {
 import { supabase, setRememberMe } from './supabase.js'
 import './auth.css'
 
+const PRODUCTION_APP_ORIGIN = 'https://ledgerflowhq.vercel.app'
+
+function getAuthRedirectUrl(path) {
+  const isLocalDevelopment = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname)
+  const origin = isLocalDevelopment ? window.location.origin : PRODUCTION_APP_ORIGIN
+  return new URL(path, origin).toString()
+}
+
 const googleEnabled = import.meta.env.VITE_SUPABASE_GOOGLE_ENABLED === 'true'
 
 function BrandMark({ compact = false }) {
@@ -304,7 +312,7 @@ export function AuthLoginPage() {
     try {
       const { error: magicError } = await supabase.auth.signInWithOtp({
         email: email.trim(),
-        options: { emailRedirectTo: window.location.origin + '/login?redirect=' + encodeURIComponent(redirect), shouldCreateUser: false },
+        options: { emailRedirectTo: getAuthRedirectUrl('/login?redirect=' + encodeURIComponent(redirect)), shouldCreateUser: false },
       })
       if (magicError) throw magicError
       setNotice('If this email is registered, a sign-in link will arrive shortly.')
@@ -322,7 +330,7 @@ export function AuthLoginPage() {
     try {
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.origin + '/login?redirect=' + encodeURIComponent(redirect) },
+        options: { redirectTo: getAuthRedirectUrl('/login?redirect=' + encodeURIComponent(redirect)) },
       })
       if (oauthError) throw oauthError
     } catch {
@@ -411,7 +419,7 @@ export function AuthSignupPage() {
         password,
         options: {
           data: { full_name: name.trim(), company_name: company.trim() },
-          emailRedirectTo: window.location.origin + '/login?redirect=' + encodeURIComponent(redirect),
+          emailRedirectTo: getAuthRedirectUrl('/login?redirect=' + encodeURIComponent(redirect)),
         },
       })
       if (signupError) throw signupError
@@ -438,7 +446,7 @@ export function AuthSignupPage() {
     setError('')
     setBusy(true)
     try {
-      const { error: resendError } = await supabase.auth.resend({ type: 'signup', email: email.trim(), options: { emailRedirectTo: window.location.origin + '/login?redirect=' + encodeURIComponent(redirect) } })
+      const { error: resendError } = await supabase.auth.resend({ type: 'signup', email: email.trim(), options: { emailRedirectTo: getAuthRedirectUrl('/login?redirect=' + encodeURIComponent(redirect)) } })
       if (resendError) throw resendError
       setResendCooldown(30)
     } catch {
@@ -507,7 +515,7 @@ export function AuthForgotPasswordPage() {
     if (!supabase) { setError('Password recovery is not configured for this deployment.'); return }
     setBusy(true)
     try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin + '/reset-password' })
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: getAuthRedirectUrl('/reset-password') })
       if (resetError) throw resetError
       setSent(true)
     } catch {
