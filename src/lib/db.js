@@ -99,24 +99,31 @@ export const setQuotationStatus = (orgId, id, status) => supabase.from('quotatio
 export const convertQuotationToInvoice = (id, dueDate = null) =>
   supabase.rpc('convert_quotation_to_invoice', { p_quote_id: id, p_due_date: dueDate }).then(must)
 
-// Existing reservations are still counted by inventory so hiding the workflow does not overstate available stock.
+// Reservations are operational stock, so every page must be included in this calculation.
 export const listReservedProductQuantities = async (orgId) => {
-  const rows = await supabase.from('sales_order_items')
+  const rows = await fetchAllPages(() => supabase.from('sales_order_items')
     .select('product_id,reserved_qty,sales_order_id')
     .eq('org_id', orgId)
     .gt('reserved_qty', 0)
     .not('product_id', 'is', null)
-    .then(must)
-  if (!rows.length) return {}
+    .order('sales_order_id', { ascending: true })
+    .order('id', { ascending: true }))
 
+  if (!rows.length) return {}
   const orderIds = [...new Set(rows.map((row) => row.sales_order_id).filter(Boolean))]
-  const activeOrders = await supabase.from('sales_orders')
-    .select('id')
-    .eq('org_id', orgId)
-    .in('id', orderIds)
-    .in('status', ['reserved', 'packing', 'packed', 'dispatched'])
-    .is('stock_deducted_at', null)
-    .then(must)
+  const activeOrders = []
+  // Keep each ID filter bounded for large organizations.
+  for (let offset = 0; offset < orderIds.length; offset += 250) {
+    const idChunk = orderIds.slice(offset, offset + 250)
+    const page = await supabase.from('sales_orders')
+      .select('id')
+      .eq('org_id', orgId)
+      .in('id', idChunk)
+      .in('status', ['reserved', 'packing', 'packed', 'dispatched'])
+      .is('stock_deducted_at', null)
+      .then(must)
+    activeOrders.push(...page)
+  }
   const activeIds = new Set(activeOrders.map((row) => row.id))
   const totals = {}
   for (const row of rows) {
