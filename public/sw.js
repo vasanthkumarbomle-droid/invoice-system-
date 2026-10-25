@@ -24,9 +24,12 @@ async function precacheAppShell() {
   if (indexResponse) {
     const html = await indexResponse.clone().text();
     const assets = new Set();
-    const pattern = /(?:src|href)="([^"\\]+\\.(?:js|css)(?:\\?[^"\\]*)?)"/g;
+    const pattern = /(?:src|href)="([^"]+)"/g;
     let match;
-    while ((match = pattern.exec(html))) assets.add(match[1]);
+    while ((match = pattern.exec(html))) {
+      const asset = match[1];
+      if (asset.endsWith('.js') || asset.endsWith('.css') || asset.includes('.js?') || asset.includes('.css?')) assets.add(asset);
+    }
     await Promise.all([...assets].map(async (asset) => {
       try {
         const response = await fetch(new Request(asset, { cache: 'reload' }));
