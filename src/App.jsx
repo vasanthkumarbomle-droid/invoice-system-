@@ -20,7 +20,6 @@ import {
   FileSpreadsheet,
   Users,
   Package,
-  Truck,
   CreditCard,
   BarChart3,
   Settings,
@@ -227,7 +226,6 @@ export default function App() {
         <Route path="/invoices/new" element={<LedgerFlowShell activeTab="editor" initialMode="invoice" />} />
         <Route path="/quotations" element={<LedgerFlowShell activeTab="quotations" />} />
         <Route path="/quotations/new" element={<LedgerFlowShell activeTab="editor" initialMode="quotation" />} />
-        <Route path="/sales-orders" element={<LedgerFlowShell activeTab="sales-orders" />} />
         <Route path="/clients" element={<LedgerFlowShell activeTab="clients" />} />
         <Route path="/products" element={<LedgerFlowShell activeTab="products" />} />
         <Route path="/payments" element={<LedgerFlowShell activeTab="payments" />} />
@@ -402,50 +400,6 @@ const [quotations, setQuotations] = useState([])
   useEffect(() => {
     loadQuotations()
   }, [loadQuotations])
-
-  const [salesOrders, setSalesOrders] = useState([])
-  const loadSalesOrders = useCallback(async () => {
-    try {
-      const rows = await db.listSalesOrdersFull(org.id)
-      setSalesOrders(rows)
-    } catch (e) {
-      console.error('Failed to load sales orders:', e)
-    }
-  }, [org.id])
-
-  useEffect(() => {
-    loadSalesOrders()
-  }, [loadSalesOrders])
-
-  const handleSalesOrderAction = async (order, action, fields = {}) => {
-    if (!canManageBusiness) {
-      showToast('Only business owners or admins can update sales orders.', 'error')
-      return
-    }
-    try {
-      const result = await db.manageSalesOrderAction(org.id, order.id, action, fields)
-      await Promise.all([loadSalesOrders(), loadInvoices(), loadQuotations(), loadProducts()])
-      if (action === 'generate_invoice') {
-        showToast(result?.invoiceCreated === false
-          ? `Invoice ${result.invoiceNumber || ''} already exists for this order.`.trim()
-          : `Invoice ${result?.invoiceNumber || ''} generated successfully.`.trim(), 'success')
-        navigateTo('/invoices')
-      } else {
-        const labels = {
-          confirm_stock: 'Stock confirmed and reserved.',
-          mark_advance_paid: 'Advance payment marked as received.',
-          start_packing: 'Packing started.',
-          mark_packed: 'Order marked packed.',
-          dispatch: 'Order dispatched and tracking saved.',
-          cancel_order: 'Order cancelled and reservations released.',
-        }
-        showToast(labels[action] || 'Sales order updated.', 'success')
-      }
-    } catch (e) {
-      console.error('Sales order action failed:', e)
-      showToast(e?.message || 'Could not update the sales order.', 'error')
-    }
-  }
 
   const handleSaveDocumentSignature = async (doc, signatureData) => {
     if (!isSupabaseConfigured) throw new Error('Connect Supabase before saving a signature.')
@@ -866,19 +820,6 @@ const [quotations, setQuotations] = useState([])
 
           <button
             type="button"
-            className={`lf-nav-item ${activeTab === 'sales-orders' ? 'active' : ''}`}
-            onClick={() => navigateTo('/sales-orders')}
-            title="Sales Orders"
-          >
-            <span className="lf-nav-icon"><Truck size={18} /></span>
-            {!sidebarCollapsed && <span>Sales Orders</span>}
-            {!sidebarCollapsed && salesOrders.length > 0 && (
-              <span className="lf-nav-badge">{salesOrders.length}</span>
-            )}
-          </button>
-
-          <button
-            type="button"
             className={`lf-nav-item ${activeTab === 'clients' ? 'active' : ''}`}
             onClick={() => navigateTo('/clients')}
             title="Clients"
@@ -967,7 +908,6 @@ const [quotations, setQuotations] = useState([])
                 {activeTab === 'dashboard' && 'Financial Overview'}
                 {activeTab === 'invoices' && 'Invoices'}
                 {activeTab === 'quotations' && 'Quotations & Estimates'}
-                {activeTab === 'sales-orders' && 'Sales Orders & Fulfillment'}
                 {activeTab === 'clients' && 'Client Directory'}
                 {activeTab === 'products' && 'Product Catalogue & Inventory'}
                 {activeTab === 'payments' && 'Payment Transactions'}
@@ -1157,14 +1097,6 @@ const [quotations, setQuotations] = useState([])
               onEditDoc={handleEditDoc}
               onDuplicateDoc={handleDuplicateDoc}
               onDeleteDoc={(doc) => confirmDelete('quotation', doc.id, doc.documentNumber)}
-            />
-          )}
-
-          {activeTab === 'sales-orders' && (
-            <SalesOrdersView
-              orders={salesOrders}
-              canManage={canManageBusiness}
-              onAction={handleSalesOrderAction}
             />
           )}
 
@@ -4108,187 +4040,6 @@ function ProductModal({ product, onClose, onSave }) {
 // ============================================================================
 // PAYMENTS VIEW & RECORD PAYMENT MODAL
 // ============================================================================
-
-function SalesOrdersView({ orders, canManage, onAction }) {
-  const [search, setSearch] = useState('')
-  const [dispatchFields, setDispatchFields] = useState({})
-  const [busyOrderId, setBusyOrderId] = useState('')
-
-  const filteredOrders = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    return orders.filter((order) => {
-      const clientName = String(order.clients?.name || '').toLowerCase()
-      const quoteNumber = String(order.quotations?.quote_number || '').toLowerCase()
-      return !query || String(order.order_number || '').toLowerCase().includes(query) ||
-        clientName.includes(query) || quoteNumber.includes(query)
-    })
-  }, [orders, search])
-
-  const patchDispatch = (orderId, field, value) => {
-    setDispatchFields((current) => ({
-      ...current,
-      [orderId]: { ...(current[orderId] || {}), [field]: value },
-    }))
-  }
-
-  const runAction = async (order, action, fields = {}) => {
-    if (busyOrderId) return
-    if (action === 'cancel_order' && !window.confirm('Cancel this order and release its stock reservations?')) return
-    if (action === 'mark_advance_paid' && !window.confirm('Confirm that the required advance payment has actually been received? This records the fulfillment confirmation, not a payment transaction.')) return
-    setBusyOrderId(order.id)
-    try {
-      await onAction(order, action, fields)
-    } finally {
-      setBusyOrderId('')
-    }
-  }
-
-  const statusLabel = (value) => String(value || 'unknown').replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
-  const invoiceFor = (order) => Array.isArray(order.invoices) ? order.invoices[0] : order.invoices
-  const quoteFor = (order) => Array.isArray(order.quotations) ? order.quotations[0] : order.quotations
-
-  return (
-    <div className="lf-sales-orders-view">
-      <div className="lf-card">
-        <div className="lf-card-header">
-          <div>
-            <h2 className="lf-card-title">Sales Orders & Fulfillment</h2>
-            <p className="lf-card-subtitle">Track accepted quotations from stock confirmation through packing, dispatch and invoice creation.</p>
-          </div>
-        </div>
-        <div className="lf-sales-orders-intro">
-          A client's acceptance creates a sales order first. Confirm stock, complete packing and add tracking before generating the final tax invoice.
-        </div>
-        <div className="lf-sales-orders-search">
-          <Search size={16} />
-          <input
-            type="search"
-            className="lf-form-input"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by sales order, quotation or client"
-            aria-label="Search sales orders"
-          />
-        </div>
-      </div>
-
-      {filteredOrders.length === 0 ? (
-        <div className="lf-card lf-sales-orders-empty">
-          <div className="lf-sales-orders-empty-icon"><Truck size={24} /></div>
-          <h3>{orders.length === 0 ? 'No sales orders yet' : 'No orders match this search'}</h3>
-          <p>{orders.length === 0
-            ? 'When a client accepts a sent quotation through its secure link, the sales order will appear here.'
-            : 'Try a different order number, quotation number or client name.'}</p>
-        </div>
-      ) : (
-        <div className="lf-sales-order-list">
-          {filteredOrders.map((order) => {
-            const quote = quoteFor(order)
-            const invoice = invoiceFor(order)
-            const items = Array.isArray(order.sales_order_items) ? order.sales_order_items : []
-            const fields = dispatchFields[order.id] || {
-              carrier: order.carrier || '',
-              trackingNumber: order.tracking_number || '',
-              trackingUrl: order.tracking_url || '',
-            }
-            const busy = busyOrderId === order.id
-            const statusClass = String(order.status || '').toLowerCase().replace(/_/g, '-')
-            return (
-              <article className="lf-card lf-sales-order-card" key={order.id}>
-                <div className="lf-sales-order-heading">
-                  <div>
-                    <p className="lf-sales-order-eyebrow">Sales order</p>
-                    <h3>{order.order_number}</h3>
-                    <p className="lf-sales-order-client">{order.clients?.name || 'Client'}</p>
-                  </div>
-                  <span className={`lf-badge lf-badge-${statusClass}`}>{statusLabel(order.status)}</span>
-                </div>
-
-                <div className="lf-sales-order-metrics">
-                  <div><span>Quotation</span><strong>{quote?.quote_number || '—'}</strong></div>
-                  <div><span>Order value</span><strong>{formatINR(quote?.grand_total)}</strong></div>
-                  <div><span>Stock status</span><strong>{statusLabel(order.stock_status)}</strong></div>
-                  <div><span>Payment terms</span><strong>{statusLabel(order.payment_type)}{order.payment_type === 'advance' ? (order.advance_paid ? ' · received' : ' · required') : ''}</strong></div>
-                </div>
-
-                <div className="lf-sales-order-items">
-                  <strong>Items ({items.length})</strong>
-                  {items.map((item) => (
-                    <div className="lf-sales-order-item" key={item.id}>
-                      <span>{item.description}</span>
-                      <span>Qty {Number(item.quantity) || 0}</span>
-                      {item.product_id && <span>Reserved {Number(item.reserved_qty) || 0}</span>}
-                    </div>
-                  ))}
-                </div>
-
-                {(order.carrier || order.tracking_number || order.tracking_url) && (
-                  <div className="lf-sales-order-tracking">
-                    <strong>Shipment</strong>
-                    <span>{[order.carrier, order.tracking_number].filter(Boolean).join(' · ') || 'Tracking details saved'}</span>
-                    {order.tracking_url && <a href={order.tracking_url} target="_blank" rel="noreferrer">Open tracking link</a>}
-                  </div>
-                )}
-
-                {invoice?.invoice_number && (
-                  <div className="lf-sales-order-invoice">
-                    Invoice created: <strong>{invoice.invoice_number}</strong> · {statusLabel(invoice.status)}
-                  </div>
-                )}
-
-                {canManage && (
-                  <div className="lf-sales-order-actions">
-                    {order.status === 'awaiting_stock' && (
-                      <>
-                        <button type="button" className="lf-btn lf-btn-primary lf-btn-sm" disabled={busy} onClick={() => runAction(order, 'confirm_stock')}>Confirm stock</button>
-                        <button type="button" className="lf-btn lf-btn-secondary lf-btn-sm" disabled={busy} onClick={() => runAction(order, 'cancel_order')}>Cancel order</button>
-                      </>
-                    )}
-                    {order.status === 'reserved' && (
-                      <>
-                        {order.payment_type === 'advance' && !order.advance_paid ? (
-                          <button type="button" className="lf-btn lf-btn-primary lf-btn-sm" disabled={busy} onClick={() => runAction(order, 'mark_advance_paid')}>Mark advance received</button>
-                        ) : (
-                          <button type="button" className="lf-btn lf-btn-primary lf-btn-sm" disabled={busy} onClick={() => runAction(order, 'start_packing')}>Start packing</button>
-                        )}
-                        <button type="button" className="lf-btn lf-btn-secondary lf-btn-sm" disabled={busy} onClick={() => runAction(order, 'cancel_order')}>Cancel order</button>
-                      </>
-                    )}
-                    {order.status === 'packing' && (
-                      <button type="button" className="lf-btn lf-btn-primary lf-btn-sm" disabled={busy} onClick={() => runAction(order, 'mark_packed')}>Mark packed</button>
-                    )}
-                    {order.status === 'packed' && (
-                      <form className="lf-sales-order-dispatch" onSubmit={(event) => {
-                        event.preventDefault()
-                        if (!fields.carrier.trim() || !fields.trackingNumber.trim()) return
-                        void runAction(order, 'dispatch', fields)
-                      }}>
-                        <label>Courier / carrier
-                          <input className="lf-form-input" required maxLength={120} value={fields.carrier} onChange={(event) => patchDispatch(order.id, 'carrier', event.target.value)} placeholder="e.g. Blue Dart" />
-                        </label>
-                        <label>Tracking number
-                          <input className="lf-form-input" required maxLength={180} value={fields.trackingNumber} onChange={(event) => patchDispatch(order.id, 'trackingNumber', event.target.value)} placeholder="Shipment tracking ID" />
-                        </label>
-                        <label>Tracking URL (optional)
-                          <input className="lf-form-input" type="url" pattern="https://.*" value={fields.trackingUrl} onChange={(event) => patchDispatch(order.id, 'trackingUrl', event.target.value)} placeholder="https://…" />
-                        </label>
-                        <button type="submit" className="lf-btn lf-btn-primary lf-btn-sm" disabled={busy}>Confirm dispatch</button>
-                      </form>
-                    )}
-                    {order.status === 'dispatched' && (
-                      <button type="button" className="lf-btn lf-btn-primary lf-btn-sm" disabled={busy} onClick={() => runAction(order, 'generate_invoice')}>Generate tax invoice</button>
-                    )}
-                  </div>
-                )}
-                {busy && <p className="lf-sales-order-busy" role="status">Updating sales order…</p>}
-              </article>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
 
 function PaymentsView({ payments, onOpenPaymentModal }) {
   const totalReceived = useMemo(() => payments.reduce((sum, p) => sum + (p.amount || 0), 0), [payments])
