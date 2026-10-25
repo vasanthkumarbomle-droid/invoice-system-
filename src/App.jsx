@@ -1101,7 +1101,6 @@ const [quotations, setQuotations] = useState([])
               userName={org.user?.user_metadata?.full_name || org.full_name || (org.email ? org.email.split('@')[0] : 'there')}
               onViewDoc={(doc) => setPreviewDoc(doc)}
               onGoSettings={() => navigateTo('/settings')}
-              onCreateInvoice={() => handleStartNewDoc('invoice')}
             />
           )}
 
@@ -1655,7 +1654,7 @@ function RevenueTrendChart({ data }) {
 }
 
 
-function DashboardView({ invoices, payments, quotations, companyProfile, userName, onViewDoc, onGoSettings, onCreateInvoice }) {
+function DashboardView({ invoices, payments, quotations, companyProfile, userName, onViewDoc, onGoSettings }) {
   const reportableInvoices = useMemo(() => invoices.filter((invoice) => !['Draft', 'Cancelled'].includes(invoice.status)), [invoices])
   const reportableInvoiceIds = useMemo(() => new Set(reportableInvoices.map((invoice) => invoice.id)), [reportableInvoices])
   const totalInvoiced = useMemo(() => reportableInvoices.reduce((sum, i) => sum + (Number(i.grandTotal) || 0), 0), [reportableInvoices])
