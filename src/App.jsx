@@ -4522,7 +4522,9 @@ function ReportsView({ invoices, payments }) {
       'Invoice Number', 'Invoice Date', 'Client GSTIN', 'Client Name', 'Place of Supply',
       'HSN/SAC', 'Item Description', 'Quantity', 'Unit Price', 'Taxable Value',
       'CGST Rate', 'CGST Amount', 'SGST Rate', 'SGST Amount', 'IGST Rate', 'IGST Amount',
-      'Discount Type', 'Discount Value', 'Document Taxable Total', 'Total GST', 'Invoice Value', 'Status',
+      'Discount Type', 'Discount Value', 'Shipping / Delivery', 'TDS Rate', 'TDS Amount',
+      'TCS Rate', 'TCS Amount', 'Round-off Mode', 'Round-off Amount',
+      'Document Taxable Total', 'Total GST', 'Invoice Value', 'Status',
     ]
     const rows = [header]
     for (const inv of filteredInvoices) {
@@ -4548,6 +4550,13 @@ function ReportsView({ invoices, payments }) {
           item ? (isInterState ? gstRate : 0) : (Number(inv.igstAmount) > 0 ? null : ''),
           igstAmount,
           inv.discountType || 'percentage', inv.discountValue ?? 0,
+          index === 0 ? (Number(inv.shippingCharge) || 0) : '',
+          index === 0 ? (Number(inv.tdsRate) || 0) : '',
+          index === 0 ? (Number(inv.tdsAmount) || 0) : '',
+          index === 0 ? (Number(inv.tcsRate) || 0) : '',
+          index === 0 ? (Number(inv.tcsAmount) || 0) : '',
+          index === 0 ? (inv.roundOffMode || 'manual') : '',
+          index === 0 ? (Number(inv.roundOffAmount) || 0) : '',
           index === 0 ? inv.taxableAmount : '',
           index === 0 ? inv.taxAmount : '',
           index === 0 ? inv.grandTotal : '',
