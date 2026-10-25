@@ -113,3 +113,34 @@ export function escapeCsvCell(value) {
   }
   return '"' + text.replace(/"/g, '""') + '"'
 }
+
+export function calculateBillingAdjustments({
+  taxableAmount = 0,
+  taxAmount = 0,
+  shippingCharge = 0,
+  tdsRate = 0,
+  tcsRate = 0,
+  roundOffMode = 'manual',
+  roundOffValue = 0,
+} = {}) {
+  const taxable = Math.max(0, Number(taxableAmount) || 0)
+  const tax = Math.max(0, Number(taxAmount) || 0)
+  const shippingChargeAmount = Math.max(0, Number(shippingCharge) || 0)
+  const tdsPct = Math.max(0, Number(tdsRate) || 0)
+  const tcsPct = Math.max(0, Number(tcsRate) || 0)
+  const tdsAmount = Math.round((taxable * tdsPct / 100) * 100) / 100
+  const tcsAmount = Math.round((taxable * tcsPct / 100) * 100) / 100
+  const totalBeforeRoundOff = taxable + tax + shippingChargeAmount + tcsAmount - tdsAmount
+  const safeRoundOffValue = Math.max(-1, Math.min(1, Number(roundOffValue) || 0))
+  const roundOffAmount = roundOffMode === 'nearest_rupee'
+    ? Math.round(totalBeforeRoundOff) - totalBeforeRoundOff
+    : safeRoundOffValue
+  return {
+    shippingChargeAmount,
+    tdsAmount,
+    tcsAmount,
+    roundOffAmount,
+    totalBeforeRoundOff,
+    grandTotal: Math.round((totalBeforeRoundOff + roundOffAmount) * 100) / 100,
+  }
+}
