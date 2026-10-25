@@ -3187,10 +3187,13 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
               </p>
             )}
 
-            {/* Quick Demo Barcodes to Test Instantly */}
-            <div style={{ width: '100%', padding: '10px', background: 'var(--lf-bg)', borderRadius: '6px', border: '1px solid var(--lf-border)' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--lf-text-muted)', marginBottom: '6px' }}>
-                DEMO BARCODES (CLICK TO TEST SIMULATED SCAN):
+            {/* Quick add by saved barcode */}
+            <div style={{ width: '100%', padding: '10px', background: 'var(--lf-bg)', borderRadius: '10px', border: '1px solid var(--lf-border)' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--lf-text-secondary)', marginBottom: '6px' }}>
+                QUICK ADD FROM YOUR CATALOGUE
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--lf-text-muted)', marginBottom: '8px' }}>
+                Select a saved product to look it up by its registered barcode.
               </div>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {products.filter((p) => String(p.barcode || '').trim()).slice(0, 4).map((p) => (
@@ -3361,6 +3364,15 @@ function DocumentPreviewModal({ doc, companyProfile, onClose, onEdit, showToast,
             <button type="button" className="lf-btn lf-btn-secondary lf-btn-sm" onClick={onEdit}>
               <Edit size={15} />
               <span>Edit</span>
+            </button>
+            <button
+              type="button"
+              className="lf-btn lf-btn-secondary lf-btn-sm lf-signature-action"
+              onClick={() => setSignatureModalOpen(true)}
+              title={signatureData ? 'Edit the authorized signature' : 'Add an authorized signature to the document'}
+            >
+              <PenLine size={15} />
+              <span>{signatureData ? 'Edit Signature' : 'Add Signature'}</span>
             </button>
             <button type="button" className="lf-icon-btn" onClick={onClose}>
               <X size={16} />
