@@ -159,10 +159,13 @@ async function createDocumentPdf(record: any, organization: any, documentType: "
   }
   y -= 5;
   rule();
-  const discount = Math.max(0, Number(record.subtotal || 0) - Number(record.taxable_amount ?? record.subtotal ?? 0));
-  write("Subtotal: " + inr(record.subtotal), { size: 9 });
+  const grossSubtotal = sourceItems.reduce((sum: number, item: any) =>
+    sum + (Number(item.quantity) || 0) * (Number(item.unit_price) || 0), 0);
+  const taxableSubtotal = Number(record.subtotal ?? grossSubtotal) || 0;
+  const discount = Math.max(0, grossSubtotal - taxableSubtotal);
+  write("Subtotal: " + inr(grossSubtotal), { size: 9 });
   write("Discount: " + inr(record.discount_amount ?? discount), { size: 9 });
-  write("Taxable value: " + inr(record.taxable_amount ?? record.subtotal), { size: 9 });
+  write("Taxable value: " + inr(taxableSubtotal), { size: 9 });
   write("CGST: " + inr(record.cgst_total), { size: 9 });
   write("SGST: " + inr(record.sgst_total), { size: 9 });
   write("IGST: " + inr(record.igst_total), { size: 9 });
