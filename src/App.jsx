@@ -1226,26 +1226,6 @@ const [quotations, setQuotations] = useState([])
                 setProductModalOpen(true)
               }}
               onDeleteProduct={(p) => confirmDelete('product', p.id, p.name)}
-              onAddProductToNewInvoice={(product) => {
-                setEditorMode('invoice')
-                setEditingDoc({
-                  items: [
-                    {
-                      id: `item-${Date.now()}`,
-                      productId: product.id,
-                      description: product.name,
-                      sku: product.sku,
-                      quantity: 1,
-                      unitPrice: product.price,
-                      gstRate: product.gstRate,
-                      subtotal: product.price,
-                      taxAmount: (product.price * product.gstRate) / 100,
-                      total: product.price + (product.price * product.gstRate) / 100
-                    }
-                  ]
-                })
-                navigateTo('/invoices/new')
-              }}
             />
           )}
 
@@ -3969,7 +3949,7 @@ function ClientModal({ client, onClose, onSave }) {
 // PRODUCTS & INVENTORY VIEW
 // ============================================================================
 
-function ProductsView({ products, onAddProduct, onEditProduct, onDeleteProduct, onAddProductToNewInvoice }) {
+function ProductsView({ products, onAddProduct, onEditProduct, onDeleteProduct }) {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('All')
 
@@ -4065,15 +4045,6 @@ function ProductsView({ products, onAddProduct, onEditProduct, onDeleteProduct, 
                 </td>
                 <td>
                   <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                    <button
-                      type="button"
-                      className="lf-btn lf-btn-outline-brand lf-btn-sm"
-                      onClick={() => onAddProductToNewInvoice(p)}
-                      title="Add to New Invoice"
-                    >
-                      <Plus size={14} />
-                      <span>Invoice</span>
-                    </button>
                     <button
                       type="button"
                       className="lf-btn lf-btn-ghost lf-btn-sm"
