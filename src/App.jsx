@@ -4589,6 +4589,14 @@ function SettingsView({ profile, onSaveProfile }) {
     setValidationError('')
     setFormData((prev) => {
       const next = { ...prev, [field]: val }
+      if (field === 'gstin') {
+        // Normalize pasted GSTINs (including spaces/newlines) before validation.
+        next.gstin = String(val || '').toUpperCase().replace(/\\s+/g, '')
+        const gstStateCode = next.gstin.slice(0, 2)
+        if (/^\\d{2}$/.test(gstStateCode) && GST_STATE_NAMES[gstStateCode]) {
+          next.stateCode = gstStateCode
+        }
+      }
       if (field === 'ifscCode') {
         const prefix = String(val || '').trim().toUpperCase().slice(0, 4)
         const bankNames = { SBIN: 'State Bank of India', HDFC: 'HDFC Bank', ICIC: 'ICICI Bank', UTIB: 'Axis Bank', KKBK: 'Kotak Mahindra Bank', PUNB: 'Punjab National Bank', BARB: 'Bank of Baroda', CNRB: 'Canara Bank', UBIN: 'Union Bank of India', IDFB: 'IDFC FIRST Bank', YESB: 'Yes Bank' }
@@ -4600,10 +4608,16 @@ function SettingsView({ profile, onSaveProfile }) {
 
   const handleSaveAll = async (e) => {
     e.preventDefault()
-    const gstin = String(formData.gstin || '').trim().toUpperCase()
+    const gstin = String(formData.gstin || '').toUpperCase().replace(/\\s+/g, '')
     const pan = String(formData.pan || '').trim().toUpperCase()
     const ifsc = String(formData.ifscCode || '').trim().toUpperCase()
-    if (gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gstin)) { setValidationError('Enter a valid 15-character GSTIN format.'); return }
+    // GSTIN is 2-digit state code + 10-character PAN/TAN + entity code + Z + checksum.
+    // It is optional for businesses that are not GST-registered.
+    const gstinFormat = /^[0-9]{2}(?:[A-Z]{5}[0-9]{4}[A-Z]|[A-Z]{4}[0-9]{5}[A-Z])[1-9A-Z]Z[0-9A-Z]$/
+    if (gstin && !gstinFormat.test(gstin)) {
+      setValidationError('GSTIN must be 15 characters: state code + PAN/TAN + entity code + Z + checksum. Leave it blank if your business is not GST-registered.')
+      return
+    }
     if (gstin) {
       const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
       const values = [...gstin.slice(0, 14)].reverse().map((ch) => chars.indexOf(ch))
@@ -4659,13 +4673,21 @@ function SettingsView({ profile, onSaveProfile }) {
               />
             </div>
             <div className="lf-form-group">
-              <label className="lf-form-label">GSTIN *</label>
+              <label className="lf-form-label">GSTIN <span style={{ fontWeight: 500, color: 'var(--lf-text-muted)' }}>(optional)</span></label>
               <input
                 type="text"
                 className="lf-form-input"
                 value={formData.gstin}
-                onChange={(e) => handleChange('gstin', e.target.value.toUpperCase())}
+                placeholder="15-character GSTIN"
+                maxLength={15}
+                autoComplete="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                onChange={(e) => handleChange('gstin', e.target.value)}
               />
+              <span style={{ display: 'block', marginTop: '5px', fontSize: '12px', lineHeight: 1.5, color: 'var(--lf-text-muted)' }}>
+                Spaces in pasted values are removed automatically. Leave blank if you are not GST-registered.
+              </span>
             </div>
             <div className="lf-form-group">
               <label className="lf-form-label">State Code (place of supply)</label>
