@@ -2098,3 +2098,200 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   .lf-chart-wrap { height: 250px; min-height: 250px; }
   .lf-revenue-legend { gap: 10px; padding-left: 2px; font-size: 10px; }
 }
+
+
+/* LedgerFlow visual polish: responsive charts, accessible signature and reliable modal actions. */
+.lf-chart-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 12px;
+}
+.lf-chart-summary-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--lf-border);
+  border-radius: 12px;
+  background: var(--lf-card-hover);
+}
+.lf-chart-summary-item span {
+  color: var(--lf-text-muted);
+  font-size: 10px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+.lf-chart-summary-item strong {
+  color: var(--lf-text);
+  font-size: clamp(12px, 1.35vw, 15px);
+  font-weight: 800;
+  letter-spacing: -.025em;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.lf-chart-summary-item.is-invoiced { border-top: 3px solid var(--lf-brand); }
+.lf-chart-summary-item.is-received { border-top: 3px solid var(--lf-accent); }
+.lf-chart-summary-item.is-outstanding { border-top: 3px solid var(--lf-border-strong); }
+.lf-revenue-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.lf-revenue-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  padding-top: 4px;
+  color: var(--lf-text-secondary);
+  font-size: 11px;
+}
+.lf-legend-invoiced { background: var(--lf-brand) !important; }
+.lf-legend-received { background: var(--lf-accent) !important; }
+.lf-chart-bar { animation: lf-chart-rise .42s cubic-bezier(.2,.75,.2,1) both; }
+.lf-chart-bar-received { animation-delay: .06s; }
+@keyframes lf-chart-rise {
+  from { opacity: .2; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.lf-preview-canvas {
+  display: flex;
+  justify-content: center;
+  min-height: 0;
+  background: var(--lf-bg) !important;
+  padding: 24px !important;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.lf-preview-paper {
+  width: 100%;
+  max-width: 780px;
+  min-width: 0;
+  align-self: flex-start;
+  background: #fff;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, .08);
+  border: 1px solid var(--lf-border);
+  border-radius: 8px;
+  padding: clamp(18px, 4vw, 40px);
+  overflow-wrap: anywhere;
+}
+.lf-preview-paper table {
+  width: 100%;
+  max-width: 100%;
+}
+.lf-preview-paper th,
+.lf-preview-paper td {
+  overflow-wrap: anywhere;
+}
+.lf-signature-pen {
+  opacity: 1;
+  pointer-events: auto;
+  color: var(--lf-brand);
+  border-color: var(--lf-brand-subtle);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, .12);
+}
+.lf-signature-area:hover .lf-signature-pen,
+.lf-signature-area:focus-within .lf-signature-pen,
+.lf-signature-pen:focus-visible {
+  color: var(--lf-brand-hover);
+  box-shadow: 0 3px 10px rgba(37, 99, 235, .2);
+  outline-color: var(--lf-brand-subtle);
+}
+.lf-modal-backdrop {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.lf-modal {
+  min-height: 0;
+  max-height: min(90vh, 900px);
+  max-height: min(90dvh, 900px);
+}
+.lf-modal > form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+.lf-modal-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--lf-border-strong) transparent;
+}
+.lf-modal-body::-webkit-scrollbar { width: 8px; height: 8px; }
+.lf-modal-body::-webkit-scrollbar-thumb { background: var(--lf-border-strong); border: 2px solid transparent; border-radius: 999px; background-clip: padding-box; }
+.lf-modal-footer {
+  flex: 0 0 auto;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: var(--lf-card);
+}
+.lf-btn, .lf-icon-btn, .lf-nav-item, .lf-dropdown-item {
+  -webkit-tap-highlight-color: transparent;
+}
+.lf-btn:focus-visible, .lf-icon-btn:focus-visible, .lf-nav-item:focus-visible, .lf-signature-pen:focus-visible {
+  outline: 2px solid var(--lf-brand);
+  outline-offset: 2px;
+}
+.lf-card, .lf-metric-card {
+  transition: box-shadow .2s ease, border-color .2s ease, transform .2s ease;
+}
+.lf-btn {
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .lf-card:hover, .lf-metric-card:hover {
+    box-shadow: 0 8px 24px rgba(15, 23, 42, .055);
+  }
+  .lf-btn:hover:not(:disabled) { transform: translateY(-1px); }
+}
+@media (max-width: 900px) {
+  .lf-dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+  .lf-dashboard-grid > .lf-card { padding: 18px; }
+}
+@media (max-width: 640px) {
+  .lf-chart-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .lf-chart-summary-item { padding: 10px; }
+  .lf-chart-summary-item.is-outstanding { grid-column: 1 / -1; }
+  .lf-revenue-legend { gap: 8px 12px; font-size: 10px; }
+  .lf-preview-canvas { padding: 10px !important; }
+  .lf-preview-paper { padding: 15px; border-radius: 6px; }
+  .lf-modal-backdrop { padding: 8px; align-items: flex-start; }
+  .lf-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+    margin: auto 0;
+    border-radius: 12px;
+  }
+  .lf-modal-header { padding: 13px 14px; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+  .lf-modal-header > div:last-child { display: flex; flex-wrap: wrap; gap: 6px; max-width: 100%; }
+  .lf-modal-header .lf-btn { min-height: 38px; padding: 8px 10px; }
+  .lf-modal-body { padding: 14px; }
+  .lf-modal-footer { padding: 11px 14px; gap: 8px; flex-wrap: wrap; }
+  .lf-modal form > .lf-modal-body > div[style*="grid-template-columns"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .lf-dashboard-grid .lf-table th:first-child,
+  .lf-dashboard-grid .lf-table td:first-child,
+  .lf-dashboard-grid .lf-table th:last-child,
+  .lf-dashboard-grid .lf-table td:last-child { display: none; }
+  .lf-dashboard-grid .lf-table th,
+  .lf-dashboard-grid .lf-table td { padding: 10px 8px; }
+}
+@media (max-width: 380px) {
+  .lf-modal-header .lf-btn span { font-size: 11px; }
+  .lf-chart-summary-item strong { font-size: 12px; }
+  .lf-dashboard-grid > .lf-card { padding: 13px; }
+}
