@@ -156,6 +156,62 @@ Deno.serve(async (req: Request): Promise<Response> => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  if (action === "manage_order") {
+    const authorization = req.headers.get("authorization") || "";
+    const publishableKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+    if (!authorization || !publishableKey) return respondJson({ error: "Sign in to manage sales orders." }, 401);
+
+    const caller = createClient(supabaseUrl, publishableKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: userData, error: authError } = await caller.auth.getUser();
+    const user = userData?.user;
+    if (authError || !user) return respondJson({ error: "Your session is invalid. Sign in again." }, 401);
+
+    const orgId = String(body?.orgId || "");
+    const orderId = String(body?.orderId || "");
+    const orderAction = String(body?.orderAction || "");
+    const allowedActions = new Set([
+      "confirm_stock", "mark_advance_paid", "start_packing", "mark_packed",
+      "dispatch", "cancel_order", "generate_invoice",
+    ]);
+    if (!/^[0-9a-f-]{36}$/i.test(orgId) || !/^[0-9a-f-]{36}$/i.test(orderId) ||
+        !allowedActions.has(orderAction)) {
+      return respondJson({ error: "Invalid sales-order request." }, 400);
+    }
+
+    // Never trust a client-supplied role or org ID. Verify the current user's
+    // membership before using the server-only function that performs mutations.
+    const { data: membership, error: memberError } = await admin.from("org_members")
+      .select("role").eq("org_id", orgId).eq("user_id", user.id).maybeSingle();
+    if (memberError || !membership || !["owner", "admin"].includes(String(membership.role || "").toLowerCase())) {
+      return respondJson({ error: "Only business owners or admins can manage sales orders." }, 403);
+    }
+
+    const carrier = String(body?.carrier || "").trim().slice(0, 120);
+    const trackingNumber = String(body?.trackingNumber || "").trim().slice(0, 180);
+    const trackingUrl = String(body?.trackingUrl || "").trim().slice(0, 2000);
+    if (trackingUrl && !/^https:\/\/[^\s]+$/i.test(trackingUrl)) {
+      return respondJson({ error: "Tracking URL must be a valid HTTPS URL." }, 400);
+    }
+
+    const { data: result, error: actionError } = await admin.rpc("manage_sales_order_action", {
+      p_org_id: orgId,
+      p_order_id: orderId,
+      p_action: orderAction,
+      p_carrier: carrier || null,
+      p_tracking_number: trackingNumber || null,
+      p_tracking_url: trackingUrl || null,
+    });
+    if (actionError) {
+      console.error("Sales-order action failed:", actionError.message);
+      return respondJson({ error: actionError.message || "Sales-order action failed." }, 400);
+    }
+    if (!result?.success) return respondJson({ error: "The sales-order action was not confirmed." }, 500);
+    return respondJson(result);
+  }
+
   if (action === "get_signature") {
     const authorization = req.headers.get("authorization") || "";
     const publishableKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
