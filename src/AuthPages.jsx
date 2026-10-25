@@ -161,7 +161,7 @@ export function AuthLayout({ title, subtitle, eyebrow = 'YOUR BUSINESS, IN SYNC'
           <h1 id="auth-heading">{title}</h1>
           <p className="auth-sub">{subtitle}</p>
           {children}
-          <p className="auth-legal">By continuing, you agree to LedgerFlow’s <a href="/terms">Terms of Service</a>.</p>
+          <p className="auth-legal">By continuing, you agree to LedgerFlow’s <a href="/terms">Terms of Service</a> and acknowledge the <a href="/privacy">Privacy Policy</a>.</p>
         </section>
         <div className="auth-panel-foot"><span>© 2026 LedgerFlow</span><span>Built for better business days.</span></div>
       </main>
@@ -507,7 +507,7 @@ export function AuthSignupPage() {
         <ul className="auth-password-rules">
           {rules.map((rule) => <li key={rule.label} className={rule.valid ? 'is-valid' : ''}>{rule.valid ? <Check size={13} /> : <span className="auth-rule-dot" />} {rule.label}</li>)}
         </ul>
-        <label className="auth-checkbox auth-terms-checkbox"><input type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} required /> <span>I agree to the <a href="/terms">Terms of Service</a>.</span></label>
+        <label className="auth-checkbox auth-terms-checkbox"><input type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} required /> <span>I agree to the <a href="/terms">Terms of Service</a> and acknowledge the <a href="/privacy">Privacy Policy</a>.</span></label>
         {error && <div className="auth-message auth-message-error" role="alert" aria-live="polite">{error}</div>}
         <button className="auth-btn" type="submit" disabled={busy || !supabase}>{busy ? <><LoaderCircle className="auth-spinner" size={17} /> Creating account…</> : <>Create account <ArrowRight size={16} /></>}</button>
       </form>
