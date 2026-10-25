@@ -14,6 +14,7 @@ CREATE POLICY "read org"
   TO authenticated
   USING (public.is_member(id) OR created_by = (SELECT auth.uid()));
 
--- next_doc_number is not called by the browser application; keep it server-only.
+-- Invoice and quotation insert triggers call this function as the authenticated caller.
+-- The function validates organization membership internally; anonymous/public callers stay blocked.
 REVOKE ALL ON FUNCTION public.next_doc_number(uuid, text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.next_doc_number(uuid, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.next_doc_number(uuid, text) TO authenticated, service_role;
