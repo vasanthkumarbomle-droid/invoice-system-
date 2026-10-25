@@ -391,9 +391,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const lineTotal = item.line_total != null
         ? Number(item.line_total)
         : (Number(item.quantity) || 0) * (Number(item.unit_price) || 0) * (1 + (Number(item.gst_rate) || 0) / 100);
-      return "<tr><td style=\"padding:8px;border-bottom:1px solid #e3e9e3\">" +
-        escapeHtml(item.description) + "</td><td style=\"padding:8px;text-align:right;border-bottom:1px solid #e3e9e3\">" +
-        escapeHtml(item.quantity) + "</td><td style=\"padding:8px;text-align:right;border-bottom:1px solid #e3e9e3\">₹" +
+      return "<tr><td style=\"padding:8px;border-bottom:1px solid #E2E8F0\">" +
+        escapeHtml(item.description) + "</td><td style=\"padding:8px;text-align:right;border-bottom:1px solid #E2E8F0\">" +
+        escapeHtml(item.quantity) + "</td><td style=\"padding:8px;text-align:right;border-bottom:1px solid #E2E8F0\">₹" +
         lineTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "</td></tr>";
     }).join("");
     const grandTotal = Number(record.grand_total) || 0;
@@ -402,17 +402,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const intro = documentType === "quotation"
       ? "Please review the quotation and record your decision through the secure page."
       : "Your invoice is ready. Open the secure page to review the details and save a PDF copy.";
-    const html = "<div style=\"font-family:Arial,sans-serif;max-width:680px;margin:auto;color:#202b24\">" +
-      "<div style=\"background:#286747;color:#fff;padding:20px 24px;border-radius:10px 10px 0 0\"><strong style=\"font-size:20px\">" +
+    const html = "<div style=\"font-family:Arial,sans-serif;max-width:680px;margin:auto;color:#0F172A\">" +
+      "<div style=\"background:#2563EB;color:#fff;padding:20px 24px;border-radius:10px 10px 0 0\"><strong style=\"font-size:20px\">" +
       escapeHtml(companyName) + "</strong><div style=\"font-size:12px;margin-top:6px\">" + escapeHtml(title) + " #" + escapeHtml(documentNumber) + "</div></div>" +
-      "<div style=\"border:1px solid #e3e9e3;padding:24px;border-radius:0 0 10px 10px\"><p>Hello " + escapeHtml(client.name || "there") + ",</p><p>" +
-      intro + "</p><table style=\"width:100%;border-collapse:collapse;font-size:13px\"><thead><tr><th style=\"text-align:left;padding:8px;background:#f1f6f1\">Item</th><th style=\"text-align:right;padding:8px;background:#f1f6f1\">Qty</th><th style=\"text-align:right;padding:8px;background:#f1f6f1\">Amount</th></tr></thead><tbody>" +
+      "<div style=\"border:1px solid #E2E8F0;padding:24px;border-radius:0 0 10px 10px\"><p>Hello " + escapeHtml(client.name || "there") + ",</p><p>" +
+      intro + "</p><table style=\"width:100%;border-collapse:collapse;font-size:13px\"><thead><tr><th style=\"text-align:left;padding:8px;background:#EFF6FF\">Item</th><th style=\"text-align:right;padding:8px;background:#EFF6FF\">Qty</th><th style=\"text-align:right;padding:8px;background:#EFF6FF\">Amount</th></tr></thead><tbody>" +
       itemRows + "</tbody></table><p style=\"text-align:right;font-size:18px;font-weight:700\">Total: " + amountText + "</p>" +
       trackingHtml + paymentHtml +
-      "<p style=\"margin:24px 0\"><a href=\"" + escapeHtml(link) + "\" style=\"display:inline-block;background:#286747;color:white;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:7px\">View " + escapeHtml(title) + (documentType === "quotation" ? " & Respond" : " & Download PDF") + "</a></p>" +
-      "<p style=\"color:#68756c;font-size:12px\">This secure link may expire. If you need help, reply to this email.</p>" +
+      "<p style=\"margin:24px 0\"><a href=\"" + escapeHtml(link) + "\" style=\"display:inline-block;background:#2563EB;color:white;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:7px\">View " + escapeHtml(title) + (documentType === "quotation" ? " & Respond" : " & Download PDF") + "</a></p>" +
+      "<p style=\"color:#64748B;font-size:12px\">This secure link may expire. If you need help, reply to this email.</p>" +
       "<p>Regards,<br>" + escapeHtml(companyName) + "</p>" +
-      "<p style=\"color:#68756c;font-size:11px\">This message was sent using LedgerFlow on behalf of " + escapeHtml(companyName) + ".</p></div></div>";
+      "<p style=\"color:#64748B;font-size:11px\">This message was sent using LedgerFlow on behalf of " + escapeHtml(companyName) + ".</p></div></div>";
     const textBody = "Hello " + (client.name || "there") + ",\n\n" + intro + "\n" + title + ": " + documentNumber + "\nTotal: " + amountText +
       "\n" + trackingText + "\n" +
       (documentType === "invoice" ? "Payment details:\n" + (paymentDetails.join("\n") || "Not configured; contact the business before paying.") + "\n" : "") +
@@ -580,10 +580,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
               "Regards,\n" + companyName + "\n\nSent using LedgerFlow on behalf of " + companyName + ".";
             const linkBase = (String(Deno.env.get("PUBLIC_APP_URL") || "https://ledgerflowhq.vercel.app").replace(/\/+$/, ""));
             const link = linkBase + "/client-document?token=" + encodeURIComponent(rawToken);
-            const bodyHtml = "<div style=\"font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#202b24\">" +
-              "<div style=\"background:#286747;color:#fff;padding:20px 24px\"><strong style=\"font-size:20px\">" +
+            const bodyHtml = "<div style=\"font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#0F172A\">" +
+              "<div style=\"background:#2563EB;color:#fff;padding:20px 24px\"><strong style=\"font-size:20px\">" +
               escapeHtml(companyName) + "</strong><div style=\"font-size:12px;margin-top:6px\">Order confirmation</div></div>" +
-              "<div style=\"border:1px solid #e3e9e3;padding:24px\"><p>Hello " + escapeHtml(quote.clients?.name || "there") + ",</p>" +
+              "<div style=\"border:1px solid #E2E8F0;padding:24px\"><p>Hello " + escapeHtml(quote.clients?.name || "there") + ",</p>" +
               "<p>Thank you. We recorded your acceptance of quotation <strong>" + escapeHtml(quoteNumber) + "</strong>.</p>" +
               "<p style=\"font-size:18px\"><strong>Sales order " + escapeHtml(salesOrderNumber) + "</strong></p>" +
               "<p>Status: " + escapeHtml(titleCase(orderStatus)) + " — " + escapeHtml(stockMessage) + "</p><ul>" +
@@ -592,7 +592,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
               (paymentType === "advance" ? "<p>The agreed terms require advance payment. The business will send payment instructions separately.</p>" : "") +
               "<p>No tax invoice has been issued yet. The tax invoice will be generated and sent after packing and dispatch.</p>" +
               "<p><a href=\"" + escapeHtml(link) + "\">View accepted quotation</a></p>" +
-              "<p>Regards,<br>" + escapeHtml(companyName) + "</p><p style=\"font-size:11px;color:#68756c\">Sent using LedgerFlow on behalf of " + escapeHtml(companyName) + ".</p></div></div>";
+              "<p>Regards,<br>" + escapeHtml(companyName) + "</p><p style=\"font-size:11px;color:#64748B\">Sent using LedgerFlow on behalf of " + escapeHtml(companyName) + ".</p></div></div>";
             const emailPayload: Record<string, unknown> = {
               to: recipient, subject, body: bodyText, htmlBody: bodyHtml,
               senderName: "LedgerFlow | " + companyName,
