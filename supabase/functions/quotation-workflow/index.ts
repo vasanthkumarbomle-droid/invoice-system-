@@ -167,12 +167,57 @@ async function createDocumentPdf(record: any, organization: any, documentType: "
   write("SGST: " + inr(record.sgst_total), { size: 9 });
   write("IGST: " + inr(record.igst_total), { size: 9 });
   write("Total GST: " + inr(record.tax_total ?? (Number(record.cgst_total || 0) + Number(record.sgst_total || 0) + Number(record.igst_total || 0))), { size: 9 });
+  if (Number(record.shipping_charge) > 0) write("Shipping / delivery: " + inr(record.shipping_charge), { size: 9 });
+  if (Number(record.tds_amount) > 0) write("TDS withheld (" + (Number(record.tds_rate) || 0) + "%): -" + inr(record.tds_amount), { size: 9 });
+  if (Number(record.tcs_amount) > 0) write("TCS collected (" + (Number(record.tcs_rate) || 0) + "%): +" + inr(record.tcs_amount), { size: 9 });
+  if (Math.abs(Number(record.round_off_amount) || 0) >= 0.005) write("Round-off: " + ((Number(record.round_off_amount) > 0 ? "+" : "") + inr(record.round_off_amount)), { size: 9 });
   y -= 2;
   rule();
   write("GRAND TOTAL: " + inr(record.grand_total), { size: 14, strong: true, color: brand });
   if (documentType === "invoice") {
     write("Amount paid: " + inr(record.amount_paid), { size: 9 });
     write("Balance due: " + inr(record.balance_due), { size: 10, strong: true });
+    const bankLines = [
+      organization?.bank_name ? "Bank: " + organization.bank_name : "",
+      organization?.bank_account_holder ? "Account holder: " + organization.bank_account_holder : "",
+      organization?.bank_account_no ? "Account number: " + organization.bank_account_no : "",
+      organization?.bank_ifsc ? "IFSC: " + organization.bank_ifsc : "",
+      organization?.upi_id ? "UPI ID: " + organization.upi_id : "",
+    ].filter(Boolean);
+    if (bankLines.length) {
+      y -= 4;
+      rule();
+      write("PAYMENT INSTRUCTIONS", { size: 9, strong: true, color: brand });
+      for (const line of bankLines) write(line, { size: 8, color: muted });
+    }
+    const upiId = String(organization?.upi_id || "").trim();
+    if (upiId && Number(record.balance_due ?? record.grand_total) > 0) {
+      const upiUri = "upi://pay?pa=" + encodeURIComponent(upiId) +
+        "&pn=" + encodeURIComponent(String(organization?.name || organization?.legal_name || "Business")) +
+        "&am=" + Number(record.balance_due ?? record.grand_total).toFixed(2) +
+        "&cu=INR&tn=" + encodeURIComponent(documentNumber);
+      try {
+        const qrUrl = new URL("https://api.qrserver.com/v1/create-qr-code/");
+        qrUrl.searchParams.set("size", "180x180");
+        qrUrl.searchParams.set("format", "png");
+        qrUrl.searchParams.set("data", upiUri);
+        const qrResponse = await fetch(qrUrl, { signal: AbortSignal.timeout(2500) });
+        if (qrResponse.ok && (qrResponse.headers.get("content-type") || "").includes("image/png")) {
+          const qrPng = await qrResponse.arrayBuffer();
+          if (qrPng.byteLength > 0 && qrPng.byteLength < 500000) {
+            const qrImage = await pdf.embedPng(new Uint8Array(qrPng));
+            if (y < 145) nextPage();
+            y -= 4;
+            page.drawImage(qrImage, { x: left, y: y - 84, width: 84, height: 84 });
+            page.drawText("Scan to pay balance due", { x: left + 96, y: y - 28, size: 10, font: bold, color: brand });
+            page.drawText(safePdfText(inr(record.balance_due ?? record.grand_total)), { x: left + 96, y: y - 44, size: 9, font: regular, color: textColor });
+            y -= 94;
+          }
+        }
+      } catch (qrError) {
+        console.warn("Could not embed UPI QR into the invoice PDF:", qrError);
+      }
+    }
   }
   if (record.notes) {
     y -= 4;
