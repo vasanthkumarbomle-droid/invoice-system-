@@ -124,14 +124,22 @@ function mapInvoice(r) {
     const discountPct = Math.max(0, Math.min(100, Number(it.discount_pct) || 0))
     const taxableLine = it.taxable_amount != null ? Number(it.taxable_amount) : lineGross * (1 - discountPct / 100)
     const storedTax = Number(it.cgst_amount || 0) + Number(it.sgst_amount || 0) + Number(it.igst_amount || 0)
-    const tax = it.cgst_amount != null || it.sgst_amount != null || it.igst_amount != null
+    const hasStoredSplit = it.cgst_amount != null || it.sgst_amount != null || it.igst_amount != null
+    const tax = hasStoredSplit
       ? storedTax
       : it.tax_amount != null ? Number(it.tax_amount) : taxableLine * gst / 100
     const total = it.line_total != null ? Number(it.line_total) : taxableLine + tax
+    const isInterState = Number(it.igst_amount || 0) > 0 || Number(r.igst_total || 0) > 0
+    const cgstAmount = it.cgst_amount != null ? Number(it.cgst_amount) || 0 : (isInterState ? 0 : tax / 2)
+    const sgstAmount = it.sgst_amount != null ? Number(it.sgst_amount) || 0 : (isInterState ? 0 : tax / 2)
+    const igstAmount = it.igst_amount != null ? Number(it.igst_amount) || 0 : (isInterState ? tax : 0)
     return {
       id: it.id, productId: it.product_id || '', description: it.description || '', sku: it.sku || '',
       hsnSac: it.hsn_sac || '', unit: it.unit || 'unit', discountPct,
       quantity: qty, unitPrice: price, gstRate: gst, subtotal: taxableLine, taxAmount: tax, total,
+      cgstRate: isInterState ? 0 : gst / 2, cgstAmount,
+      sgstRate: isInterState ? 0 : gst / 2, sgstAmount,
+      igstRate: isInterState ? gst : 0, igstAmount,
     }
   })
   const taxable = Number(r.subtotal ?? gross) || 0
@@ -4398,22 +4406,53 @@ function ReportsView({ invoices, payments }) {
     (sum, invoice) => sum + (Number(invoice.igstAmount) || 0),
     0
   )
-  // CSV Export
+  // GSTR-1 support export: one row per invoice line, with explicit GST rates and tax split.
+  // Document-level totals are included only on the first row to avoid double-counting.
   const handleExportCsv = () => {
     const csvCell = escapeCsvCell
-    const rows = [
-      ['Invoice Number', 'Client', 'Issue Date', 'Due Date', 'Subtotal', 'Discount', 'Taxable Amount', 'CGST', 'SGST', 'IGST', 'Tax Total', 'Grand Total', 'Status'],
-      ...filteredInvoices.map((inv) => [
-        inv.documentNumber, inv.clientName, inv.issueDate, inv.dueDate,
-        inv.subtotal, inv.discountAmount, inv.taxableAmount, inv.cgstAmount, inv.sgstAmount, inv.igstAmount, inv.taxAmount, inv.grandTotal, inv.status,
-      ]),
+    const header = [
+      'Invoice Number', 'Invoice Date', 'Client GSTIN', 'Client Name', 'Place of Supply',
+      'HSN/SAC', 'Item Description', 'Quantity', 'Unit Price', 'Taxable Value',
+      'CGST Rate', 'CGST Amount', 'SGST Rate', 'SGST Amount', 'IGST Rate', 'IGST Amount',
+      'Discount Type', 'Discount Value', 'Document Taxable Total', 'Total GST', 'Invoice Value', 'Status',
     ]
+    const rows = [header]
+    for (const inv of filteredInvoices) {
+      const items = Array.isArray(inv.items) && inv.items.length ? inv.items : [null]
+      const placeCode = String(inv.clientStateCode || inv.clientGstin?.slice(0, 2) || '')
+      const placeOfSupply = placeCode ? `${placeCode} - ${GST_STATE_NAMES[placeCode] || 'State'}` : ''
+      items.forEach((item, index) => {
+        const taxableValue = Number(item?.subtotal) || 0
+        const isInterState = Number(item?.igstAmount || 0) > 0 || Number(inv.igstAmount || 0) > 0
+        const gstRate = Number(item?.gstRate) || 0
+        const tax = Number(item?.taxAmount) || 0
+        const cgstAmount = item ? (item.cgstAmount != null ? Number(item.cgstAmount) || 0 : (isInterState ? 0 : tax / 2)) : Number(inv.cgstAmount) || 0
+        const sgstAmount = item ? (item.sgstAmount != null ? Number(item.sgstAmount) || 0 : (isInterState ? 0 : tax / 2)) : Number(inv.sgstAmount) || 0
+        const igstAmount = item ? (item.igstAmount != null ? Number(item.igstAmount) || 0 : (isInterState ? tax : 0)) : Number(inv.igstAmount) || 0
+        rows.push([
+          inv.documentNumber, inv.issueDate, inv.clientGstin, inv.clientName, placeOfSupply,
+          item?.hsnSac || '', item?.description || '', item?.quantity ?? '', item?.unitPrice ?? '',
+          item ? taxableValue : inv.taxableAmount,
+          item ? (isInterState ? 0 : gstRate / 2) : (Number(inv.cgstAmount) > 0 ? null : ''),
+          cgstAmount,
+          item ? (isInterState ? 0 : gstRate / 2) : (Number(inv.sgstAmount) > 0 ? null : ''),
+          sgstAmount,
+          item ? (isInterState ? gstRate : 0) : (Number(inv.igstAmount) > 0 ? null : ''),
+          igstAmount,
+          inv.discountType || 'percentage', inv.discountValue ?? 0,
+          index === 0 ? inv.taxableAmount : '',
+          index === 0 ? inv.taxAmount : '',
+          index === 0 ? inv.grandTotal : '',
+          inv.status,
+        ])
+      })
+    }
     const csv = '\uFEFF' + rows.map((row) => row.map(csvCell).join(',')).join('\r\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `ledgerflow_financial_report_${todayInIndia()}.csv`
+    a.download = `ledgerflow_gstr1_support_${todayInIndia()}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
