@@ -426,7 +426,7 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
       gst_rate: Number(it.gstRate),
     }))
     const isExisting = /^[0-9a-f]{8}-/i.test(d.id || '')
-    await db.saveInvoice(org.id, {
+    const invoiceId = await db.saveInvoice(org.id, {
       id: isExisting ? d.id : null,
       client_id: resolvedClientId,
       issue_date: d.issueDate,
@@ -442,6 +442,7 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
       tcs_rate: Number(d.tcsRate) || 0,
     }, items)
     await loadInvoices()
+    return invoiceId
   }
 
 const [quotations, setQuotations] = useState([])
@@ -1327,11 +1328,23 @@ const [quotations, setQuotations] = useState([])
   onSave={async (savedDoc) => {
   if (savedDoc.type === 'invoice') {
     try {
-      await saveInvoiceDoc(savedDoc)
-      showToast('Invoice saved successfully', 'success')
+      const requestedStatus = String(savedDoc.status || 'draft').toLowerCase()
+      const isExisting = /^[0-9a-f]{8}-/i.test(savedDoc.id || '')
+      const wasDraft = !isExisting || String(editingDoc?.status || 'draft').toLowerCase() === 'draft'
+      const shouldSendIssueEmail = requestedStatus === 'sent' && wasDraft
+      const invoiceId = await saveInvoiceDoc(shouldSendIssueEmail ? { ...savedDoc, status: 'Draft' } : savedDoc)
+
+      if (shouldSendIssueEmail) {
+        if (!invoiceId) throw new Error('Invoice was saved, but its ID was not returned. Refresh the invoice list before sending.')
+        await db.sendDocumentEmail(org.id, 'invoice', invoiceId)
+        await loadInvoices()
+        showToast('Invoice issued and email accepted by the provider for ' + (savedDoc.clientEmail || 'the client'), 'success')
+      } else {
+        showToast('Invoice saved successfully', 'success')
+      }
       navigateTo('/invoices')
     } catch (e) {
-      showToast(e.message, 'error')
+      showToast(e.message || 'Could not save or send the invoice.', 'error')
     }
   } else {
     try {
