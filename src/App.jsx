@@ -628,6 +628,27 @@ const [quotations, setQuotations] = useState([])
     navigateTo(doc.type === 'invoice' ? '/invoices/new' : '/quotations/new')
   }
 
+  // Convert accepted quotations through the database's atomic, idempotent RPC.
+  const handleConvertQuotation = async (doc) => {
+    if (!doc?.id || doc.type !== 'quotation' || doc.status !== 'Accepted') {
+      showToast('Only accepted quotations can be converted to invoices.', 'warning')
+      return
+    }
+    if (!canManageBusiness) {
+      showToast('Only business owners or admins can convert quotations.', 'error')
+      return
+    }
+
+    try {
+      await db.convertQuotationToInvoice(doc.id)
+      await Promise.all([loadInvoices(), loadQuotations()])
+      showToast('Quotation converted to invoice successfully.', 'success')
+      navigateTo('/invoices')
+    } catch (e) {
+      showToast(e.message || 'Could not convert quotation to invoice.', 'error')
+    }
+  }
+
   // Duplicate documents into the database so they persist after refresh/sign-in.
   const handleDuplicateDoc = async (doc) => {
     if (doc.type === 'invoice') {
@@ -1157,6 +1178,8 @@ const [quotations, setQuotations] = useState([])
               onEditDoc={handleEditDoc}
               onDuplicateDoc={handleDuplicateDoc}
               onDeleteDoc={(doc) => confirmDelete('quotation', doc.id, doc.documentNumber)}
+              onConvertDoc={handleConvertQuotation}
+              canConvertQuotations={canManageBusiness}
             />
           )}
 
@@ -1926,7 +1949,9 @@ function DocumentsListView({
   onEditDoc,
   onDuplicateDoc,
    onDeleteDoc,
-  onRecordPayment
+  onRecordPayment,
+  onConvertDoc,
+  canConvertQuotations = false
 }) {
   const [filterStatus, setFilterStatus] = useState('All')
   const [searchQuery, setSearchQuery] = useState('')
@@ -2102,6 +2127,17 @@ function DocumentsListView({
                           title="Record Received Payment"
                         >
                           <CreditCard size={14} />
+                        </button>
+                      )}
+                      {!isInvoice && canConvertQuotations && doc.status === 'Accepted' && onConvertDoc && (
+                        <button
+                          type="button"
+                          className="lf-btn lf-btn-outline-brand lf-btn-sm"
+                          onClick={() => onConvertDoc(doc)}
+                          title="Convert accepted quotation to invoice"
+                          aria-label={`Convert quotation ${doc.documentNumber} to invoice`}
+                        >
+                          <FileText size={14} />
                         </button>
                       )}
                       <button
