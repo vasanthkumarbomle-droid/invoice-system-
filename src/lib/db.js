@@ -96,6 +96,11 @@ export const createQuotation = async (orgId, clientId, validUntil, items, notes 
   return getQuotation(orgId, id)
 }
 export const setQuotationStatus = (orgId, id, status) => supabase.from('quotations').update({ status }).eq('org_id', orgId).eq('id', id).select('id').single().then(must)
+export const convertQuotationToInvoice = (quoteId, dueDate = null) =>
+  supabase.rpc('convert_quotation_to_invoice', {
+    p_quote_id: quoteId,
+    p_due_date: dueDate,
+  }).then(must)
 
 // Reservations are operational stock, so every page must be included in this calculation.
 export const listReservedProductQuantities = async (orgId) => {
