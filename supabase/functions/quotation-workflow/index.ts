@@ -737,15 +737,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
       organization.data?.bank_ifsc ? "IFSC: " + organization.data.bank_ifsc : "",
       organization.data?.upi_id ? "UPI ID: " + organization.data.upi_id : "",
     ].filter(Boolean);
-    const hasUsablePaymentRoute = Boolean(String(organization.data?.upi_id || "").trim()) ||
-      Boolean(String(organization.data?.bank_account_no || "").trim() && String(organization.data?.bank_ifsc || "").trim());
-    if (documentType === "invoice" && !hasUsablePaymentRoute) {
-      await admin.from("document_share_tokens").delete().eq("id", tokenRow.id);
-      return respondJson({
-        error: "Invoice email was not sent because payment instructions are incomplete.",
-        details: "Add a UPI ID or a bank account number plus IFSC code in Settings, then send the invoice again.",
-      }, 422);
-    }
     const paymentHtml = documentType === "invoice"
       ? "<h3>Payment details</h3>" + (paymentDetails.length ? "<ul>" + paymentDetails.map((item) => "<li>" + escapeHtml(item) + "</li>").join("") + "</ul>" : "<p>Payment details are not configured. Please contact the business before paying.</p>")
       : "";
@@ -814,7 +805,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (!mailResponse.ok) {
       await admin.from("document_share_tokens").delete().eq("id", tokenRow.id);
       return respondJson({
-        error: "Google Apps Script could not send the email. Check its Web App deployment and secret configuration.",
+        error: "The configured email provider could not send the email. Check its provider configuration and try again.",
         details: mailResponse.details || "The email request was rejected.",
       }, 502);
     }
