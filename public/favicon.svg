@@ -1,14 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 40 40" fill="none">
   <defs>
-    <linearGradient id="ledgerflow-favicon" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#3B82F6"/>
-      <stop offset="100%" stop-color="#1D4ED8"/>
+    <linearGradient id="ledgerflow-brand-mark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0F766E"/>
+      <stop offset="100%" stop-color="#115E59"/>
     </linearGradient>
   </defs>
-  <rect width="48" height="48" rx="13" fill="url(#ledgerflow-favicon)"/>
-  <path d="M11.5 12h9.2c2.2 0 3.8 1.4 3.8 3.6v20c-1.2-1.4-2.8-2.1-5-2.1h-8z" fill="#FFFFFF"/>
-  <path d="M36.5 12h-8.2c-2.2 0-3.8 1.4-3.8 3.6v20c1.2-1.4 2.8-2.1 5-2.1h7z" fill="#DBEAFE"/>
-  <path d="M14.8 18h5.7M14.8 23h5.7M28 18h5M28 23h5" stroke="#2563EB" stroke-width="1.7" stroke-linecap="round"/>
-  <circle cx="35" cy="35" r="7" fill="#F59E0B" stroke="#FFFFFF" stroke-width="1.5"/>
-  <path d="M31.8 35h6m-2.4-2.4L37.8 35l-2.4 2.4" stroke="#FFFFFF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="1" y="1" width="38" height="38" rx="11" fill="url(#ledgerflow-brand-mark)"/>
+  <path d="M10 11.5h7.5c2.1 0 3.5 1.2 3.5 3.1v14c-1.1-1.2-2.2-1.7-4-1.7H10z" fill="#FFFFFF"/>
+  <path d="M30 11.5h-5.5c-2.1 0-3.5 1.2-3.5 3.1v14c1.1-1.2 2.2-1.7 4-1.7H30z" fill="#99F6E4"/>
+  <path d="M12.5 16h5M12.5 20h5M24 16h3.5M24 20h3.5" stroke="#115E59" stroke-width="1.3" stroke-linecap="round"/>
+  <circle cx="29.2" cy="28.2" r="5" fill="#D97706"/>
+  <path d="M26.8 28.2h4.5m-1.8-1.8 1.8 1.8-1.8 1.8" fill="none" stroke="#FFFFFF" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

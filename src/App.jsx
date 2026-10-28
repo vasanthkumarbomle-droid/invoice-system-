@@ -7,6 +7,8 @@ const AuthSignupPage = lazy(() => import('./AuthPages.jsx').then((module) => ({ 
 const AuthForgotPasswordPage = lazy(() => import('./AuthPages.jsx').then((module) => ({ default: module.AuthForgotPasswordPage })))
 import PasswordResetPage from './PasswordResetPage.jsx'
 import { useOrg } from './OrgContext'
+import BrandMark from './BrandMark.jsx'
+import { THEME_PALETTE } from './theme.js'
 import * as db from './lib/db'
 import {
   addDaysToDateString,
@@ -832,20 +834,7 @@ const [quotations, setQuotations] = useState([])
       <aside className={`lf-sidebar ${sidebarCollapsed ? 'collapsed' : ''} ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="lf-sidebar-header">
           <Link to="/" className="lf-brand-logo" onClick={() => setMobileMenuOpen(false)}>
-            <svg className="lf-logo-icon" viewBox="0 0 40 40" role="img" aria-label="LedgerFlow logo" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <linearGradient id="ledgerflow-mark-gradient" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#3B82F6" />
-                  <stop offset="100%" stopColor="#1D4ED8" />
-                </linearGradient>
-              </defs>
-              <rect x="1" y="1" width="38" height="38" rx="11" fill="url(#ledgerflow-mark-gradient)" />
-              <path d="M10 11.5h7.5c2.1 0 3.5 1.2 3.5 3.1v14c-1.1-1.2-2.2-1.7-4-1.7H10z" fill="#FFFFFF" />
-              <path d="M30 11.5h-5.5c-2.1 0-3.5 1.2-3.5 3.1v14c1.1-1.2 2.2-1.7 4-1.7H30z" fill="#DBEAFE" />
-              <path d="M12.5 16h5M12.5 20h5M24 16h3.5M24 20h3.5" stroke="#2563EB" strokeWidth="1.3" strokeLinecap="round" />
-              <circle cx="29.2" cy="28.2" r="5" fill="#F59E0B" />
-              <path d="M26.8 28.2h4.5m-1.8-1.8 1.8 1.8-1.8 1.8" fill="none" stroke="#FFFFFF" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <BrandMark className="lf-logo-icon" />
             {!sidebarCollapsed && (
               <div className="lf-brand-text">
                 <span className="lf-brand-title">LedgerFlow</span>
@@ -1697,7 +1686,7 @@ function RevenueTrendChart({ data }) {
           const invoiceY = yFor(invoiced)
           const receivedY = yFor(received)
           return <g key={row.month}>
-            <rect className="lf-chart-bar lf-chart-bar-invoiced" x={firstX} y={invoiceY} width={barWidth} height={Math.max(hasActivity && invoiced > 0 ? 2 : 0, baseY - invoiceY)} rx="4" fill="#2563EB" role="button" tabIndex="0" style={{ cursor: 'pointer', outline: 'none' }} aria-label={`${row.month} invoiced: ${formatINR(invoiced)}`} aria-pressed={selectedBar?.month === row.month && selectedBar?.label === 'Invoiced'} onClick={() => setSelectedBar({ month: row.month, label: 'Invoiced', amount: invoiced })} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedBar({ month: row.month, label: 'Invoiced', amount: invoiced }) } }}>
+            <rect className="lf-chart-bar lf-chart-bar-invoiced" x={firstX} y={invoiceY} width={barWidth} height={Math.max(hasActivity && invoiced > 0 ? 2 : 0, baseY - invoiceY)} rx="4" fill={THEME_PALETTE.brand} role="button" tabIndex="0" style={{ cursor: 'pointer', outline: 'none' }} aria-label={`${row.month} invoiced: ${formatINR(invoiced)}`} aria-pressed={selectedBar?.month === row.month && selectedBar?.label === 'Invoiced'} onClick={() => setSelectedBar({ month: row.month, label: 'Invoiced', amount: invoiced })} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedBar({ month: row.month, label: 'Invoiced', amount: invoiced }) } }}>
               <title>{row.month} invoiced: {formatINR(invoiced)} — click to view amount</title>
             </rect>
             <rect className="lf-chart-bar lf-chart-bar-received" x={firstX + barWidth + 8} y={receivedY} width={barWidth} height={Math.max(hasActivity && received > 0 ? 2 : 0, baseY - receivedY)} rx="4" fill="#D97706" role="button" tabIndex="0" style={{ cursor: 'pointer', outline: 'none' }} aria-label={`${row.month} received: ${formatINR(received)}`} aria-pressed={selectedBar?.month === row.month && selectedBar?.label === 'Received'} onClick={() => setSelectedBar({ month: row.month, label: 'Received', amount: received })} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedBar({ month: row.month, label: 'Received', amount: received }) } }}>
@@ -3516,7 +3505,7 @@ function SignaturePadModal({ initialSignature, onClose, onSave }) {
     context.moveTo(point.x, point.y)
     context.globalCompositeOperation = signatureTool === 'eraser' ? 'destination-out' : 'source-over'
     context.lineWidth = signatureTool === 'eraser' ? 26 : 3
-    context.strokeStyle = '#1D4ED8'
+    context.strokeStyle = THEME_PALETTE.signatureInk
     context.lineCap = 'round'
     context.lineJoin = 'round'
   }
@@ -3590,33 +3579,33 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
   const isInterState = Number(doc.igstAmount) > 0 || (hasPlaceOfSupply && sellerStateCode !== buyerStateCode)
 
   return (
-    <div className={`lf-print-paper lf-print-paper-${String(doc.status || 'draft').toLowerCase().replace(/\s+/g, '-')}`} style={{ position: 'relative', fontFamily: 'Arial, sans-serif', color: '#252A32' }}>
+    <div className={`lf-print-paper lf-print-paper-${String(doc.status || 'draft').toLowerCase().replace(/\s+/g, '-')}`} style={{ position: 'relative', fontFamily: 'Arial, sans-serif', color: 'var(--lf-text)' }}>
       {['Draft', 'Paid', 'Cancelled'].includes(doc.status) || doc.status === 'Sent' ? <div className={`lf-paper-watermark lf-paper-watermark-${String(doc.status || 'draft').toLowerCase().replace(/\s+/g, '-')}`} aria-label={`Document status: ${doc.status}`}>{doc.status === 'Sent' ? 'ISSUED' : String(doc.status || 'Draft').toUpperCase()}</div> : null}
       {/* Top Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #2563EB', paddingBottom: '16px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid var(--lf-brand)', paddingBottom: '16px', marginBottom: '20px' }}>
         <div>
-          <div style={{ fontSize: '22px', fontWeight: 800, color: '#2563EB' }}>
+          <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--lf-brand)' }}>
             {companyProfile.tradeName || companyProfile.companyName}
           </div>
-          <div style={{ fontSize: '11px', color: '#7B818B', maxWidth: '340px', marginTop: '4px', lineHeight: '1.4' }}>
+          <div style={{ fontSize: '11px', color: 'var(--lf-text-muted)', maxWidth: '340px', marginTop: '4px', lineHeight: '1.4' }}>
             {companyProfile.address}
           </div>
-          <div style={{ fontSize: '11px', color: '#7B818B', marginTop: '4px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--lf-text-muted)', marginTop: '4px' }}>
             {companyProfile.gstin && <>GSTIN: <strong>{companyProfile.gstin}</strong></>}{companyProfile.gstin && companyProfile.pan ? ' | ' : ''}{companyProfile.pan && <>PAN: <strong>{companyProfile.pan}</strong></>}
           </div>
-          <div style={{ fontSize: '11px', color: '#7B818B' }}>
+          <div style={{ fontSize: '11px', color: 'var(--lf-text-muted)' }}>
             {[companyProfile.email && `Email: ${companyProfile.email}`, companyProfile.phone && `Phone: ${companyProfile.phone}`].filter(Boolean).join(' | ')}
           </div>
         </div>
 
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: '#252A32', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--lf-text)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             {isInvoice ? 'Tax Invoice' : 'Price Quotation'}
           </div>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: '#2563EB', marginTop: '4px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--lf-brand)', marginTop: '4px' }}>
             #{doc.documentNumber}
           </div>
-          <div style={{ fontSize: '11px', color: '#7B818B', marginTop: '4px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--lf-text-muted)', marginTop: '4px' }}>
             Original for Recipient
           </div>
         </div>
@@ -3624,44 +3613,44 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
 
       {/* Meta Grid: Billed To & Document Details */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
-        <div style={{ padding: '12px', background: '#F6F4F0', borderRadius: '4px', border: '1px solid #E6E1DA' }}>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: '#2563EB', textTransform: 'uppercase', marginBottom: '6px' }}>
+        <div style={{ padding: '12px', background: 'var(--lf-card-hover)', borderRadius: '4px', border: '1px solid var(--lf-border)' }}>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--lf-brand)', textTransform: 'uppercase', marginBottom: '6px' }}>
             Billed To / Customer Details
           </div>
-          <div style={{ fontSize: '14px', fontWeight: 700, color: '#252A32' }}>{doc.clientName}</div>
-          <div style={{ fontSize: '11px', color: '#7B818B', marginTop: '3px' }}>{doc.clientAddress}</div>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--lf-text)' }}>{doc.clientName}</div>
+          <div style={{ fontSize: '11px', color: 'var(--lf-text-muted)', marginTop: '3px' }}>{doc.clientAddress}</div>
           {doc.clientGstin && (
             <div style={{ fontSize: '11px', marginTop: '4px' }}>
               GSTIN: <strong>{doc.clientGstin}</strong>
             </div>
           )}
-          <div style={{ fontSize: '11px', color: '#7B818B', marginTop: '2px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--lf-text-muted)', marginTop: '2px' }}>
             Phone: {doc.clientPhone} | Email: {doc.clientEmail}
           </div>
         </div>
 
-        <div style={{ padding: '12px', background: '#F6F4F0', borderRadius: '4px', border: '1px solid #E6E1DA' }}>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: '#2563EB', textTransform: 'uppercase', marginBottom: '6px' }}>
+        <div style={{ padding: '12px', background: 'var(--lf-card-hover)', borderRadius: '4px', border: '1px solid var(--lf-border)' }}>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--lf-brand)', textTransform: 'uppercase', marginBottom: '6px' }}>
             Document Reference & Terms
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
-            <span style={{ color: '#7B818B' }}>Issue Date:</span>
+            <span style={{ color: 'var(--lf-text-muted)' }}>Issue Date:</span>
             <span style={{ fontWeight: 600 }}>{formatDisplayDate(doc.issueDate)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
-            <span style={{ color: '#7B818B' }}>{isInvoice ? 'Due Date:' : 'Valid Until:'}</span>
+            <span style={{ color: 'var(--lf-text-muted)' }}>{isInvoice ? 'Due Date:' : 'Valid Until:'}</span>
             <span style={{ fontWeight: 600 }}>{formatDisplayDate(doc.dueDate)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
-            <span style={{ color: '#7B818B' }}>Payment Terms:</span>
+            <span style={{ color: 'var(--lf-text-muted)' }}>Payment Terms:</span>
             <span style={{ fontWeight: 600 }}>{doc.paymentTerms}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
-            <span style={{ color: '#7B818B' }}>Place of Supply:</span>
+            <span style={{ color: 'var(--lf-text-muted)' }}>Place of Supply:</span>
             <span style={{ fontWeight: 600 }}>{buyerStateCode ? `${buyerStateCode} – ${GST_STATE_NAMES[buyerStateCode] || 'State'}` : 'Not specified'}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '2px 0' }}>
-            <span style={{ color: '#7B818B' }}>Supply Type:</span>
+            <span style={{ color: 'var(--lf-text-muted)' }}>Supply Type:</span>
             <span style={{ fontWeight: 600 }}>{hasPlaceOfSupply ? (isInterState ? 'Inter-State (IGST)' : 'Intra-State (CGST+SGST)') : 'Verify state codes'}</span>
           </div>
         </div>
@@ -3670,24 +3659,24 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
       {/* Items Table */}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px', fontSize: '11px' }}>
         <thead>
-          <tr style={{ backgroundColor: '#FBF0E7', borderBottom: '1.5px solid #2563EB' }}>
-            <th style={{ padding: '8px', textAlign: 'left', width: '30px', color: '#2563EB' }}>#</th>
-            <th style={{ padding: '8px', textAlign: 'left', color: '#2563EB' }}>Description</th>
-            <th style={{ padding: '8px', textAlign: 'left', width: '70px', color: '#2563EB' }}>SKU</th>
-            <th style={{ padding: '8px', textAlign: 'left', width: '70px', color: '#2563EB' }}>HSN / SAC</th>
-            <th style={{ padding: '8px', textAlign: 'right', width: '50px', color: '#2563EB' }}>Qty</th>
-            <th style={{ padding: '8px', textAlign: 'right', width: '80px', color: '#2563EB' }}>Rate (&#8377;)</th>
-            <th style={{ padding: '8px', textAlign: 'right', width: '60px', color: '#2563EB' }}>GST</th>
-            <th style={{ padding: '8px', textAlign: 'right', width: '90px', color: '#2563EB' }}>Total (&#8377;)</th>
+          <tr style={{ backgroundColor: 'var(--lf-highlight-light)', borderBottom: '1.5px solid var(--lf-brand)' }}>
+            <th style={{ padding: '8px', textAlign: 'left', width: '30px', color: 'var(--lf-brand)' }}>#</th>
+            <th style={{ padding: '8px', textAlign: 'left', color: 'var(--lf-brand)' }}>Description</th>
+            <th style={{ padding: '8px', textAlign: 'left', width: '70px', color: 'var(--lf-brand)' }}>SKU</th>
+            <th style={{ padding: '8px', textAlign: 'left', width: '70px', color: 'var(--lf-brand)' }}>HSN / SAC</th>
+            <th style={{ padding: '8px', textAlign: 'right', width: '50px', color: 'var(--lf-brand)' }}>Qty</th>
+            <th style={{ padding: '8px', textAlign: 'right', width: '80px', color: 'var(--lf-brand)' }}>Rate (&#8377;)</th>
+            <th style={{ padding: '8px', textAlign: 'right', width: '60px', color: 'var(--lf-brand)' }}>GST</th>
+            <th style={{ padding: '8px', textAlign: 'right', width: '90px', color: 'var(--lf-brand)' }}>Total (&#8377;)</th>
           </tr>
         </thead>
         <tbody>
           {doc.items.map((it, idx) => (
-            <tr key={idx} style={{ borderBottom: '1px solid #E6E1DA' }}>
-              <td style={{ padding: '8px', color: '#7B818B' }}>{idx + 1}</td>
+            <tr key={idx} style={{ borderBottom: '1px solid var(--lf-border)' }}>
+              <td style={{ padding: '8px', color: 'var(--lf-text-muted)' }}>{idx + 1}</td>
               <td style={{ padding: '8px', fontWeight: 600 }}>{it.description}</td>
-              <td style={{ padding: '8px', color: '#7B818B' }}>{it.sku || '-'}</td>
-              <td style={{ padding: '8px', color: '#7B818B' }}>{it.hsnSac || '-'}</td>
+              <td style={{ padding: '8px', color: 'var(--lf-text-muted)' }}>{it.sku || '-'}</td>
+              <td style={{ padding: '8px', color: 'var(--lf-text-muted)' }}>{it.hsnSac || '-'}</td>
               <td style={{ padding: '8px', textAlign: 'right' }}>{it.quantity}</td>
               <td style={{ padding: '8px', textAlign: 'right' }}>{formatINR(it.unitPrice)}</td>
               <td style={{ padding: '8px', textAlign: 'right' }}>{it.gstRate}%</td>
@@ -3702,57 +3691,57 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
         {/* Bank & Notes Details */}
         <div style={{ flex: 1 }}>
           {(companyProfile.bankName || companyProfile.accountHolder || companyProfile.accountNumber || companyProfile.ifscCode || companyProfile.upiId) && (
-            <div style={{ padding: '10px 14px', background: '#F6F4F0', border: '1px solid #E6E1DA', borderRadius: '4px', marginBottom: '12px', fontSize: '11px' }}>
-              <div style={{ fontWeight: 700, color: '#2563EB', marginBottom: '4px' }}>BANK PAYMENT DETAILS</div>
+            <div style={{ padding: '10px 14px', background: 'var(--lf-card-hover)', border: '1px solid var(--lf-border)', borderRadius: '4px', marginBottom: '12px', fontSize: '11px' }}>
+              <div style={{ fontWeight: 700, color: 'var(--lf-brand)', marginBottom: '4px' }}>BANK PAYMENT DETAILS</div>
               {companyProfile.bankName && <div>Bank: <strong>{companyProfile.bankName}</strong></div>}
               {companyProfile.accountHolder && <div>A/C Name: <strong>{companyProfile.accountHolder}</strong></div>}
               {companyProfile.accountNumber && <div>A/C Number: <strong>{companyProfile.accountNumber}</strong></div>}
               {(companyProfile.ifscCode || companyProfile.upiId) && <div>{companyProfile.ifscCode && <>IFSC Code: <strong>{companyProfile.ifscCode}</strong></>}{companyProfile.ifscCode && companyProfile.upiId ? ' | ' : ''}{companyProfile.upiId && <>UPI ID: <strong>{companyProfile.upiId}</strong></>}</div>}
               {upiQrSrc && <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '10px' }}>
-                <img src={upiQrSrc} alt={`UPI payment QR for invoice ${doc.documentNumber}`} width="92" height="92" loading="lazy" style={{ width: '92px', height: '92px', objectFit: 'contain', background: '#fff', border: '1px solid #E6E1DA', borderRadius: '4px' }} />
-                <div><div style={{ fontWeight: 700, marginBottom: '4px' }}>Scan to pay {formatINR(upiPaymentAmount)}</div><div style={{ color: '#7B818B', fontSize: '10px' }}>UPI payment link includes this invoice reference.</div><a href={upiPayUri} style={{ display: 'inline-block', marginTop: '5px', color: '#2563EB' }}>Open UPI app</a></div>
+                <img src={upiQrSrc} alt={`UPI payment QR for invoice ${doc.documentNumber}`} width="92" height="92" loading="lazy" style={{ width: '92px', height: '92px', objectFit: 'contain', background: '#fff', border: '1px solid var(--lf-border)', borderRadius: '4px' }} />
+                <div><div style={{ fontWeight: 700, marginBottom: '4px' }}>Scan to pay {formatINR(upiPaymentAmount)}</div><div style={{ color: 'var(--lf-text-muted)', fontSize: '10px' }}>UPI payment link includes this invoice reference.</div><a href={upiPayUri} style={{ display: 'inline-block', marginTop: '5px', color: 'var(--lf-brand)' }}>Open UPI app</a></div>
               </div>}
             </div>
           )}
           {doc.notes && (
-            <div style={{ fontSize: '10px', color: '#7B818B', lineHeight: '1.4' }}>
+            <div style={{ fontSize: '10px', color: 'var(--lf-text-muted)', lineHeight: '1.4' }}>
               <strong>Terms:</strong> {doc.notes}
             </div>
           )}
         </div>
 
         {/* Totals Table */}
-        <div style={{ width: '280px', border: '1px solid #E6E1DA', borderRadius: '4px', padding: '12px', background: '#FFFFFF', fontSize: '11px' }}>
+        <div style={{ width: '280px', border: '1px solid var(--lf-border)', borderRadius: '4px', padding: '12px', background: '#FFFFFF', fontSize: '11px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
-            <span style={{ color: '#7B818B' }}>Subtotal:</span>
+            <span style={{ color: 'var(--lf-text-muted)' }}>Subtotal:</span>
             <span style={{ fontWeight: 600 }}>{formatINR(doc.subtotal)}</span>
           </div>
 
           {doc.discountAmount > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', color: '#2563EB' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', color: 'var(--lf-brand)' }}>
               <span>Discount:</span>
               <span>-{formatINR(doc.discountAmount)}</span>
             </div>
           )}
 
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
-            <span style={{ color: '#7B818B' }}>Taxable Amount:</span>
+            <span style={{ color: 'var(--lf-text-muted)' }}>Taxable Amount:</span>
             <span style={{ fontWeight: 600 }}>{formatINR(doc.taxableAmount)}</span>
           </div>
 
           {isInterState ? (
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
-              <span style={{ color: '#7B818B' }}>IGST:</span>
+              <span style={{ color: 'var(--lf-text-muted)' }}>IGST:</span>
               <span>{formatINR(doc.igstAmount)}</span>
             </div>
           ) : (
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
-                <span style={{ color: '#7B818B' }}>CGST:</span>
+                <span style={{ color: 'var(--lf-text-muted)' }}>CGST:</span>
                 <span>{formatINR(doc.cgstAmount)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
-                <span style={{ color: '#7B818B' }}>SGST:</span>
+                <span style={{ color: 'var(--lf-text-muted)' }}>SGST:</span>
                 <span>{formatINR(doc.sgstAmount)}</span>
               </div>
             </>
@@ -3762,31 +3751,31 @@ function PrintableInvoiceTemplate({ doc, companyProfile, signatureData = '', sho
           {Number(doc.tdsAmount) > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}><span>TDS deduction:</span><span>-{formatINR(doc.tdsAmount)}</span></div>}
           {Number(doc.tcsAmount) > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}><span>TCS addition:</span><span>+{formatINR(doc.tcsAmount)}</span></div>}
           {Math.abs(Number(doc.roundOffAmount) || 0) >= 0.005 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}><span>Round-off:</span><span>{Number(doc.roundOffAmount) > 0 ? '+' : ''}{formatINR(doc.roundOffAmount)}</span></div>}
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 4px', borderTop: '2px solid #2563EB', marginTop: '6px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 800, color: '#2563EB' }}>Total:</span>
-            <span style={{ fontSize: '14px', fontWeight: 800, color: '#2563EB' }}>{formatINR(doc.grandTotal)}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 4px', borderTop: '2px solid var(--lf-brand)', marginTop: '6px' }}>
+            <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--lf-brand)' }}>Total:</span>
+            <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--lf-brand)' }}>{formatINR(doc.grandTotal)}</span>
           </div>
 
-          <div style={{ fontSize: '9px', color: '#7B818B', textAlign: 'right', marginTop: '2px' }}>
+          <div style={{ fontSize: '9px', color: 'var(--lf-text-muted)', textAlign: 'right', marginTop: '2px' }}>
             {numberToWordsINR(doc.grandTotal)}
           </div>
         </div>
       </div>
 
       {/* Footer Signatures */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid #E6E1DA', paddingTop: '16px', marginTop: '20px' }}>
-        <div style={{ fontSize: '9px', color: '#7B818B' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid var(--lf-border)', paddingTop: '16px', marginTop: '20px' }}>
+        <div style={{ fontSize: '9px', color: 'var(--lf-text-muted)' }}>
           This is a computer generated document. Generated via LedgerFlow.
         </div>
         <div style={{ textAlign: 'center', minWidth: '170px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#2563EB', marginBottom: '6px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--lf-brand)', marginBottom: '6px' }}>
             For {companyProfile.tradeName || companyProfile.companyName}
           </div>
           <div className="lf-signature-area" style={{ position: 'relative', width: '170px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 3px' }}>
             {signatureData ? <img src={signatureData} alt="Authorized signatory signature" style={{ maxWidth: '160px', maxHeight: '42px', objectFit: 'contain' }} /> : <span style={{ display: 'block', width: '160px', height: '38px' }} aria-hidden="true" />}
             {showSignatureControl && <button type="button" className="lf-non-printable lf-signature-pen" onClick={onRequestSignature} title={signatureData ? 'Edit signature' : 'Add signature'} aria-label={signatureData ? 'Edit authorized signature' : 'Add authorized signature'}><PenLine size={14} /></button>}
           </div>
-          <div style={{ fontSize: '9px', borderTop: '1px solid #252A32', paddingTop: '3px', width: '160px', margin: '0 auto' }}>Authorized Signatory</div>
+          <div style={{ fontSize: '9px', borderTop: '1px solid var(--lf-text)', paddingTop: '3px', width: '160px', margin: '0 auto' }}>Authorized Signatory</div>
         </div>
       </div>
     </div>
@@ -3831,16 +3820,17 @@ function generatePrintableHtml(doc, profile, signatureData = '') {
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(doc.documentNumber)} - ${esc(profile.tradeName)}</title>
 <style>
-*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;margin:32px;color:#252b27;background:#fff}
-.header{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #2563EB;padding-bottom:16px;margin-bottom:20px}
-.title{font-size:24px;font-weight:800;color:#2563EB}.muted{font-size:12px;color:#6b756d;margin-top:4px}
+:root{--lf-brand:${THEME_PALETTE.brand};--lf-brand-light:${THEME_PALETTE.brandLight};--lf-text:${THEME_PALETTE.text};--lf-text-muted:${THEME_PALETTE.textMuted};--lf-border:${THEME_PALETTE.border};--lf-card-hover:${THEME_PALETTE.cardHover}}
+*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;margin:32px;color:${THEME_PALETTE.text};background:#fff}
+.header{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid ${THEME_PALETTE.brand};padding-bottom:16px;margin-bottom:20px}
+.title{font-size:24px;font-weight:800;color:${THEME_PALETTE.brand}}.muted{font-size:12px;color:${THEME_PALETTE.textMuted};margin-top:4px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
-.box{padding:12px;background:#f8faf8;border:1px solid #e6eae5;border-radius:4px;font-size:12px;overflow-wrap:anywhere}
-table{width:100%;border-collapse:collapse;margin-bottom:24px;font-size:12px}th{background:#eef5f1;color:#2563EB;text-align:left;padding:8px;border-bottom:1.5px solid #2563EB}
-td{padding:8px;border-bottom:1px solid #e6eae5}.num{text-align:right;white-space:nowrap}
-.total-box{margin-left:auto;width:280px;max-width:100%;border:1px solid #e6eae5;border-radius:4px;padding:12px;font-size:12px}
-.row{display:flex;justify-content:space-between;gap:12px;padding:3px 0}.grand{border-top:2px solid #2563EB;margin-top:6px;padding-top:6px;font-size:15px;font-weight:800;color:#2563EB}
-.footer{margin-top:36px;border-top:1px solid #e6eae5;padding-top:12px;font-size:11px;color:#6b756d}.signature-image{display:block;max-width:160px;max-height:42px;object-fit:contain;margin:0 auto 4px}
+.box{padding:12px;background:${THEME_PALETTE.cardHover};border:1px solid ${THEME_PALETTE.border};border-radius:4px;font-size:12px;overflow-wrap:anywhere}
+table{width:100%;border-collapse:collapse;margin-bottom:24px;font-size:12px}th{background:${THEME_PALETTE.brandLight};color:${THEME_PALETTE.brand};text-align:left;padding:8px;border-bottom:1.5px solid ${THEME_PALETTE.brand}}
+td{padding:8px;border-bottom:1px solid ${THEME_PALETTE.border}}.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.total-box,.row span:last-child,.grand{font-variant-numeric:tabular-nums}.total-box{margin-left:auto;width:280px;max-width:100%;border:1px solid ${THEME_PALETTE.border};border-radius:4px;padding:12px;font-size:12px}
+.row{display:flex;justify-content:space-between;gap:12px;padding:3px 0}.grand{border-top:2px solid ${THEME_PALETTE.brand};margin-top:6px;padding-top:6px;font-size:15px;font-weight:800;color:${THEME_PALETTE.brand}}
+.footer{margin-top:36px;border-top:1px solid ${THEME_PALETTE.border};padding-top:12px;font-size:11px;color:${THEME_PALETTE.textMuted}}.signature-image{display:block;max-width:160px;max-height:42px;object-fit:contain;margin:0 auto 4px}
 @media(max-width:600px){body{margin:14px}.header{flex-direction:column}.grid{grid-template-columns:1fr}table{font-size:10px}th,td{padding:5px}}
 @media print{body{margin:0}.no-print{display:none}}
 </style></head><body>
@@ -3848,7 +3838,7 @@ td{padding:8px;border-bottom:1px solid #e6eae5}.num{text-align:right;white-space
 <div class="muted">${esc(profile.address)}</div><div class="muted">GSTIN: ${esc(profile.gstin)} | PAN: ${esc(profile.pan)}</div>
 <div class="muted">${esc(profile.email)} ${profile.phone ? ' | ' + esc(profile.phone) : ''}</div></div>
 <div style="text-align:right"><div style="font-size:24px;font-weight:800;text-transform:uppercase">${isInvoice ? 'Tax Invoice' : 'Price Quotation'}</div>
-<div style="font-size:14px;font-weight:700;color:#2563EB">#${esc(doc.documentNumber)}</div><div class="muted">Date: ${esc(doc.issueDate)}</div></div></div>
+<div style="font-size:14px;font-weight:700;color:${THEME_PALETTE.brand}">#${esc(doc.documentNumber)}</div><div class="muted">Date: ${esc(doc.issueDate)}</div></div></div>
 <div class="grid"><div class="box"><strong>Billed To:</strong><br><strong>${esc(doc.clientName)}</strong><br>
 ${esc(doc.clientAddress)}<br>${doc.clientGstin ? 'GSTIN: ' + esc(doc.clientGstin) : ''}<br>${esc(doc.clientEmail)}</div>
 <div class="box"><strong>Payment & Due Details:</strong><br>Due Date: ${esc(doc.dueDate)}<br>Terms: ${esc(doc.paymentTerms)}<br>Place of Supply (state code): ${esc(supplyState || 'Not specified')}<br>
@@ -3862,9 +3852,9 @@ ${financeRows}
 <div class="row grand"><span>Total:</span><span>&#8377;${money(doc.grandTotal)}</span></div></div>
 ${upiQrHtml}
 <div class="footer">Generated via LedgerFlow.
-<div style="float:right;text-align:center;min-width:170px"><div style="font-weight:700;color:#2563EB">For ${esc(profile.tradeName || profile.companyName)}</div>
+<div style="float:right;text-align:center;min-width:170px"><div style="font-weight:700;color:${THEME_PALETTE.brand}">For ${esc(profile.tradeName || profile.companyName)}</div>
 ${signatureData ? `<img class="signature-image" src="${esc(signatureData)}" alt="Authorized signatory signature">` : '<div style="height:42px"></div>'}
-<div style="border-top:1px solid #252b27;padding-top:3px">Authorized Signatory</div></div>
+<div style="border-top:1px solid ${THEME_PALETTE.text};padding-top:3px">Authorized Signatory</div></div>
 <div style="margin-top:8px;white-space:pre-wrap;clear:both">${esc(doc.notes)}</div></div>
 </body></html>`
 }
@@ -5167,20 +5157,7 @@ function TermsConditionsPage() {
         {/* Top Header Bar */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <svg className="lf-logo-icon" viewBox="0 0 40 40" role="img" aria-label="LedgerFlow logo" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <linearGradient id="ledgerflow-mark-gradient" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#3B82F6" />
-                  <stop offset="100%" stopColor="#1D4ED8" />
-                </linearGradient>
-              </defs>
-              <rect x="1" y="1" width="38" height="38" rx="11" fill="url(#ledgerflow-mark-gradient)" />
-              <path d="M10 11.5h7.5c2.1 0 3.5 1.2 3.5 3.1v14c-1.1-1.2-2.2-1.7-4-1.7H10z" fill="#FFFFFF" />
-              <path d="M30 11.5h-5.5c-2.1 0-3.5 1.2-3.5 3.1v14c1.1-1.2 2.2-1.7 4-1.7H30z" fill="#DBEAFE" />
-              <path d="M12.5 16h5M12.5 20h5M24 16h3.5M24 20h3.5" stroke="#2563EB" strokeWidth="1.3" strokeLinecap="round" />
-              <circle cx="29.2" cy="28.2" r="5" fill="#F59E0B" />
-              <path d="M26.8 28.2h4.5m-1.8-1.8 1.8 1.8-1.8 1.8" fill="none" stroke="#FFFFFF" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <BrandMark className="lf-logo-icon" />
             <div>
               <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--lf-text)' }}>LedgerFlow</div>
               <div style={{ fontSize: '11px', color: 'var(--lf-brand)', fontWeight: 600 }}>Terms & Conditions Documentation</div>

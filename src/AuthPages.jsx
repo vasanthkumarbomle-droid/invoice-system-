@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { supabase, setRememberMe } from './supabase.js'
 import './auth.css'
+import BrandMark from './BrandMark.jsx'
 
 const PRODUCTION_APP_ORIGIN = 'https://ledgerflowhq.vercel.app'
 
@@ -27,21 +28,10 @@ function getAuthRedirectUrl(path) {
 
 const googleEnabled = import.meta.env.VITE_SUPABASE_GOOGLE_ENABLED === 'true'
 
-function BrandMark({ compact = false }) {
+function AuthBrandLockup({ compact = false }) {
   return (
     <div className={'auth-brand-lockup' + (compact ? ' is-compact' : '')}>
-      <svg className="auth-logo-mark" viewBox="0 0 40 40" role="img" aria-label="LedgerFlow logo" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="ledgerflow-auth-mark" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#344054" />
-            <stop offset="100%" stopColor="#1F2937" />
-          </linearGradient>
-        </defs>
-        <rect x="1" y="1" width="38" height="38" rx="11" fill="url(#ledgerflow-auth-mark)" />
-        <path d="M11 13.5h18M11 20h11M11 26.5h7" fill="none" stroke="#F8F5F0" strokeWidth="2.4" strokeLinecap="round" />
-        <circle cx="27.5" cy="26.5" r="5.5" fill="#D79A62" />
-        <path d="M27.5 23.5v6M29.2 24.7c-.5-.5-1-.7-1.7-.7-1 0-1.7.5-1.7 1.3 0 2 3.4.8 3.4 2.5 0 .8-.7 1.3-1.7 1.3-.7 0-1.4-.3-1.9-.8" fill="none" stroke="#263445" strokeWidth="1.1" strokeLinecap="round" />
-      </svg>
+      <BrandMark className="auth-logo-mark" />
       <span className="auth-brand-name">LedgerFlow</span>
       {!compact && <span className="auth-brand-label">INVOICE WORKSPACE</span>}
     </div>
@@ -120,7 +110,7 @@ export function AuthLayout({ title, subtitle, eyebrow = 'YOUR BUSINESS, IN SYNC'
   return (
     <div className="auth-page">
       <aside className="auth-brand">
-        <BrandMark />
+        <AuthBrandLockup />
         <div className="auth-brand-story">
           {eyebrow && <span className="auth-eyebrow">{eyebrow}</span>}
           <h2>{brandHeadline || <>Billing that<br /><em>runs itself.</em></>}</h2>
@@ -135,7 +125,7 @@ export function AuthLayout({ title, subtitle, eyebrow = 'YOUR BUSINESS, IN SYNC'
         <div className="auth-brand-foot"><ShieldCheck size={14} /> Your workflow, neatly handled.</div>
       </aside>
       <main className="auth-panel">
-        <div className="auth-mobile-brand"><BrandMark compact /></div>
+        <div className="auth-mobile-brand"><AuthBrandLockup compact /></div>
         <section className="auth-card" aria-labelledby="auth-heading">
           {showCardTopline && <div className="auth-card-topline"><span className="auth-card-eyebrow">LEDGERFLOW ACCOUNT</span><span className="auth-security"><LockKeyhole size={13} /> Secure access</span></div>}
           <h1 id="auth-heading">{title}</h1>
