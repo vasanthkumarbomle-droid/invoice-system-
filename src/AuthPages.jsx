@@ -50,15 +50,16 @@ function BrandMark({ compact = false }) {
 
 function AuthInvoiceDemo() {
   const samples = useMemo(() => [
-    { client: 'Sample Traders', item1: 'Wireless keyboard', item2: 'USB-C hub', qty1: 2, qty2: 1, amount: 11800, tax: 1800, subtotal: 10000 },
-    { client: 'Northstar Supply', item1: 'Desk monitor', item2: 'Docking station', qty1: 1, qty2: 2, amount: 23600, tax: 3600, subtotal: 20000 },
+    { client: 'Sample Traders', item1: 'Wireless keyboard', item2: 'USB-C hub', qty1: 2, qty2: 1, item1Amount: 7000, item2Amount: 3000, subtotal: 10000 },
+    { client: 'Northstar Supply', item1: 'Desk monitor', item2: 'Docking station', qty1: 1, qty2: 2, item1Amount: 14000, item2Amount: 6000, subtotal: 20000 },
   ], [])
   const [cycle, setCycle] = useState(0)
-  const [amount, setAmount] = useState(samples[0].amount)
   const [visible, setVisible] = useState(typeof document === 'undefined' || document.visibilityState === 'visible')
   const [reduced, setReduced] = useState(false)
-  const elapsed = useRef(0)
   const sample = samples[cycle % samples.length]
+  const cgst = Math.round(sample.subtotal * 0.09)
+  const sgst = Math.round(sample.subtotal * 0.09)
+  const total = sample.subtotal + cgst + sgst
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -75,32 +76,12 @@ function AuthInvoiceDemo() {
   }, [])
 
   useEffect(() => {
-    if (reduced) {
-      elapsed.current = 0
-      setAmount(sample.amount)
-      return undefined
-    }
-    if (!visible) return undefined
-    let lastTick = performance.now()
+    if (reduced || !visible) return undefined
     const timer = window.setInterval(() => {
-      const now = performance.now()
-      elapsed.current += Math.max(0, now - lastTick)
-      lastTick = now
-      if (elapsed.current >= 8000) {
-        elapsed.current %= 8000
-        setCycle((current) => current + 1)
-      }
-      const progress = Math.min(1, Math.max(0, (elapsed.current - 650) / 4000))
-      const eased = 1 - Math.pow(1 - progress, 3)
-      const target = samples[cycle % samples.length]
-      setAmount(Math.round(target.amount * eased))
-    }, 100)
+      setCycle((current) => (current + 1) % samples.length)
+    }, 8000)
     return () => window.clearInterval(timer)
-  }, [visible, reduced, cycle, samples, sample.amount])
-
-  useEffect(() => {
-    if (reduced) setAmount(samples[cycle % samples.length].amount)
-  }, [reduced, cycle, samples])
+  }, [visible, reduced, samples.length])
 
   return (
     <div className={'auth-demo-wrap' + (reduced ? ' is-static' : '') + (!visible ? ' is-paused' : '')} aria-label="Animated invoice preview. Sample data only." role="img">
@@ -116,34 +97,33 @@ function AuthInvoiceDemo() {
         </div>
         <div className="auth-invoice-table">
           <div className="auth-invoice-table-head"><span>DESCRIPTION</span><span>QTY</span><span>AMOUNT</span></div>
-          <div className="auth-invoice-row row-one"><span>{sample.item1}</span><span>{sample.qty1}</span><strong>₹{(sample.subtotal * 0.7).toLocaleString('en-IN')}</strong></div>
-          <div className="auth-invoice-row row-two"><span>{sample.item2}</span><span>{sample.qty2}</span><strong>₹{(sample.subtotal * 0.3).toLocaleString('en-IN')}</strong></div>
+          <div className="auth-invoice-row row-one"><span>{sample.item1}</span><span>{sample.qty1}</span><strong>₹{sample.item1Amount.toLocaleString('en-IN')}</strong></div>
+          <div className="auth-invoice-row row-two"><span>{sample.item2}</span><span>{sample.qty2}</span><strong>₹{sample.item2Amount.toLocaleString('en-IN')}</strong></div>
         </div>
         <div className="auth-invoice-bottom">
           <div className="auth-invoice-tax-lines">
-            <span>CGST <b>9%</b></span><span>SGST <b>9%</b></span>
+            <span>CGST (9%) <b>₹{cgst.toLocaleString('en-IN')}</b></span><span>SGST (9%) <b>₹{sgst.toLocaleString('en-IN')}</b></span>
           </div>
           <div className="auth-invoice-total">
-            <span>TOTAL DUE</span><strong>₹{amount.toLocaleString('en-IN')}</strong>
+            <span>TOTAL DUE</span><strong>₹{total.toLocaleString('en-IN')}</strong>
           </div>
         </div>
         <div className="auth-invoice-footer"><span><ShieldCheck size={12} /> GST calculated automatically</span><span>PREVIEW ONLY</span></div>
         <div className="auth-paid-stamp">PAID <Check size={12} strokeWidth={3} /></div>
         <div className="auth-confetti" aria-hidden="true"><i /><i /><i /><i /><i /><i /></div>
       </div>
-      <p className="auth-demo-disclaimer">A tiny preview. Not a real invoice.</p>
     </div>
   )
 }
 
-export function AuthLayout({ title, subtitle, eyebrow = 'YOUR BUSINESS, IN SYNC', children, compact = false }) {
+export function AuthLayout({ title, subtitle, eyebrow = 'YOUR BUSINESS, IN SYNC', children, compact = false, showCardTopline = true, showLegal = false, brandHeadline }) {
   return (
     <div className="auth-page">
       <aside className="auth-brand">
         <BrandMark />
         <div className="auth-brand-story">
-          <span className="auth-eyebrow">{eyebrow}</span>
-          <h2>Billing that<br /><em>runs itself.</em></h2>
+          {eyebrow && <span className="auth-eyebrow">{eyebrow}</span>}
+          <h2>{brandHeadline || <>Billing that<br /><em>runs itself.</em></>}</h2>
           <p>Less spreadsheet theatre. More time for the work that pays.</p>
         </div>
         {!compact && <AuthInvoiceDemo />}
@@ -157,13 +137,13 @@ export function AuthLayout({ title, subtitle, eyebrow = 'YOUR BUSINESS, IN SYNC'
       <main className="auth-panel">
         <div className="auth-mobile-brand"><BrandMark compact /></div>
         <section className="auth-card" aria-labelledby="auth-heading">
-          <div className="auth-card-topline"><span className="auth-card-eyebrow">LEDGERFLOW ACCOUNT</span><span className="auth-security"><LockKeyhole size={13} /> Secure access</span></div>
+          {showCardTopline && <div className="auth-card-topline"><span className="auth-card-eyebrow">LEDGERFLOW ACCOUNT</span><span className="auth-security"><LockKeyhole size={13} /> Secure access</span></div>}
           <h1 id="auth-heading">{title}</h1>
           <p className="auth-sub">{subtitle}</p>
           {children}
-          <p className="auth-legal">By continuing, you agree to LedgerFlow’s <a href="/terms">Terms of Service</a> and acknowledge the <a href="/privacy">Privacy Policy</a>.</p>
+          {showLegal && <p className="auth-legal">By continuing, you agree to LedgerFlow’s <a href="/terms">Terms of Service</a> and acknowledge the <a href="/privacy">Privacy Policy</a>.</p>}
         </section>
-        <div className="auth-panel-foot"><span>© 2026 LedgerFlow</span><span>Built for better business days.</span></div>
+        <div className="auth-panel-foot"><span>© 2026 LedgerFlow</span><a className="auth-help-link" href="/forgot-password" aria-label="Need help? Open password recovery">Need help?</a></div>
       </main>
     </div>
   )
@@ -173,7 +153,7 @@ function GoogleMark() {
   return <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" transform="translate(0 4)" /><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.76 7.18l7.73 6C44.42 38.05 46.98 31.96 46.98 24.55z" /><path fill="#34A853" d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.13.76-4.59l-7.98-6.2A23.9 23.9 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.97-6.19z" transform="translate(0 4)" /><path fill="#FBBC05" d="M24 48c6.48 0 11.93-2.13 15.91-5.8l-7.73-6c-2.14 1.44-4.89 2.3-8.18 2.3-6.26 0-11.57-4.22-13.46-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" transform="translate(0 -2)" /></svg>
 }
 
-function PasswordField({ id, label, value, onChange, autoComplete, required = true, onCapsLockChange, hint }) {
+function PasswordField({ id, label, value, onChange, autoComplete, required = true, onCapsLockChange, hint, error }) {
   const [shown, setShown] = useState(false)
   return (
     <div className="auth-field">
@@ -190,13 +170,14 @@ function PasswordField({ id, label, value, onChange, autoComplete, required = tr
           onKeyDown={onCapsLockChange}
           required={required}
           minLength={autoComplete === 'current-password' ? undefined : 8}
-          aria-describedby={hint ? id + '-hint' : undefined}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? id + '-error' : hint ? id + '-hint' : undefined}
         />
-        <button type="button" className="auth-password-toggle" aria-label={shown ? 'Hide password' : 'Show password'} onClick={() => setShown((state) => !state)}>
+        <button type="button" className="auth-password-toggle" aria-label={shown ? 'Hide password' : 'Show password'} aria-pressed={shown} onClick={() => setShown((state) => !state)}>
           {shown ? <EyeOff size={17} /> : <Eye size={17} />}
         </button>
       </div>
-      {hint && <span id={id + '-hint'} className="auth-field-hint">{hint}</span>}
+      {error ? <span id={id + '-error'} className="auth-field-error" role="alert">{error}</span> : hint && <span id={id + '-hint'} className="auth-field-hint">{hint}</span>}
     </div>
   )
 }
@@ -234,10 +215,17 @@ export function AuthLoginPage() {
   const emailRef = useRef(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [remember, setRemember] = useState(true)
+  const [remember, setRemember] = useState(false)
   const [showCapsLock, setShowCapsLock] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
+  const [phoneMode, setPhoneMode] = useState(false)
+  const [phone, setPhone] = useState('')
+  const [otp, setOtp] = useState('')
+  const [otpRequested, setOtpRequested] = useState(false)
+  const [phoneError, setPhoneError] = useState('')
+  const [otpError, setOtpError] = useState('')
   const [busy, setBusy] = useState(false)
   const [lockedUntil, setLockedUntil] = useState(0)
   const [lockRemaining, setLockRemaining] = useState(0)
@@ -289,6 +277,16 @@ export function AuthLoginPage() {
   const submit = async (event) => {
     event.preventDefault()
     if (!supabase || busy || lockRemaining > 0) return
+    const nextFieldErrors = {}
+    if (!email.trim()) nextFieldErrors.email = 'Enter your work email.'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) nextFieldErrors.email = 'Enter a valid email address.'
+    if (!password) nextFieldErrors.password = 'Enter your password.'
+    setFieldErrors(nextFieldErrors)
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setError('')
+      setNotice('')
+      return
+    }
     setBusy(true)
     setError('')
     setNotice('')
@@ -297,7 +295,7 @@ export function AuthLoginPage() {
       const { error: loginError } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
       if (loginError) {
         recordFailedAttempt()
-        setError(navigator.onLine ? 'Incorrect email or password.' : 'You appear to be offline. Check your connection and try again.')
+        setError(navigator.onLine ? 'Incorrect email or password. Please check your details and try again.' : 'You appear to be offline. Check your connection and try again.')
         return
       }
       try {
@@ -307,7 +305,7 @@ export function AuthLoginPage() {
       navigate(redirect, { replace: true })
     } catch {
       recordFailedAttempt()
-      setError(navigator.onLine ? 'Incorrect email or password.' : 'You appear to be offline. Check your connection and try again.')
+      setError(navigator.onLine ? 'Incorrect email or password. Please check your details and try again.' : 'You appear to be offline. Check your connection and try again.')
     } finally {
       setBusy(false)
     }
@@ -318,6 +316,11 @@ export function AuthLoginPage() {
     setNotice('')
     if (!email.trim()) {
       setError('Enter your email address first.')
+      emailRef.current?.focus()
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Enter a valid email address before requesting a magic link.')
       emailRef.current?.focus()
       return
     }
@@ -341,8 +344,17 @@ export function AuthLoginPage() {
   }
 
   const googleLogin = async () => {
-    if (!supabase || busy) return
+    if (busy) return
     setError('')
+    setNotice('')
+    if (!googleEnabled) {
+      setError('Google sign-in is not enabled yet. Configure Google OAuth in Supabase Authentication → Providers to activate it.')
+      return
+    }
+    if (!supabase) {
+      setError('Authentication is not configured for this deployment.')
+      return
+    }
     setBusy(true)
     try {
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
@@ -356,32 +368,78 @@ export function AuthLoginPage() {
     }
   }
 
+  const requestPhoneOtp = (event) => {
+    event.preventDefault()
+    const normalizedPhone = phone.replace(/[^\d+]/g, '')
+    if (!/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) {
+      setPhoneError('Enter a valid phone number with country code, such as +91 98765 43210.')
+      setOtpRequested(false)
+      return
+    }
+    setPhoneError('')
+    setOtpError('')
+    setOtp('')
+    setOtpRequested(true)
+    setError('')
+    setNotice('UI preview only: no SMS was sent. Enable Phone Auth in Supabase and configure an SMS provider to use OTP sign-in.')
+  }
+
+  const verifyPhoneOtp = (event) => {
+    event.preventDefault()
+    if (!/^\d{6}$/.test(otp.trim())) {
+      setOtpError('Enter the 6-digit code.')
+      return
+    }
+    setOtpError('OTP verification is not connected yet. Configure Supabase Phone Auth and an SMS provider to activate it.')
+  }
+
   return (
-    <AuthLayout title="Welcome back." subtitle="Pick up right where your business left off." eyebrow="GOOD TO HAVE YOU BACK">
+    <AuthLayout title="Welcome back." subtitle="Pick up right where your business left off." eyebrow="" showCardTopline={false} brandHeadline={<>Invoices, GST and<br /><em>payments, sorted.</em></>}>
       {sessionExpired && <div className="auth-notice auth-notice-info" role="status">Your session ended. Sign in again to continue.</div>}
       {!supabase && <div className="auth-message auth-message-error" role="alert">Authentication is not configured. Add the Supabase URL and publishable key to the deployment environment.</div>}
-      <form className="auth-form" onSubmit={submit}>
+      <form className="auth-form" onSubmit={submit} noValidate>
         <div className="auth-field">
           <label htmlFor="login-email">Work email</label>
-          <input ref={emailRef} id="login-email" name="email" type="email" autoComplete="email" inputMode="email" placeholder="you@company.com" value={email} onChange={(event) => { setEmail(event.target.value); setError('') }} required />
+          <input ref={emailRef} autoFocus id="login-email" name="email" type="email" autoComplete="email" inputMode="email" placeholder="you@company.com" value={email} onChange={(event) => { setEmail(event.target.value); setError(''); setFieldErrors((current) => ({ ...current, email: '' })) }} aria-invalid={Boolean(fieldErrors.email)} aria-describedby={fieldErrors.email ? 'login-email-error' : undefined} required />
+          {fieldErrors.email && <span id="login-email-error" className="auth-field-error" role="alert">{fieldErrors.email}</span>}
         </div>
-        <PasswordField id="login-password" label="Password" value={password} onChange={(event) => { setPassword(event.target.value); setError('') }} autoComplete="current-password" onCapsLockChange={handleCaps} />
+        <PasswordField id="login-password" label="Password" value={password} error={fieldErrors.password} onChange={(event) => { setPassword(event.target.value); setError(''); setFieldErrors((current) => ({ ...current, password: '' })) }} autoComplete="current-password" onCapsLockChange={handleCaps} />
         {showCapsLock && <p className="auth-caps-warning" role="status">Caps Lock is on.</p>}
         <div className="auth-form-options">
           <label className="auth-checkbox"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} /> <span>Remember me</span></label>
           <button type="button" className="auth-inline-link" onClick={() => navigate('/forgot-password')}>Forgot password?</button>
         </div>
-        {error && <div className="auth-message auth-message-error" role="alert" aria-live="polite">{error}</div>}
-        {notice && <div className="auth-message auth-message-success" role="status" aria-live="polite">{notice}</div>}
         {lockRemaining > 0 && <p className="auth-lockout-note" role="status">Too many failed attempts. Try again in {lockRemaining}s.</p>}
         <button className="auth-btn" type="submit" disabled={busy || lockRemaining > 0 || !supabase}>
           {busy ? <><LoaderCircle className="auth-spinner" size={17} /> Signing you in…</> : <>Sign in <ArrowRight size={16} /></>}
         </button>
       </form>
-      {googleEnabled && (
-        <button type="button" className="auth-btn auth-btn-secondary" onClick={googleLogin} disabled={busy}><GoogleMark /> Continue with Google</button>
+      {error && <div className="auth-message auth-message-error" role="alert" aria-live="polite">{error}</div>}
+      {notice && <div className="auth-message auth-message-success" role="status" aria-live="polite">{notice}</div>}
+      <div className="auth-divider" role="separator" aria-label="or"><span>or</span></div>
+      <button type="button" className="auth-btn auth-btn-secondary" onClick={googleLogin} disabled={busy}><GoogleMark /> Continue with Google</button>
+      <button type="button" className="auth-inline-link auth-method-toggle" onClick={() => { setPhoneMode((current) => !current); setPhoneError(''); setOtpError(''); setError(''); setNotice('') }}>{phoneMode ? 'Use email and password' : 'Use phone number instead'}</button>
+      {phoneMode && (
+        <section className="auth-phone-panel" aria-label="Phone number sign-in">
+          <p className="auth-provider-note">Phone OTP preview — no SMS will be sent until phone authentication is configured.</p>
+          <form className="auth-phone-form" onSubmit={otpRequested ? verifyPhoneOtp : requestPhoneOtp} noValidate>
+            <div className="auth-field">
+              <label htmlFor="login-phone">Phone number</label>
+              <input id="login-phone" name="phone" type="tel" autoComplete="tel" inputMode="tel" placeholder="+91 98765 43210" value={phone} onChange={(event) => { setPhone(event.target.value); setPhoneError(''); setNotice('') }} aria-invalid={Boolean(phoneError)} aria-describedby={phoneError ? 'login-phone-error' : undefined} required />
+              {phoneError && <span id="login-phone-error" className="auth-field-error" role="alert">{phoneError}</span>}
+            </div>
+            {otpRequested && (
+              <div className="auth-field">
+                <label htmlFor="login-otp">6-digit OTP</label>
+                <input id="login-otp" name="otp" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="[0-9]{6}" placeholder="123456" value={otp} onChange={(event) => { setOtp(event.target.value.replace(/\D/g, '').slice(0, 6)); setOtpError('') }} aria-invalid={Boolean(otpError)} aria-describedby={otpError ? 'login-otp-error' : undefined} required />
+                {otpError && <span id="login-otp-error" className="auth-field-error" role="alert">{otpError}</span>}
+              </div>
+            )}
+            <button className="auth-btn auth-btn-secondary" type="submit">{otpRequested ? 'Verify code' : 'Send OTP'}</button>
+          </form>
+        </section>
       )}
-      <button type="button" className="auth-magic-link" onClick={sendMagicLink} disabled={busy}><Mail size={16} /> Email me a magic link</button>
+      <button type="button" className="auth-magic-link" onClick={sendMagicLink} disabled={busy}><Mail size={16} /> Email a magic link</button>
       <p className="auth-switch-prompt">New to LedgerFlow? <button type="button" className="auth-inline-link" onClick={() => navigate('/signup' + (redirect !== '/' ? '?redirect=' + encodeURIComponent(redirect) : ''))}>Create an account</button></p>
     </AuthLayout>
   )
@@ -484,7 +542,7 @@ export function AuthSignupPage() {
   }
 
   return (
-    <AuthLayout title="Make room for better." subtitle="Your business deserves less admin and more momentum." eyebrow="A BETTER WAY TO BILL">
+    <AuthLayout title="Make room for better." subtitle="Your business deserves less admin and more momentum." eyebrow="A BETTER WAY TO BILL" showLegal>
       {!supabase && <div className="auth-message auth-message-error" role="alert">Authentication is not configured for this deployment.</div>}
       <form className="auth-form" onSubmit={submit}>
         <div className="auth-field">
