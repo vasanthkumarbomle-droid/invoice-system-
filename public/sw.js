@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ledgerflow-offline-v2';
+const CACHE_NAME = 'ledgerflow-offline-v3';
 const OFFLINE_URL = '/offline.html';
 const APP_SHELL_URLS = ['/', '/index.html', OFFLINE_URL, '/favicon.svg'];
 
