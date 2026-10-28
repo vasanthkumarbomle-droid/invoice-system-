@@ -15,7 +15,7 @@
 .auth-brand:after{inset:auto -20% -35% 30%;height:65%;border-radius:50%;background:radial-gradient(ellipse at center,color-mix(in srgb, var(--lf-brand) 24%, transparent),transparent 65%)}
 .auth-brand-lockup{display:grid;grid-template-columns:44px auto;grid-template-rows:auto auto;column-gap:12px;align-items:center;width:fit-content;min-width:0}
 .auth-logo-mark{grid-column:1;grid-row:1/span 2;width:44px;height:44px;filter:drop-shadow(0 5px 12px rgba(0,0,0,.2))}
-.auth-brand-name{align-self:end;font-size:18px;font-weight:800;line-height:1.15;letter-spacing:-.035em;color:#fff}
+.auth-brand-name{font-family:Manrope,Inter,sans-serif;align-self:end;font-size:18px;font-weight:800;line-height:1.15;letter-spacing:-.035em;color:#fff}
 .auth-brand-label{align-self:start;color:var(--auth-panel-muted);font-size:12px;line-height:1.5;font-weight:750;letter-spacing:.12em}
 .auth-brand-story{max-width:530px;margin-top:clamp(2px,1vh,14px)}
 .auth-eyebrow,.auth-card-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;line-height:1.5;font-weight:800;letter-spacing:.12em;text-transform:uppercase}

@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
 /* LedgerFlow shared design tokens */
 :root {
   color-scheme: light;
@@ -1545,16 +1543,9 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 }
 .lf-sidebar-header { border-bottom-color: rgba(255,255,255,.09); }
 .lf-brand-title { font-family: Manrope, sans-serif; font-weight: 800; letter-spacing: -.045em; }
-.lf-brand-subtitle { color: var(--lf-sidebar-muted); letter-spacing: .13em; }.lf-shell { background: var(--lf-bg); }
-.lf-sidebar {
-  background: #172033;
-  color: var(--lf-sidebar-text);
-  border-right: 1px solid rgba(255,255,255,.06);
-  box-shadow: 8px 0 30px rgba(23,32,51,.035);
-}
-.lf-sidebar-header { border-bottom-color: rgba(255,255,255,.09); }
-.lf-brand-title { font-family: Manrope, sans-serif; font-weight: 800; letter-spacing: -.045em; }
 .lf-brand-subtitle { color: var(--lf-sidebar-muted); letter-spacing: .13em; }
+.lf-shell { background: var(--lf-bg); }
+
 .lf-nav-item {
   margin: 3px 10px;
   border-radius: 10px;
@@ -1920,12 +1911,12 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .lf-form-input, .lf-form-select, .lf-form-textarea,
 .lf-search-input {
   border-radius: 10px;
-  border-color: #DCE4EF;
+  border-color: var(--lf-border);
   transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
 }
 .lf-form-input:focus, .lf-form-select:focus, .lf-form-textarea:focus,
 .lf-search-input:focus {
-  border-color: #7AA2F7;
+  border-color: var(--lf-border-focus);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--lf-brand) 12%, transparent);
 }
 .lf-table th, .lf-table td {
@@ -1994,10 +1985,10 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   gap: 16px;
   padding: 14px 16px;
   margin: 16px 0;
-  border: 1px solid #FCD34D;
+  border: 1px solid var(--lf-highlight-border);
   border-radius: 12px;
   background: #FFFBEB;
-  color: #78350F;
+  color: var(--lf-accent-hover);
 }
 .lf-profile-completion-copy { display: grid; gap: 3px; min-width: 0; }
 .lf-profile-completion-copy strong { font-size: 14px; }
@@ -2082,7 +2073,7 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   align-items: center;
   min-height: 25px;
   padding-left: 12px;
-  color: #65796D;
+  color: var(--lf-text-muted);
   font-size: 11px;
 }
 .lf-revenue-legend span {
@@ -2100,7 +2091,7 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .lf-legend-received { background: #D97706; }
 .lf-revenue-legend .lf-chart-period {
   margin-left: auto;
-  color: #84958A;
+  color: var(--lf-text-muted);
 }
 @media (max-width: 440px) {
   .lf-chart-wrap { height: 250px; min-height: 250px; }
@@ -2577,19 +2568,19 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   white-space: nowrap;
 }
 .lf-due-urgency-overdue {
-  color: #B91C1C;
+  color: var(--lf-danger);
   background: #FEF2F2;
   border-color: #FECACA;
 }
 .lf-due-urgency-today {
-  color: #9A3412;
-  background: #FFF7ED;
-  border-color: #FED7AA;
+  color: var(--lf-accent-hover);
+  background: var(--lf-highlight-light);
+  border-color: var(--lf-highlight-border);
 }
 .lf-due-urgency-soon {
-  color: #854D0E;
-  background: #FEFCE8;
-  border-color: #FEF08A;
+  color: var(--lf-accent-hover);
+  background: var(--lf-highlight-light);
+  border-color: var(--lf-highlight-border);
 }
 
 
@@ -2774,3 +2765,5 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 /* Numeric alignment for financial figures and totals. */
 .lf-money, .lf-amount, .lf-total, [data-money], [class*="amount"], [class*="total"], [class*="money"], .lf-print-grand-total, .lf-table td:nth-last-child(1), .lf-line-items-table td:nth-child(8) { font-variant-numeric: tabular-nums; }
 :root[data-theme="dark"] .lf-btn-primary, :root[data-theme="dark"] .auth-btn:not(.auth-btn-secondary), :root[data-theme="dark"] .client-btn-primary { color: var(--lf-brand-contrast); }
+
+.lf-table td, .lf-line-items-table td, .lf-print-paper td, .lf-print-paper .lf-print-grand-total, .lf-print-paper [class*="total"], .lf-print-paper [class*="amount"] { font-variant-numeric: tabular-nums; }
