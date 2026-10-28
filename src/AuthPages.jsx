@@ -50,15 +50,16 @@ function BrandMark({ compact = false }) {
 
 function AuthInvoiceDemo() {
   const samples = useMemo(() => [
-    { client: 'Sample Traders', item1: 'Wireless keyboard', item2: 'USB-C hub', qty1: 2, qty2: 1, amount: 11800, tax: 1800, subtotal: 10000 },
-    { client: 'Northstar Supply', item1: 'Desk monitor', item2: 'Docking station', qty1: 1, qty2: 2, amount: 23600, tax: 3600, subtotal: 20000 },
+    { client: 'Sample Traders', item1: 'Wireless keyboard', item2: 'USB-C hub', qty1: 2, qty2: 1, item1Amount: 7000, item2Amount: 3000, subtotal: 10000 },
+    { client: 'Northstar Supply', item1: 'Desk monitor', item2: 'Docking station', qty1: 1, qty2: 2, item1Amount: 14000, item2Amount: 6000, subtotal: 20000 },
   ], [])
   const [cycle, setCycle] = useState(0)
-  const [amount, setAmount] = useState(samples[0].amount)
   const [visible, setVisible] = useState(typeof document === 'undefined' || document.visibilityState === 'visible')
   const [reduced, setReduced] = useState(false)
-  const elapsed = useRef(0)
   const sample = samples[cycle % samples.length]
+  const cgst = Math.round(sample.subtotal * 0.09)
+  const sgst = Math.round(sample.subtotal * 0.09)
+  const total = sample.subtotal + cgst + sgst
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -75,32 +76,12 @@ function AuthInvoiceDemo() {
   }, [])
 
   useEffect(() => {
-    if (reduced) {
-      elapsed.current = 0
-      setAmount(sample.amount)
-      return undefined
-    }
-    if (!visible) return undefined
-    let lastTick = performance.now()
+    if (reduced || !visible) return undefined
     const timer = window.setInterval(() => {
-      const now = performance.now()
-      elapsed.current += Math.max(0, now - lastTick)
-      lastTick = now
-      if (elapsed.current >= 8000) {
-        elapsed.current %= 8000
-        setCycle((current) => current + 1)
-      }
-      const progress = Math.min(1, Math.max(0, (elapsed.current - 650) / 4000))
-      const eased = 1 - Math.pow(1 - progress, 3)
-      const target = samples[cycle % samples.length]
-      setAmount(Math.round(target.amount * eased))
-    }, 100)
+      setCycle((current) => (current + 1) % samples.length)
+    }, 8000)
     return () => window.clearInterval(timer)
-  }, [visible, reduced, cycle, samples, sample.amount])
-
-  useEffect(() => {
-    if (reduced) setAmount(samples[cycle % samples.length].amount)
-  }, [reduced, cycle, samples])
+  }, [visible, reduced, samples.length])
 
   return (
     <div className={'auth-demo-wrap' + (reduced ? ' is-static' : '') + (!visible ? ' is-paused' : '')} aria-label="Animated invoice preview. Sample data only." role="img">
@@ -116,22 +97,21 @@ function AuthInvoiceDemo() {
         </div>
         <div className="auth-invoice-table">
           <div className="auth-invoice-table-head"><span>DESCRIPTION</span><span>QTY</span><span>AMOUNT</span></div>
-          <div className="auth-invoice-row row-one"><span>{sample.item1}</span><span>{sample.qty1}</span><strong>₹{(sample.subtotal * 0.7).toLocaleString('en-IN')}</strong></div>
-          <div className="auth-invoice-row row-two"><span>{sample.item2}</span><span>{sample.qty2}</span><strong>₹{(sample.subtotal * 0.3).toLocaleString('en-IN')}</strong></div>
+          <div className="auth-invoice-row row-one"><span>{sample.item1}</span><span>{sample.qty1}</span><strong>₹{sample.item1Amount.toLocaleString('en-IN')}</strong></div>
+          <div className="auth-invoice-row row-two"><span>{sample.item2}</span><span>{sample.qty2}</span><strong>₹{sample.item2Amount.toLocaleString('en-IN')}</strong></div>
         </div>
         <div className="auth-invoice-bottom">
           <div className="auth-invoice-tax-lines">
-            <span>CGST <b>9%</b></span><span>SGST <b>9%</b></span>
+            <span>CGST (9%) <b>₹{cgst.toLocaleString('en-IN')}</b></span><span>SGST (9%) <b>₹{sgst.toLocaleString('en-IN')}</b></span>
           </div>
           <div className="auth-invoice-total">
-            <span>TOTAL DUE</span><strong>₹{amount.toLocaleString('en-IN')}</strong>
+            <span>TOTAL DUE</span><strong>₹{total.toLocaleString('en-IN')}</strong>
           </div>
         </div>
         <div className="auth-invoice-footer"><span><ShieldCheck size={12} /> GST calculated automatically</span><span>PREVIEW ONLY</span></div>
         <div className="auth-paid-stamp">PAID <Check size={12} strokeWidth={3} /></div>
         <div className="auth-confetti" aria-hidden="true"><i /><i /><i /><i /><i /><i /></div>
       </div>
-      <p className="auth-demo-disclaimer">A tiny preview. Not a real invoice.</p>
     </div>
   )
 }
