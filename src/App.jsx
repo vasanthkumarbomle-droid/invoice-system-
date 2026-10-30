@@ -2194,6 +2194,15 @@ function DocumentEditorView({
 }) {
   const { org } = useOrg()
   const [scannedProducts, setScannedProducts] = useState([])
+  const catalogProducts = useMemo(() => {
+    const byIdentity = new Map()
+    ;[...(Array.isArray(products) ? products : []), ...scannedProducts].forEach((product) => {
+      if (!product) return
+      const identity = product.id || `barcode:${product.barcode || product.sku || product.name}`
+      byIdentity.set(identity, product)
+    })
+    return [...byIdentity.values()]
+  }, [products, scannedProducts])
   const isInvoice = mode === 'invoice'
   const missingSellerFields = [
     !String(companyProfile.gstin || '').trim() && 'GSTIN',
@@ -2281,7 +2290,7 @@ function DocumentEditorView({
 
   // Handle Product Selection for Line Item
   const handleProductSelect = (index, productId) => {
-    const product = products.find((p) => p.id === productId)
+    const product = catalogProducts.find((p) => p.id === productId)
     if (!product) return
 
     setItems((prev) => {
@@ -2364,7 +2373,7 @@ function DocumentEditorView({
   }
 
   // Add saved products immediately; otherwise look up public product data by barcode.
-  const addScannedLineItem = (incoming) => {
+  const addScannedLineItem = useCallback((incoming) => {
     setItems((prev) => {
       const incomingSku = String(incoming.sku || '').trim().toLowerCase()
       const existingIndex = prev.findIndex((item) => {
@@ -2398,35 +2407,72 @@ function DocumentEditorView({
 
       if (blankIndex >= 0) {
         const updated = [...prev]
-        updated[blankIndex] = { ...incoming, id: prev[blankIndex].id }
+        updated[blankIndex] = { ...incoming, id: incoming.id || prev[blankIndex].id }
         return updated
       }
 
       return [...prev, incoming]
     })
-  }
+  }, [])
 
-  const handleAddProductByCode = useCallback(async (code) => {
+  const updateScannedLineItem = useCallback((barcode, product) => {
+    const normalizedBarcode = String(barcode || '').trim().toLowerCase()
+    setItems((prev) => {
+      const index = prev.findIndex((item) =>
+        String(item.sku || '').trim().toLowerCase() === normalizedBarcode
+      )
+      if (index < 0) return prev
+
+      const updated = [...prev]
+      const current = updated[index]
+      const quantity = Math.max(1, Number(current.quantity) || 1)
+      const unitPrice = Math.max(0, Number(product.price) || 0)
+      const rawGst = product.gstRate == null || product.gstRate === '' ? 18 : Number(product.gstRate)
+      const gstRate = Number.isFinite(rawGst) && rawGst >= 0 ? rawGst : 18
+      const subtotal = quantity * unitPrice
+      const taxAmount = subtotal * gstRate / 100
+      updated[index] = {
+        ...current,
+        productId: product.id || '',
+        description: product.name || current.description,
+        sku: product.sku || product.barcode || barcode,
+        hsnSac: product.hsnSac || current.hsnSac || '',
+        quantity,
+        unitPrice,
+        gstRate,
+        subtotal,
+        taxAmount,
+        total: subtotal + taxAmount,
+      }
+      return updated
+    })
+  }, [])
+
+  // A barcode is added to the invoice immediately. Catalogue/network enrichment
+  // runs after the row exists, so a slow public API can never block line entry.
+  const handleAddProductByCode = useCallback((code) => {
     const rawCode = String(code || '').trim()
-    if (!rawCode) return false
+    const barcode = rawCode.replace(/\s+/g, '')
+    if (!barcode) return false
 
-    const normalized = rawCode.toLowerCase()
-    const product = [...products, ...scannedProducts].find((p) =>
-      (p.barcode && String(p.barcode).trim().toLowerCase() === normalized) ||
-      (p.sku && String(p.sku).trim().toLowerCase() === normalized)
+    const normalized = barcode.toLowerCase()
+    const product = catalogProducts.find((item) =>
+      (item.barcode && String(item.barcode).trim().toLowerCase() === normalized) ||
+      (item.sku && String(item.sku).trim().toLowerCase() === normalized)
     )
 
     if (product) {
-      const price = Number(product.price) || 0
+      const price = Math.max(0, Number(product.price) || 0)
       const gstRate = Number(product.gstRate ?? companyProfile.defaultGstRate ?? 18)
       const subtotal = price
       const taxAmount = subtotal * gstRate / 100
 
       addScannedLineItem({
-        id: `item-${Date.now()}-${Math.random()}`,
+        id: `scan-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         productId: product.id,
         description: product.name,
-        sku: product.sku || product.barcode || rawCode,
+        sku: product.sku || product.barcode || barcode,
+        hsnSac: product.hsnSac || '',
         quantity: 1,
         unitPrice: price,
         gstRate,
@@ -2434,87 +2480,138 @@ function DocumentEditorView({
         taxAmount,
         total: subtotal + taxAmount
       })
-
-      showToast(`Added "${product.name}" from your catalogue.`, 'success')
+      showToast(`Added "${product.name}" to the invoice.`, 'success')
       return true
     }
 
-    // Resolve known public barcodes first, then query Open Food Facts for other packaged products.
-    const barcode = rawCode.replace(/\s+/g, '')
-    if (!/^\d{8,14}$/.test(barcode)) {
-      showToast(`No catalogue match for "${rawCode}". Scan an EAN/UPC barcode or enter an SKU.`, 'warning')
-      return false
-    }
+    // Insert a visible invoice row first. This works for EAN/UPC and
+    // alphanumeric CODE_128 / CODE_39 labels, even when no online match exists.
+    const defaultGstRate = Number(companyProfile.defaultGstRate ?? 18)
+    const isRetailBarcode = /^\d{8,14}$/.test(barcode)
+    addScannedLineItem({
+      id: `scan-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      productId: '',
+      description: `Looking up barcode ${barcode}…`,
+      sku: barcode,
+      hsnSac: '',
+      quantity: 1,
+      unitPrice: 0,
+      gstRate: defaultGstRate,
+      subtotal: 0,
+      taxAmount: 0,
+      total: 0,
+    })
+    showToast(`Barcode ${barcode} captured and added to the invoice. Fetching product details…`, 'success')
 
-    try {
-      showToast('Looking up product details online...', 'warning')
-
-      // Public listing for this test code: Nutella Hazelnut & Cocoa Spread, 350 g.
-      // Barcode 80177173 is EAN-8. The listed ₹380 includes 5% GST; use the
-      // corresponding pre-tax rate as the invoice line's unit price.
-      const knownListing = barcode === '80177173'
-        ? {
-            product_name: 'Nutella Hazelnut & Cocoa Spread',
-            product_name_en: 'Nutella Hazelnut & Cocoa Spread',
-            brands: 'Nutella (Ferrero)',
-            quantity: '350 g',
-            generic_name: 'Hazelnut and cocoa spread',
-            hsn_sac: '18069030',
-            gst_rate: 5,
-            tax_inclusive_price: 380,
-            price_source: 'Shreenath Foods online listing: ₹380 (tax included)',
-            unit: 'jar',
-          }
-        : null
-
-      let external = knownListing
-      if (!external) {
-        const url = `https://world.openfoodfacts.org/api/v3/product/${encodeURIComponent(barcode)}.json?fields=code,product_name,product_name_en,brands,quantity,generic_name,categories`
-        const response = await fetch(url, {
-          headers: { Accept: 'application/json' }
-        })
-        if (!response.ok) throw new Error(`Product lookup returned HTTP ${response.status}`)
-        const data = await response.json()
-        external = Number(data?.status) === 1 ? data?.product : null
-      }
-
-      const productName = external?.product_name ||
-        external?.product_name_en ||
-        external?.generic_name
-      if (!external || !productName) {
-        showToast(`Barcode ${barcode} was not found in the public product database. Try another retail product.`, 'warning')
-        return false
-      }
-
-      const brand = String(external.brands || '').split(',')[0].trim()
-      const quantityLabel = String(external.quantity || '').trim()
-      const description = [
-        productName,
-        brand && brand !== productName ? brand : '',
-        quantityLabel
-      ].filter(Boolean).join(' — ')
-
-      const gstRate = Number(external.gst_rate ?? companyProfile.defaultGstRate ?? 18)
-      const inclusivePrice = Number(external.tax_inclusive_price)
-      const unitPrice = Number.isFinite(inclusivePrice) && inclusivePrice > 0
-        ? Number((inclusivePrice / (1 + gstRate / 100)).toFixed(2))
-        : 0
-      const category = 'Food & Grocery'
-      const productDescription = [
-        description,
-        external.price_source || 'Product details imported from Open Food Facts.',
-        unitPrice > 0
-          ? 'Online price is a reference; confirm your own selling price before issuing.'
-          : 'No selling price was supplied by the public source; enter one before issuing.'
-      ].join(' — ')
-
+    const enrichInBackground = async () => {
       let savedRow = null
-      let saveError = null
+      if (org?.id) {
+        try {
+          savedRow = await db.findProductByBarcode(org.id, barcode)
+        } catch (lookupError) {
+          console.warn('Could not check the saved product catalogue:', lookupError)
+        }
+      }
+
+      if (savedRow) {
+        const savedProduct = {
+          id: savedRow.id,
+          name: savedRow.name,
+          sku: savedRow.sku || '',
+          barcode: savedRow.barcode || barcode,
+          category: savedRow.category || 'General',
+          price: Number(savedRow.price) || 0,
+          gstRate: Number(savedRow.gst_rate ?? defaultGstRate),
+          hsnSac: savedRow.hsn_sac || '',
+          stock: Number(savedRow.stock_qty) || 0,
+          reservedStock: 0,
+          availableStock: Number(savedRow.stock_qty) || 0,
+          description: savedRow.description || savedRow.name,
+        }
+        setScannedProducts((current) => [
+          ...current.filter((item) => item.id !== savedProduct.id && item.barcode !== barcode),
+          savedProduct,
+        ])
+        updateScannedLineItem(barcode, savedProduct)
+        showToast(`Added "${savedProduct.name}" with saved catalogue details.`, 'success')
+        return
+      }
+
+      if (!isRetailBarcode) {
+        showToast(`Barcode ${barcode} was added as a line item. Enter its product name, price and GST details.`, 'warning')
+        return
+      }
+
       try {
-        if (!org?.id) throw new Error('No active workspace was found for this session.')
-        savedRow = await db.findProductByBarcode(org.id, barcode)
-        if (!savedRow) {
-          const productToSave = {
+        // Public test listing: Nutella Hazelnut & Cocoa Spread, 350 g.
+        const knownListing = barcode === '80177173'
+          ? {
+              product_name: 'Nutella Hazelnut & Cocoa Spread',
+              product_name_en: 'Nutella Hazelnut & Cocoa Spread',
+              brands: 'Nutella (Ferrero)',
+              quantity: '350 g',
+              generic_name: 'Hazelnut and cocoa spread',
+              hsn_sac: '18069030',
+              gst_rate: 5,
+              tax_inclusive_price: 380,
+              price_source: 'Shreenath Foods online listing: ₹380 (tax included)',
+              unit: 'jar',
+            }
+          : null
+
+        let external = knownListing
+        if (!external) {
+          const controller = new AbortController()
+          const timeoutId = window.setTimeout(() => controller.abort(), 7000)
+          try {
+            const url = `https://world.openfoodfacts.org/api/v3/product/${encodeURIComponent(barcode)}.json?fields=code,product_name,product_name_en,brands,quantity,generic_name,categories`
+            const response = await fetch(url, {
+              headers: { Accept: 'application/json' },
+              signal: controller.signal,
+            })
+            if (!response.ok) throw new Error(`Product lookup returned HTTP ${response.status}`)
+            const data = await response.json()
+            external = Number(data?.status) === 1 ? data?.product : null
+          } finally {
+            window.clearTimeout(timeoutId)
+          }
+        }
+
+        const productName = external?.product_name ||
+          external?.product_name_en ||
+          external?.generic_name
+        if (!external || !productName) {
+          showToast(`Barcode ${barcode} is on the invoice, but no public product match was found. Fill in its details manually.`, 'warning')
+          return
+        }
+
+        const brand = String(external.brands || '').split(',')[0].trim()
+        const quantityLabel = String(external.quantity || '').trim()
+        const description = [
+          productName,
+          brand && brand !== productName ? brand : '',
+          quantityLabel,
+        ].filter(Boolean).join(' — ')
+
+        const gstRate = Number(external.gst_rate ?? defaultGstRate)
+        const inclusivePrice = Number(external.tax_inclusive_price)
+        const unitPrice = Number.isFinite(inclusivePrice) && inclusivePrice > 0
+          ? Number((inclusivePrice / (1 + gstRate / 100)).toFixed(2))
+          : 0
+        const category = 'Food & Grocery'
+        const productDescription = [
+          description,
+          external.price_source || 'Product details imported from Open Food Facts.',
+          unitPrice > 0
+            ? 'Online price is a reference; confirm your own selling price before issuing.'
+            : 'No selling price was supplied by the public source; enter one before issuing.',
+        ].join(' — ')
+
+        let productRow = null
+        let saveError = null
+        try {
+          if (!org?.id) throw new Error('No active workspace was found for this session.')
+          productRow = await db.addProduct(org.id, {
             kind: 'product',
             name: productName,
             sku: null,
@@ -2526,86 +2623,75 @@ function DocumentEditorView({
             stock_qty: 0,
             category,
             description: productDescription,
-          }
+          })
+        } catch (insertError) {
+          saveError = insertError
+          // Another browser may have created this barcode while the lookup ran.
           try {
-            savedRow = await db.addProduct(org.id, productToSave)
-          } catch (insertError) {
-            // Avoid a duplicate if another browser saved this barcode concurrently.
-            savedRow = await db.findProductByBarcode(org.id, barcode).catch(() => null)
-            if (!savedRow) throw insertError
+            productRow = org?.id ? await db.findProductByBarcode(org.id, barcode) : null
+            if (productRow) saveError = null
+          } catch {
+            // Keep the invoice row usable even when catalogue saving is unavailable.
           }
         }
+
+        const resolvedProduct = productRow
+          ? {
+              id: productRow.id,
+              name: productRow.name,
+              sku: productRow.sku || '',
+              barcode: productRow.barcode || barcode,
+              category: productRow.category || category,
+              price: Number(productRow.price) || 0,
+              gstRate: Number(productRow.gst_rate ?? gstRate),
+              hsnSac: productRow.hsn_sac || external.hsn_sac || '',
+              stock: Number(productRow.stock_qty) || 0,
+              reservedStock: 0,
+              availableStock: Number(productRow.stock_qty) || 0,
+              description: productRow.description || productDescription,
+            }
+          : {
+              id: '',
+              name: productName,
+              sku: '',
+              barcode,
+              category,
+              price: unitPrice,
+              gstRate,
+              hsnSac: external.hsn_sac || '',
+              stock: 0,
+              reservedStock: 0,
+              availableStock: 0,
+              description: productDescription,
+            }
+
+        if (resolvedProduct.id) {
+          setScannedProducts((current) => [
+            ...current.filter((item) => item.id !== resolvedProduct.id && item.barcode !== barcode),
+            resolvedProduct,
+          ])
+        }
+        updateScannedLineItem(barcode, {
+          ...resolvedProduct,
+          name: description,
+        })
+
+        if (saveError) {
+          showToast(`Added "${productName}" to the invoice. Catalogue save failed; you can still use this line and enter your price.`, 'warning')
+        } else if (productRow) {
+          showToast(`Added "${productName}" and saved it in your product catalogue. Verify price/GST/HSN before issuing.`, 'success')
+        } else {
+          showToast(`Added "${productName}" to the invoice. Verify price/GST/HSN before issuing.`, 'success')
+        }
       } catch (error) {
-        saveError = error
-        console.error('Could not save scanned product to the catalogue:', error)
+        console.warn('Background barcode lookup failed:', error)
+        showToast(`Barcode ${barcode} is already on the invoice. Product details could not be fetched; fill them in manually.`, 'warning')
       }
-
-      const savedProduct = savedRow
-        ? {
-            id: savedRow.id,
-            name: savedRow.name,
-            sku: savedRow.sku || '',
-            barcode: savedRow.barcode || barcode,
-            category: savedRow.category || category,
-            price: Number(savedRow.price) || 0,
-            gstRate: Number(savedRow.gst_rate ?? gstRate),
-            hsnSac: savedRow.hsn_sac || external.hsn_sac || '',
-            stock: Number(savedRow.stock_qty) || 0,
-            reservedStock: 0,
-            availableStock: Number(savedRow.stock_qty) || 0,
-            description: savedRow.description || productDescription,
-          }
-        : {
-            id: '',
-            name: productName,
-            sku: '',
-            barcode,
-            category,
-            price: unitPrice,
-            gstRate,
-            hsnSac: external.hsn_sac || '',
-            stock: 0,
-            reservedStock: 0,
-            availableStock: 0,
-            description: productDescription,
-          }
-
-      setScannedProducts((current) => [
-        ...current.filter((item) => item.barcode !== barcode),
-        savedProduct,
-      ])
-
-      const price = Number(savedProduct.price) || 0
-      const appliedGstRate = Number(savedProduct.gstRate ?? gstRate)
-      const subtotal = price
-      const taxAmount = subtotal * appliedGstRate / 100
-      addScannedLineItem({
-        id: `item-${Date.now()}-${Math.random()}`,
-        productId: savedProduct.id,
-        description,
-        sku: savedProduct.sku || barcode,
-        quantity: 1,
-        unitPrice: price,
-        gstRate: appliedGstRate,
-        subtotal,
-        taxAmount,
-        total: subtotal + taxAmount,
-      })
-
-      if (saveError) {
-        showToast(`Added "${productName}" to the invoice row, but Supabase could not save it: ${saveError.message}`, 'warning')
-      } else if (savedRow) {
-        showToast(`Added "${productName}" to the invoice and saved it in your Supabase product catalogue. Check price/GST before issuing.`, 'success')
-      } else {
-        showToast(`Added "${productName}" to the invoice row. Enter its price and verify GST/HSN before issuing.`, 'success')
-      }
-      return true
-    } catch (error) {
-      console.warn('Public barcode lookup failed:', error)
-      showToast('Could not look up this barcode online. Check your connection or enter the product manually.', 'error')
-      return false
     }
-  }, [products, scannedProducts, org?.id, showToast, companyProfile.defaultGstRate])
+
+    void enrichInBackground()
+    return true
+  }, [catalogProducts, addScannedLineItem, updateScannedLineItem, org?.id, showToast, companyProfile.defaultGstRate])
   // Calculate discounts and tax from gross line values exactly once.
   const { subtotal, discountAmount, taxableAmount, totalTaxAmount } = useMemo(
     () => calculateDocumentAmounts(items, discountType, discountValue),
@@ -3020,14 +3106,14 @@ function DocumentEditorView({
                       onChange={(e) => handleProductSelect(idx, e.target.value)}
                     >
                       <option value="">-- Pick from catalog --</option>
-                      {products.map((p) => (
+                      {catalogProducts.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.name} · {formatINR(p.price)} · GST {Number(p.gstRate ?? 18)}% · Stock {Number(p.stock) || 0}
                         </option>
                       ))}
                     </select>
                     {item.productId && (() => {
-                      const selectedProduct = products.find((product) => product.id === item.productId)
+                      const selectedProduct = catalogProducts.find((product) => product.id === item.productId)
                       if (!selectedProduct) return null
                       const catalogGst = selectedProduct.gstRate == null || selectedProduct.gstRate === ''
                         ? 18
@@ -3260,12 +3346,14 @@ function DocumentEditorView({
           onDetected={async (code) => {
             const added = await handleAddProductByCode(code)
             if (added) setScannerOpen(false)
+            return added
           }}
           onManualSubmit={async (code) => {
             const added = await handleAddProductByCode(code)
             if (added) setScannerOpen(false)
+            return added
           }}
-          products={products}
+          products={catalogProducts}
         />
       )}
     </div>
@@ -3281,6 +3369,8 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
   const [scannerError, setScannerError] = useState(null)
   const [scanNotice, setScanNotice] = useState('')
   const [isScanning, setIsScanning] = useState(false)
+  const [torchAvailable, setTorchAvailable] = useState(false)
+  const [torchOn, setTorchOn] = useState(false)
   const html5QrCodeRef = useRef(null)
   const hasProcessedScanRef = useRef(false)
 
@@ -3304,15 +3394,24 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
         Html5QrcodeSupportedFormats.UPC_E,
         Html5QrcodeSupportedFormats.CODE_128,
         Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.QR_CODE,
+        Html5QrcodeSupportedFormats.ITF,
       ],
+      useBarCodeDetectorIfSupported: true,
     })
     html5QrCodeRef.current = scannerInstance
 
     const startScanner = async () => {
       try {
         setScannerError(null)
-        const scanConfig = { fps: 10 }
+        const scanConfig = {
+          fps: 15,
+          // Wide enough for full EAN/UPC labels, but smaller than the full
+          // image to reduce per-frame decoding work.
+          qrbox: (viewfinderWidth, viewfinderHeight) => ({
+            width: Math.max(1, Math.floor(viewfinderWidth * 0.94)),
+            height: Math.max(1, Math.floor(viewfinderHeight * 0.58)),
+          }),
+        }
         const handleDecodedText = async (decodedText) => {
           if (cancelled || hasProcessedScanRef.current) return
           hasProcessedScanRef.current = true
@@ -3364,6 +3463,24 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
           scannerInstance.clear()
         } else {
           setIsScanning(true)
+          setTorchOn(false)
+          try {
+            const capabilities = scannerInstance.getRunningTrackCapabilities()
+            setTorchAvailable(Boolean(capabilities?.torch))
+            const advanced = []
+            if (Array.isArray(capabilities?.focusMode) && capabilities.focusMode.includes('continuous')) {
+              advanced.push({ focusMode: 'continuous' })
+            }
+            if (Array.isArray(capabilities?.exposureMode) && capabilities.exposureMode.includes('continuous')) {
+              advanced.push({ exposureMode: 'continuous' })
+            }
+            if (advanced.length) {
+              await scannerInstance.applyVideoConstraints({ advanced }).catch(() => {})
+            }
+          } catch {
+            // Some browsers do not expose camera controls; decoding still works.
+            setTorchAvailable(false)
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -3385,6 +3502,18 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
       }
     }
   }, [])
+
+  const toggleTorch = async () => {
+    const scanner = html5QrCodeRef.current
+    if (!scanner?.isScanning || !torchAvailable) return
+    const nextTorchState = !torchOn
+    try {
+      await scanner.applyVideoConstraints({ advanced: [{ torch: nextTorchState }] })
+      setTorchOn(nextTorchState)
+    } catch {
+      setScannerError('This camera could not change its light setting. The scanner will continue working without torch control.')
+    }
+  }
 
   const handleManualAdd = async (e) => {
     e.preventDefault()
@@ -3425,6 +3554,17 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
               {isScanning && <div className="lf-scanner-laser" />}
             </div>
 
+            {torchAvailable && (
+              <button
+                type="button"
+                className="lf-btn lf-btn-secondary lf-btn-sm"
+                onClick={toggleTorch}
+                aria-pressed={torchOn}
+              >
+                {torchOn ? 'Turn light off' : 'Turn light on'}
+              </button>
+            )}
+
             {scannerError ? (
               <div style={{ padding: '10px 14px', background: 'var(--lf-warning-bg)', border: '1px solid var(--lf-highlight-border)', borderRadius: '6px', fontSize: '12px', color: 'var(--lf-warning)' }}>
                 <strong>Camera Notice:</strong> {scannerError}
@@ -3433,7 +3573,7 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
             ) : (
               <div style={{ width: '100%', display: 'grid', gap: '8px' }}>
                 <p style={{ fontSize: '12px', color: 'var(--lf-text-secondary)', textAlign: 'center' }}>
-                  Keep the entire barcode and its white margins inside the viewfinder. Successful online matches are saved to your Supabase catalogue and added to the invoice row automatically. Verify your selling price and GST/HSN before issuing.
+                  Centre the barcode, keep the bars horizontal and avoid direct reflections. Autofocus and fast decoding are enabled where supported. The invoice row appears immediately; product details load in the background. Use the light button only in dim conditions.
                 </p>
                 {scanNotice && (
                   <div role="status" aria-live="polite" style={{ width: '100%', padding: '10px 12px', background: 'var(--lf-warning-bg)', border: '1px solid var(--lf-highlight-border)', borderRadius: '8px', fontSize: '12px', color: 'var(--lf-warning)' }}>
