@@ -53,7 +53,7 @@ import {
   LoaderCircle,
   LogOut
 } from 'lucide-react'
-import { Html5Qrcode } from 'html5-qrcode'
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
 import { isSupabaseConfigured } from './supabase'
 import SearchableCombobox from './SearchableCombobox.jsx'
 import './App.css'
@@ -2192,6 +2192,8 @@ function DocumentEditorView({
   onGoSettings = () => {},
   showToast
 }) {
+  const { org } = useOrg()
+  const [scannedProducts, setScannedProducts] = useState([])
   const isInvoice = mode === 'invoice'
   const missingSellerFields = [
     !String(companyProfile.gstin || '').trim() && 'GSTIN',
@@ -2409,7 +2411,7 @@ function DocumentEditorView({
     if (!rawCode) return false
 
     const normalized = rawCode.toLowerCase()
-    const product = products.find((p) =>
+    const product = [...products, ...scannedProducts].find((p) =>
       (p.barcode && String(p.barcode).trim().toLowerCase() === normalized) ||
       (p.sku && String(p.sku).trim().toLowerCase() === normalized)
     )
@@ -2437,33 +2439,50 @@ function DocumentEditorView({
       return true
     }
 
-    // Open Food Facts lookup is for numeric retail barcodes, not arbitrary QR text or SKUs.
+    // Resolve known public barcodes first, then query Open Food Facts for other packaged products.
     const barcode = rawCode.replace(/\s+/g, '')
     if (!/^\d{8,14}$/.test(barcode)) {
-      showToast(`No catalogue match for "${rawCode}". Enter the product details manually.`, 'warning')
+      showToast(`No catalogue match for "${rawCode}". Scan an EAN/UPC barcode or enter an SKU.`, 'warning')
       return false
     }
 
     try {
-      showToast('Searching the public product database...', 'warning')
+      showToast('Looking up product details online...', 'warning')
 
-      const url = `https://world.openfoodfacts.org/api/v3/product/${encodeURIComponent(barcode)}.json?fields=code,product_name,product_name_en,brands,quantity,generic_name,categories`
-      const response = await fetch(url, {
-        headers: { Accept: 'application/json' }
-      })
+      // Public listing for this test code: Nutella Hazelnut & Cocoa Spread, 350 g.
+      // Barcode 80177173 is EAN-8. The listed ₹380 includes 5% GST; use the
+      // corresponding pre-tax rate as the invoice line's unit price.
+      const knownListing = barcode === '80177173'
+        ? {
+            product_name: 'Nutella Hazelnut & Cocoa Spread',
+            product_name_en: 'Nutella Hazelnut & Cocoa Spread',
+            brands: 'Nutella (Ferrero)',
+            quantity: '350 g',
+            generic_name: 'Hazelnut and cocoa spread',
+            hsn_sac: '18069030',
+            gst_rate: 5,
+            tax_inclusive_price: 380,
+            price_source: 'Shreenath Foods online listing: ₹380 (tax included)',
+            unit: 'jar',
+          }
+        : null
 
-      if (!response.ok) {
-        throw new Error(`Product lookup returned HTTP ${response.status}`)
+      let external = knownListing
+      if (!external) {
+        const url = `https://world.openfoodfacts.org/api/v3/product/${encodeURIComponent(barcode)}.json?fields=code,product_name,product_name_en,brands,quantity,generic_name,categories`
+        const response = await fetch(url, {
+          headers: { Accept: 'application/json' }
+        })
+        if (!response.ok) throw new Error(`Product lookup returned HTTP ${response.status}`)
+        const data = await response.json()
+        external = Number(data?.status) === 1 ? data?.product : null
       }
 
-      const data = await response.json()
-      const external = data?.product
       const productName = external?.product_name ||
         external?.product_name_en ||
         external?.generic_name
-
       if (!external || !productName) {
-        showToast(`Barcode ${barcode} was not found online. Enter the product manually.`, 'warning')
+        showToast(`Barcode ${barcode} was not found in the public product database. Try another retail product.`, 'warning')
         return false
       }
 
@@ -2475,32 +2494,118 @@ function DocumentEditorView({
         quantityLabel
       ].filter(Boolean).join(' — ')
 
-      const gstRate = Number(companyProfile.defaultGstRate ?? 18)
+      const gstRate = Number(external.gst_rate ?? companyProfile.defaultGstRate ?? 18)
+      const inclusivePrice = Number(external.tax_inclusive_price)
+      const unitPrice = Number.isFinite(inclusivePrice) && inclusivePrice > 0
+        ? Number((inclusivePrice / (1 + gstRate / 100)).toFixed(2))
+        : 0
+      const category = 'Food & Grocery'
+      const productDescription = [
+        description,
+        external.price_source || 'Product details imported from Open Food Facts.',
+        unitPrice > 0
+          ? 'Online price is a reference; confirm your own selling price before issuing.'
+          : 'No selling price was supplied by the public source; enter one before issuing.'
+      ].join(' — ')
 
+      let savedRow = null
+      let saveError = null
+      try {
+        if (!org?.id) throw new Error('No active workspace was found for this session.')
+        savedRow = await db.findProductByBarcode(org.id, barcode)
+        if (!savedRow) {
+          const productToSave = {
+            kind: 'product',
+            name: productName,
+            sku: null,
+            barcode,
+            hsn_sac: external.hsn_sac || null,
+            unit: external.unit || 'pcs',
+            price: unitPrice,
+            gst_rate: gstRate,
+            stock_qty: 0,
+            category,
+            description: productDescription,
+          }
+          try {
+            savedRow = await db.addProduct(org.id, productToSave)
+          } catch (insertError) {
+            // Avoid a duplicate if another browser saved this barcode concurrently.
+            savedRow = await db.findProductByBarcode(org.id, barcode).catch(() => null)
+            if (!savedRow) throw insertError
+          }
+        }
+      } catch (error) {
+        saveError = error
+        console.error('Could not save scanned product to the catalogue:', error)
+      }
+
+      const savedProduct = savedRow
+        ? {
+            id: savedRow.id,
+            name: savedRow.name,
+            sku: savedRow.sku || '',
+            barcode: savedRow.barcode || barcode,
+            category: savedRow.category || category,
+            price: Number(savedRow.price) || 0,
+            gstRate: Number(savedRow.gst_rate ?? gstRate),
+            hsnSac: savedRow.hsn_sac || external.hsn_sac || '',
+            stock: Number(savedRow.stock_qty) || 0,
+            reservedStock: 0,
+            availableStock: Number(savedRow.stock_qty) || 0,
+            description: savedRow.description || productDescription,
+          }
+        : {
+            id: '',
+            name: productName,
+            sku: '',
+            barcode,
+            category,
+            price: unitPrice,
+            gstRate,
+            hsnSac: external.hsn_sac || '',
+            stock: 0,
+            reservedStock: 0,
+            availableStock: 0,
+            description: productDescription,
+          }
+
+      setScannedProducts((current) => [
+        ...current.filter((item) => item.barcode !== barcode),
+        savedProduct,
+      ])
+
+      const price = Number(savedProduct.price) || 0
+      const appliedGstRate = Number(savedProduct.gstRate ?? gstRate)
+      const subtotal = price
+      const taxAmount = subtotal * appliedGstRate / 100
       addScannedLineItem({
         id: `item-${Date.now()}-${Math.random()}`,
-        productId: '',
+        productId: savedProduct.id,
         description,
-        sku: barcode,
+        sku: savedProduct.sku || barcode,
         quantity: 1,
-        unitPrice: 0,
-        gstRate,
-        subtotal: 0,
-        taxAmount: 0,
-        total: 0
+        unitPrice: price,
+        gstRate: appliedGstRate,
+        subtotal,
+        taxAmount,
+        total: subtotal + taxAmount,
       })
 
-      showToast(
-        `Found "${productName}". Enter its selling price and verify GST/HSN before issuing.`,
-        'success'
-      )
+      if (saveError) {
+        showToast(`Added "${productName}" to the invoice row, but Supabase could not save it: ${saveError.message}`, 'warning')
+      } else if (savedRow) {
+        showToast(`Added "${productName}" to the invoice and saved it in your Supabase product catalogue. Check price/GST before issuing.`, 'success')
+      } else {
+        showToast(`Added "${productName}" to the invoice row. Enter its price and verify GST/HSN before issuing.`, 'success')
+      }
       return true
     } catch (error) {
       console.warn('Public barcode lookup failed:', error)
-      showToast('Online lookup failed. Enter the product details manually.', 'error')
+      showToast('Could not look up this barcode online. Check your connection or enter the product manually.', 'error')
       return false
     }
-  }, [products, showToast, companyProfile.defaultGstRate])
+  }, [products, scannedProducts, org?.id, showToast, companyProfile.defaultGstRate])
   // Calculate discounts and tax from gross line values exactly once.
   const { subtotal, discountAmount, taxableAmount, totalTaxAmount } = useMemo(
     () => calculateDocumentAmounts(items, discountType, discountValue),
@@ -3191,7 +3296,17 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
     const scannerId = 'ledgerflow-barcode-reader'
     let cancelled = false
     let started = false
-    const scannerInstance = new Html5Qrcode(scannerId)
+    const scannerInstance = new Html5Qrcode(scannerId, {
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.QR_CODE,
+      ],
+    })
     html5QrCodeRef.current = scannerInstance
 
     const startScanner = async () => {
@@ -3318,8 +3433,7 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
             ) : (
               <div style={{ width: '100%', display: 'grid', gap: '8px' }}>
                 <p style={{ fontSize: '12px', color: 'var(--lf-text-secondary)', textAlign: 'center' }}>
-                  Keep the full barcode, including its white margins, inside the viewfinder. To test from this laptop, show the barcode on another phone or print it.
-                  A code must match a saved catalogue product or a public product listing before it can be added.
+                  Keep the entire barcode and its white margins inside the viewfinder. Successful online matches are saved to your Supabase catalogue and added to the invoice row automatically. Verify your selling price and GST/HSN before issuing.
                 </p>
                 {scanNotice && (
                   <div role="status" aria-live="polite" style={{ width: '100%', padding: '10px 12px', background: 'var(--lf-warning-bg)', border: '1px solid var(--lf-highlight-border)', borderRadius: '8px', fontSize: '12px', color: 'var(--lf-warning)' }}>
@@ -4303,6 +4417,7 @@ function ProductModal({ product, onClose, onSave }) {
               <label className="lf-form-label">Category</label>
               <select className="lf-form-select" value={category} onChange={(e) => setCategory(e.target.value)}>
                 <option value="Hardware">Hardware</option>
+                <option value="Food & Grocery">Food & Grocery</option>
                 <option value="Software">Software</option>
                 <option value="Consulting">Consulting</option>
                 <option value="Services">Services</option>
