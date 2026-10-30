@@ -3396,6 +3396,8 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
         Html5QrcodeSupportedFormats.CODE_39,
         Html5QrcodeSupportedFormats.ITF,
       ],
+      // This is a product-barcode reader, not a QR reader. Keep the decoder
+      // format set focused to reduce unnecessary work on every camera frame.
       useBarCodeDetectorIfSupported: true,
     })
     html5QrCodeRef.current = scannerInstance
@@ -3403,14 +3405,23 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
     const startScanner = async () => {
       try {
         setScannerError(null)
+        const cameraConstraints = {
+          // Avoid asking a laptop webcam to decode unnecessarily large 4K
+          // frames. 720p is enough for retail EAN/UPC bars and is much lighter.
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 },
+          frameRate: { ideal: 30, max: 30 },
+          facingMode: { ideal: 'environment' },
+        }
         const scanConfig = {
-          fps: 15,
-          // Wide enough for full EAN/UPC labels, but smaller than the full
-          // image to reduce per-frame decoding work.
+          // 10 decode attempts/second is responsive without overloading CPU.
+          fps: 10,
+          // A wide, shallow barcode window reduces the pixels ZXing must read.
           qrbox: (viewfinderWidth, viewfinderHeight) => ({
-            width: Math.max(1, Math.floor(viewfinderWidth * 0.94)),
-            height: Math.max(1, Math.floor(viewfinderHeight * 0.58)),
+            width: Math.max(1, Math.min(640, Math.floor(viewfinderWidth * 0.92))),
+            height: Math.max(1, Math.min(180, Math.floor(viewfinderHeight * 0.55))),
           }),
+          videoConstraints: cameraConstraints,
         }
         const handleDecodedText = async (decodedText) => {
           if (cancelled || hasProcessedScanRef.current) return
@@ -3454,7 +3465,15 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
             cameras.find((camera) => /back|rear|environment/i.test(camera.label || '')) ||
             cameras[0]
           if (!fallbackCamera) throw environmentCameraError
-          await scannerInstance.start(fallbackCamera.id, scanConfig, handleDecodedText, () => {})
+          const fallbackConfig = {
+            ...scanConfig,
+            videoConstraints: {
+              ...cameraConstraints,
+              deviceId: { exact: fallbackCamera.id },
+              facingMode: undefined,
+            },
+          }
+          await scannerInstance.start(fallbackCamera.id, fallbackConfig, handleDecodedText, () => {})
         }
 
         started = true
