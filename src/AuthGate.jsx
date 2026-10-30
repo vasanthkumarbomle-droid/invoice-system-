@@ -175,6 +175,8 @@ export default function AuthGate({ children }) {
   const [orgLoadError, setOrgLoadError] = useState('')
   const hadSession = useRef(false)
   const explicitSignOut = useRef(false)
+  // Keep workspace loading tied to the signed-in identity, not token refreshes.
+  const userId = session?.user?.id
 
   const signOutExplicitly = async () => {
     explicitSignOut.current = true
@@ -224,16 +226,28 @@ export default function AuthGate({ children }) {
   }, [navigate])
 
   useEffect(() => {
-    if (!session) {
+    if (!userId) {
       setOrg(undefined)
       setOrgLoadError('')
       return undefined
     }
     let active = true
+    let timeoutId
     setOrg(undefined)
     setOrgLoadError('')
-    getMyOrg()
+
+    // Never leave the app on an endless workspace spinner if the database
+    // request stalls. The timeout affects only this lookup; it does not
+    // change or delete any saved workspace data.
+    const lookupTimeout = new Promise((_, reject) => {
+      timeoutId = window.setTimeout(() => {
+        reject(new Error('Workspace lookup timed out. Check your connection and try again.'))
+      }, 15000)
+    })
+
+    Promise.race([getMyOrg(), lookupTimeout])
       .then(async (value) => {
+        window.clearTimeout(timeoutId)
         if (!active) return
         if (value) {
           setOrg(value)
@@ -255,13 +269,17 @@ export default function AuthGate({ children }) {
         if (active) setOrg({ ...created, role: created?.role || 'owner' })
       })
       .catch((error) => {
+        window.clearTimeout(timeoutId)
         if (active) {
           setOrg(undefined)
           setOrgLoadError(error?.message || 'Could not prepare your workspace. Please try again.')
         }
       })
-    return () => { active = false }
-  }, [session])
+    return () => {
+      active = false
+      window.clearTimeout(timeoutId)
+    }
+  }, [userId])
 
   const path = location.pathname
   if (PUBLIC_PATHS.has(path)) return children
