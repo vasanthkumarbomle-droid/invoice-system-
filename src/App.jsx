@@ -3174,6 +3174,7 @@ function DocumentEditorView({
 function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) {
   const [manualCode, setManualCode] = useState('')
   const [scannerError, setScannerError] = useState(null)
+  const [scanNotice, setScanNotice] = useState('')
   const [isScanning, setIsScanning] = useState(false)
   const html5QrCodeRef = useRef(null)
   const hasProcessedScanRef = useRef(false)
@@ -3196,32 +3197,52 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
     const startScanner = async () => {
       try {
         setScannerError(null)
-        await scannerInstance.start(
-          { facingMode: 'environment' },
-          { fps: 10, qrbox: { width: 250, height: 160 }, aspectRatio: 1.777778 },
-          async (decodedText) => {
-            if (cancelled || hasProcessedScanRef.current) return
-            hasProcessedScanRef.current = true
-            try {
-              if (scannerInstance.isScanning) await scannerInstance.stop()
-              if (cancelled) return
-              const added = await onDetectedRef.current(decodedText)
-              if (!cancelled && added === false) {
-                // An unmatched barcode should not force the user to close and
-                // reopen the scanner; allow another attempt after the notice.
-                hasProcessedScanRef.current = false
-                await startScanner()
-              }
-            } catch (err) {
-              if (!cancelled) {
-                setScannerError(err?.message || 'Could not process this barcode. Try again or enter it manually.')
-                hasProcessedScanRef.current = false
-                await startScanner()
-              }
+        const scanConfig = { fps: 10 }
+        const handleDecodedText = async (decodedText) => {
+          if (cancelled || hasProcessedScanRef.current) return
+          hasProcessedScanRef.current = true
+          try {
+            if (scannerInstance.isScanning) await scannerInstance.stop()
+            if (cancelled) return
+            const added = await onDetectedRef.current(decodedText)
+            if (!cancelled && added === false) {
+              setScanNotice(
+                `Detected barcode ${decodedText}, but no matching product was found. Add this code to a product's Barcode Number in Products & Inventory, then scan again.`
+              )
+              // Keep the scanner open so another barcode can be tried immediately.
+              hasProcessedScanRef.current = false
+              await startScanner()
             }
-          },
-          () => {}
-        )
+          } catch (err) {
+            if (!cancelled) {
+              setScanNotice(err?.message || 'The barcode was detected but could not be added. Check the product details and try again.')
+              hasProcessedScanRef.current = false
+              await startScanner()
+            }
+          }
+        }
+
+        try {
+          // Scan the full camera frame. A fixed 250px crop cuts off the ends
+          // of common wide EAN/UPC product barcodes.
+          await scannerInstance.start(
+            { facingMode: 'environment' },
+            scanConfig,
+            handleDecodedText,
+            () => {}
+          )
+        } catch (environmentCameraError) {
+          if (cancelled) return
+          // Desktop/laptop webcams are often not labelled as rear cameras.
+          // Fall back to an available camera when environment-facing is unavailable.
+          const cameras = await Html5Qrcode.getCameras()
+          const fallbackCamera =
+            cameras.find((camera) => /back|rear|environment/i.test(camera.label || '')) ||
+            cameras[0]
+          if (!fallbackCamera) throw environmentCameraError
+          await scannerInstance.start(fallbackCamera.id, scanConfig, handleDecodedText, () => {})
+        }
+
         started = true
         if (cancelled) {
           await scannerInstance.stop().catch(() => {})
@@ -3256,7 +3277,14 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
     if (!code) return
     try {
       const result = await onManualSubmitRef.current(code)
-      if (result !== false) setManualCode('')
+      if (result !== false) {
+        setManualCode('')
+        setScanNotice('')
+      } else {
+        setScanNotice(
+          `No product matched "${code}". Add this code to a product's Barcode Number in Products & Inventory, or try a barcode for a registered product.`
+        )
+      }
     } catch (err) {
       setScannerError(err?.message || 'Could not add this barcode. Please try again.')
     }
@@ -3289,8 +3317,14 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
               </div>
             ) : (
               <p style={{ fontSize: '12px', color: 'var(--lf-text-secondary)', textAlign: 'center' }}>
-                Position a product barcode or QR code within the viewfinder to automatically add it.
+                Keep the full barcode, including its white margins, inside the viewfinder. To test from this laptop, show the barcode on another phone or print it.
+                A code must match a saved catalogue product or a public product listing before it can be added.
               </p>
+              {scanNotice && (
+                <div role="status" aria-live="polite" style={{ width: '100%', padding: '10px 12px', background: 'var(--lf-warning-bg)', border: '1px solid var(--lf-highlight-border)', borderRadius: '8px', fontSize: '12px', color: 'var(--lf-warning)' }}>
+                  {scanNotice}
+                </div>
+              )}
             )}
 
             {/* Quick add by saved barcode */}
