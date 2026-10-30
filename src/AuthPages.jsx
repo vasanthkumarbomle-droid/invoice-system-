@@ -25,8 +25,6 @@ function getAuthRedirectUrl(path) {
   return new URL(path, origin).toString()
 }
 
-const googleEnabled = import.meta.env.VITE_SUPABASE_GOOGLE_ENABLED === 'true'
-
 function BrandMark({ compact = false }) {
   return (
     <div className={'auth-brand-lockup' + (compact ? ' is-compact' : '')}>
@@ -169,10 +167,6 @@ export function AuthLayout({ title, subtitle, eyebrow = 'YOUR BUSINESS, IN SYNC'
   )
 }
 
-function GoogleMark() {
-  return <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" transform="translate(0 4)" /><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.76 7.18l7.73 6C44.42 38.05 46.98 31.96 46.98 24.55z" /><path fill="#34A853" d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.13.76-4.59l-7.98-6.2A23.9 23.9 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.97-6.19z" transform="translate(0 4)" /><path fill="#FBBC05" d="M24 48c6.48 0 11.93-2.13 15.91-5.8l-7.73-6c-2.14 1.44-4.89 2.3-8.18 2.3-6.26 0-11.57-4.22-13.46-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" transform="translate(0 -2)" /></svg>
-}
-
 function PasswordField({ id, label, value, onChange, autoComplete, required = true, onCapsLockChange, hint }) {
   const [shown, setShown] = useState(false)
   return (
@@ -313,49 +307,6 @@ export function AuthLoginPage() {
     }
   }
 
-  const sendMagicLink = async () => {
-    setError('')
-    setNotice('')
-    if (!email.trim()) {
-      setError('Enter your email address first.')
-      emailRef.current?.focus()
-      return
-    }
-    if (!supabase) {
-      setError('Sign-in is not configured for this deployment.')
-      return
-    }
-    setBusy(true)
-    try {
-      const { error: magicError } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: { emailRedirectTo: getAuthRedirectUrl('/login?redirect=' + encodeURIComponent(redirect)), shouldCreateUser: false },
-      })
-      if (magicError) throw magicError
-      setNotice('If this email is registered, a sign-in link will arrive shortly.')
-    } catch {
-      setError('Could not send the sign-in link. Check your connection and try again.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const googleLogin = async () => {
-    if (!supabase || busy) return
-    setError('')
-    setBusy(true)
-    try {
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: getAuthRedirectUrl('/login?redirect=' + encodeURIComponent(redirect)) },
-      })
-      if (oauthError) throw oauthError
-    } catch {
-      setError('Google sign-in could not start. Check the provider settings and try again.')
-      setBusy(false)
-    }
-  }
-
   return (
     <AuthLayout title="Welcome back." subtitle="Pick up right where your business left off." eyebrow="GOOD TO HAVE YOU BACK">
       {sessionExpired && <div className="auth-notice auth-notice-info" role="status">Your session ended. Sign in again to continue.</div>}
@@ -378,10 +329,6 @@ export function AuthLoginPage() {
           {busy ? <><LoaderCircle className="auth-spinner" size={17} /> Signing you in…</> : <>Sign in <ArrowRight size={16} /></>}
         </button>
       </form>
-      {googleEnabled && (
-        <button type="button" className="auth-btn auth-btn-secondary" onClick={googleLogin} disabled={busy}><GoogleMark /> Continue with Google</button>
-      )}
-      <button type="button" className="auth-magic-link" onClick={sendMagicLink} disabled={busy}><Mail size={16} /> Email me a magic link</button>
       <p className="auth-switch-prompt">New to LedgerFlow? <button type="button" className="auth-inline-link" onClick={() => navigate('/signup' + (redirect !== '/' ? '?redirect=' + encodeURIComponent(redirect) : ''))}>Create an account</button></p>
     </AuthLayout>
   )
