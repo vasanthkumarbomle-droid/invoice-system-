@@ -3316,15 +3316,17 @@ function BarcodeScannerModal({ onClose, onDetected, onManualSubmit, products }) 
                 <div style={{ marginTop: '4px' }}>Use the manual barcode/SKU entry below to look up items.</div>
               </div>
             ) : (
-              <p style={{ fontSize: '12px', color: 'var(--lf-text-secondary)', textAlign: 'center' }}>
-                Keep the full barcode, including its white margins, inside the viewfinder. To test from this laptop, show the barcode on another phone or print it.
-                A code must match a saved catalogue product or a public product listing before it can be added.
-              </p>
-              {scanNotice && (
-                <div role="status" aria-live="polite" style={{ width: '100%', padding: '10px 12px', background: 'var(--lf-warning-bg)', border: '1px solid var(--lf-highlight-border)', borderRadius: '8px', fontSize: '12px', color: 'var(--lf-warning)' }}>
-                  {scanNotice}
-                </div>
-              )}
+              <div style={{ width: '100%', display: 'grid', gap: '8px' }}>
+                <p style={{ fontSize: '12px', color: 'var(--lf-text-secondary)', textAlign: 'center' }}>
+                  Keep the full barcode, including its white margins, inside the viewfinder. To test from this laptop, show the barcode on another phone or print it.
+                  A code must match a saved catalogue product or a public product listing before it can be added.
+                </p>
+                {scanNotice && (
+                  <div role="status" aria-live="polite" style={{ width: '100%', padding: '10px 12px', background: 'var(--lf-warning-bg)', border: '1px solid var(--lf-highlight-border)', borderRadius: '8px', fontSize: '12px', color: 'var(--lf-warning)' }}>
+                    {scanNotice}
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Quick add by saved barcode */}
