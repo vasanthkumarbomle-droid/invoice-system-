@@ -138,7 +138,6 @@ CREATE TABLE public.invoices (
   created_by uuid DEFAULT auth.uid(),
   created_at timestamp with time zone DEFAULT now() NOT NULL,
   updated_at timestamp with time zone DEFAULT now() NOT NULL,
-  sales_order_id uuid,
   discount_type text DEFAULT 'percentage'::text NOT NULL,
   discount_value numeric(14,2) DEFAULT 0 NOT NULL,
   shipping_charge numeric(14,2) DEFAULT 0 NOT NULL,
@@ -278,53 +277,9 @@ CREATE TABLE public.quotations (
   tcs_rate numeric(5,2) DEFAULT 0 NOT NULL,
   tcs_amount numeric(14,2) DEFAULT 0 NOT NULL
 );
-CREATE TABLE public.sales_order_counters (
-  org_id uuid NOT NULL,
-  year integer NOT NULL,
-  last_number integer DEFAULT 0 NOT NULL
-);
-CREATE TABLE public.sales_order_items (
-  id uuid DEFAULT gen_random_uuid() NOT NULL,
-  org_id uuid NOT NULL,
-  sales_order_id uuid NOT NULL,
-  product_id uuid,
-  sku text,
-  description text NOT NULL,
-  hsn_sac text,
-  unit text DEFAULT 'pcs'::text,
-  quantity numeric NOT NULL,
-  unit_price numeric NOT NULL,
-  discount_pct numeric DEFAULT 0 NOT NULL,
-  gst_rate numeric DEFAULT 0 NOT NULL,
-  "position" integer DEFAULT 0 NOT NULL,
-  reserved_qty numeric DEFAULT 0 NOT NULL,
-  stock_status text DEFAULT 'manual_check'::text NOT NULL,
-  created_at timestamp with time zone DEFAULT now() NOT NULL,
-  updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-CREATE TABLE public.sales_orders (
-  id uuid DEFAULT gen_random_uuid() NOT NULL,
-  org_id uuid NOT NULL,
-  quotation_id uuid NOT NULL,
-  client_id uuid NOT NULL,
-  order_number text NOT NULL,
-  status text DEFAULT 'awaiting_stock'::text NOT NULL,
-  stock_status text DEFAULT 'manual_check'::text NOT NULL,
-  payment_type text DEFAULT 'credit'::text NOT NULL,
-  payment_terms text,
-  advance_paid boolean DEFAULT false NOT NULL,
-  carrier text,
-  tracking_number text,
-  shipping_notes text,
-  stock_reserved_at timestamp with time zone,
-  packed_at timestamp with time zone,
-  dispatched_at timestamp with time zone,
-  stock_deducted_at timestamp with time zone,
-  invoice_generated_at timestamp with time zone,
-  created_at timestamp with time zone DEFAULT now() NOT NULL,
-  updated_at timestamp with time zone DEFAULT now() NOT NULL,
-  tracking_url text
-);
+
+
+
 
 -- Constraints
 ALTER TABLE public.audit_log ADD CONSTRAINT audit_log_pkey PRIMARY KEY (id);
@@ -369,7 +324,6 @@ ALTER TABLE public.invoices ADD CONSTRAINT invoices_org_id_invoice_number_key UN
 ALTER TABLE public.invoices ADD CONSTRAINT invoices_pkey PRIMARY KEY (id);
 ALTER TABLE public.invoices ADD CONSTRAINT invoices_quotation_id_fkey FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE SET NULL;
 ALTER TABLE public.invoices ADD CONSTRAINT invoices_round_off_mode_check CHECK ((round_off_mode = ANY (ARRAY['manual'::text, 'nearest_rupee'::text])));
-ALTER TABLE public.invoices ADD CONSTRAINT invoices_sales_order_id_fkey FOREIGN KEY (sales_order_id) REFERENCES sales_orders(id) ON DELETE RESTRICT;
 ALTER TABLE public.org_members ADD CONSTRAINT org_members_org_id_fkey FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE;
 ALTER TABLE public.org_members ADD CONSTRAINT org_members_pkey PRIMARY KEY (org_id, user_id);
 ALTER TABLE public.org_members ADD CONSTRAINT org_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
@@ -407,28 +361,6 @@ ALTER TABLE public.quotations ADD CONSTRAINT quotations_org_id_fkey FOREIGN KEY 
 ALTER TABLE public.quotations ADD CONSTRAINT quotations_org_id_quote_number_key UNIQUE (org_id, quote_number);
 ALTER TABLE public.quotations ADD CONSTRAINT quotations_pkey PRIMARY KEY (id);
 ALTER TABLE public.quotations ADD CONSTRAINT quotations_round_off_mode_check CHECK ((round_off_mode = ANY (ARRAY['manual'::text, 'nearest_rupee'::text])));
-ALTER TABLE public.sales_order_counters ADD CONSTRAINT sales_order_counters_last_number_check CHECK ((last_number >= 0));
-ALTER TABLE public.sales_order_counters ADD CONSTRAINT sales_order_counters_org_id_fkey FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE;
-ALTER TABLE public.sales_order_counters ADD CONSTRAINT sales_order_counters_pkey PRIMARY KEY (org_id, year);
-ALTER TABLE public.sales_order_items ADD CONSTRAINT sales_order_items_check CHECK (((reserved_qty >= (0)::numeric) AND (reserved_qty <= quantity)));
-ALTER TABLE public.sales_order_items ADD CONSTRAINT sales_order_items_discount_pct_check CHECK (((discount_pct >= (0)::numeric) AND (discount_pct <= (100)::numeric)));
-ALTER TABLE public.sales_order_items ADD CONSTRAINT sales_order_items_gst_rate_check CHECK (((gst_rate >= (0)::numeric) AND (gst_rate <= (100)::numeric)));
-ALTER TABLE public.sales_order_items ADD CONSTRAINT sales_order_items_org_id_fkey FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE;
-ALTER TABLE public.sales_order_items ADD CONSTRAINT sales_order_items_pkey PRIMARY KEY (id);
-ALTER TABLE public.sales_order_items ADD CONSTRAINT sales_order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL;
-ALTER TABLE public.sales_order_items ADD CONSTRAINT sales_order_items_quantity_check CHECK ((quantity > (0)::numeric));
-ALTER TABLE public.sales_order_items ADD CONSTRAINT sales_order_items_sales_order_id_fkey FOREIGN KEY (sales_order_id) REFERENCES sales_orders(id) ON DELETE CASCADE;
-ALTER TABLE public.sales_order_items ADD CONSTRAINT sales_order_items_stock_status_check CHECK ((stock_status = ANY (ARRAY['reserved'::text, 'awaiting_stock'::text, 'backorder'::text, 'manual_check'::text, 'manual_confirmed'::text, 'deducted'::text])));
-ALTER TABLE public.sales_order_items ADD CONSTRAINT sales_order_items_unit_price_check CHECK ((unit_price >= (0)::numeric));
-ALTER TABLE public.sales_orders ADD CONSTRAINT sales_orders_client_id_fkey FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT;
-ALTER TABLE public.sales_orders ADD CONSTRAINT sales_orders_org_id_fkey FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE;
-ALTER TABLE public.sales_orders ADD CONSTRAINT sales_orders_org_id_order_number_key UNIQUE (org_id, order_number);
-ALTER TABLE public.sales_orders ADD CONSTRAINT sales_orders_org_id_quotation_id_key UNIQUE (org_id, quotation_id);
-ALTER TABLE public.sales_orders ADD CONSTRAINT sales_orders_payment_type_check CHECK ((payment_type = ANY (ARRAY['advance'::text, 'cod'::text, 'credit'::text])));
-ALTER TABLE public.sales_orders ADD CONSTRAINT sales_orders_pkey PRIMARY KEY (id);
-ALTER TABLE public.sales_orders ADD CONSTRAINT sales_orders_quotation_id_fkey FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE RESTRICT;
-ALTER TABLE public.sales_orders ADD CONSTRAINT sales_orders_status_check CHECK ((status = ANY (ARRAY['awaiting_stock'::text, 'reserved'::text, 'packing'::text, 'packed'::text, 'dispatched'::text, 'invoiced'::text, 'cancelled'::text])));
-ALTER TABLE public.sales_orders ADD CONSTRAINT sales_orders_stock_status_check CHECK ((stock_status = ANY (ARRAY['reserved'::text, 'backorder'::text, 'manual_check'::text, 'deducted'::text, 'released'::text])));
 
 -- Sequence ownership
 
@@ -448,11 +380,9 @@ CREATE INDEX idx_invoice_reminder_log_org_id_fk ON public.invoice_reminder_log U
 CREATE INDEX invoice_reminder_log_invoice_type_sent_idx ON public.invoice_reminder_log USING btree (invoice_id, reminder_type, sent_at DESC);
 CREATE INDEX idx_invoices_created_by_fk ON public.invoices USING btree (created_by);
 CREATE INDEX idx_invoices_quotation_id_fk ON public.invoices USING btree (quotation_id);
-CREATE INDEX idx_invoices_sales_order_id_fk ON public.invoices USING btree (sales_order_id);
 CREATE INDEX invoices_client_idx ON public.invoices USING btree (client_id);
 CREATE INDEX invoices_due_idx ON public.invoices USING btree (org_id, due_date);
 CREATE UNIQUE INDEX invoices_one_per_quotation ON public.invoices USING btree (org_id, quotation_id) WHERE (quotation_id IS NOT NULL);
-CREATE UNIQUE INDEX invoices_one_per_sales_order ON public.invoices USING btree (org_id, sales_order_id) WHERE (sales_order_id IS NOT NULL);
 CREATE INDEX invoices_org_status_idx ON public.invoices USING btree (org_id, status);
 CREATE INDEX invoices_reminder_candidates_idx ON public.invoices USING btree (due_date, status) WHERE (balance_due > (0)::numeric);
 CREATE INDEX idx_org_members_user_id_fk ON public.org_members USING btree (user_id);
@@ -470,13 +400,6 @@ CREATE INDEX idx_quotations_client_id_fk ON public.quotations USING btree (clien
 CREATE INDEX idx_quotations_created_by_fk ON public.quotations USING btree (created_by);
 CREATE INDEX idx_quotations_invoice_id_fk ON public.quotations USING btree (invoice_id);
 CREATE INDEX quotations_org_idx ON public.quotations USING btree (org_id, status);
-CREATE INDEX idx_sales_order_items_product_id_fk ON public.sales_order_items USING btree (product_id);
-CREATE INDEX idx_sales_order_items_sales_order_id_fk ON public.sales_order_items USING btree (sales_order_id);
-CREATE INDEX sales_order_items_order_idx ON public.sales_order_items USING btree (org_id, sales_order_id, "position");
-CREATE INDEX sales_order_items_reserved_product_idx ON public.sales_order_items USING btree (org_id, product_id) WHERE (reserved_qty > (0)::numeric);
-CREATE INDEX idx_sales_orders_client_id_fk ON public.sales_orders USING btree (client_id);
-CREATE INDEX idx_sales_orders_quotation_id_fk ON public.sales_orders USING btree (quotation_id);
-CREATE INDEX sales_orders_org_created_idx ON public.sales_orders USING btree (org_id, created_at DESC);
 
 -- Public-schema functions (security definitions and search_path retained)
 CREATE OR REPLACE FUNCTION public.accept_invitation(p_token uuid)
@@ -498,7 +421,6 @@ begin
   return inv.org_id;
 end $function$
 
-CREATE OR REPLACE FUNCTION public.accept_quotation_create_sales_order(p_token_id uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -580,14 +502,11 @@ BEGIN
     v_payment_type := 'credit';
   END IF;
 
-  INSERT INTO public.sales_order_counters (org_id, year, last_number)
   VALUES (v_quote.org_id, v_year, 1)
   ON CONFLICT (org_id, year)
-  DO UPDATE SET last_number = public.sales_order_counters.last_number + 1
   RETURNING last_number INTO v_counter;
   v_order_number := 'SO-' || v_year::text || '-' || lpad(v_counter::text, 4, '0');
 
-  INSERT INTO public.sales_orders (
     org_id, quotation_id, client_id, order_number, status, stock_status, payment_type, payment_terms
   ) VALUES (
     v_quote.org_id, v_quote.id, v_quote.client_id, v_order_number,
@@ -626,8 +545,6 @@ BEGIN
         USING ERRCODE = '23514';
     END IF;
 
-    INSERT INTO public.sales_order_items (
-      org_id, sales_order_id, product_id, sku, description, hsn_sac, unit,
       quantity, unit_price, discount_pct, gst_rate, position, reserved_qty, stock_status
     ) VALUES (
       v_quote.org_id, v_order_id, v_item.product_id, v_item.product_sku,
@@ -639,16 +556,12 @@ BEGIN
   END LOOP;
 
   v_has_untracked := EXISTS (
-    SELECT 1 FROM public.sales_order_items soi
-     WHERE soi.sales_order_id = v_order_id AND soi.product_id IS NULL
   );
 
   SELECT NOT EXISTS (
     SELECT 1
       FROM (
         SELECT soi.product_id, sum(soi.quantity) AS required_qty
-          FROM public.sales_order_items soi
-         WHERE soi.sales_order_id = v_order_id
            AND soi.product_id IS NOT NULL
          GROUP BY soi.product_id
       ) required
@@ -656,12 +569,8 @@ BEGIN
         ON p.id = required.product_id AND p.org_id = v_quote.org_id
      WHERE COALESCE(p.stock_qty, 0) - COALESCE((
        SELECT sum(reserved.reserved_qty)
-         FROM public.sales_order_items reserved
-         JOIN public.sales_orders reserved_order
-           ON reserved_order.id = reserved.sales_order_id AND reserved_order.org_id = reserved.org_id
         WHERE reserved.org_id = v_quote.org_id
           AND reserved.product_id = required.product_id
-          AND reserved.sales_order_id <> v_order_id
           AND reserved.reserved_qty > 0
           AND reserved_order.status IN ('reserved','packing','packed','dispatched')
           AND reserved_order.stock_deducted_at IS NULL
@@ -669,27 +578,20 @@ BEGIN
   ) INTO v_stock_available;
 
   IF NOT v_has_untracked AND v_stock_available THEN
-    UPDATE public.sales_order_items
        SET reserved_qty = quantity, stock_status = 'reserved', updated_at = now()
-     WHERE sales_order_id = v_order_id AND org_id = v_quote.org_id AND product_id IS NOT NULL;
     v_status := 'reserved';
     v_stock_status := 'reserved';
   ELSIF v_has_untracked THEN
     v_status := 'awaiting_stock';
     v_stock_status := 'manual_check';
-    UPDATE public.sales_order_items
        SET stock_status = CASE WHEN product_id IS NULL THEN 'manual_check' ELSE 'awaiting_stock' END,
            updated_at = now()
-     WHERE sales_order_id = v_order_id AND org_id = v_quote.org_id;
   ELSE
     v_status := 'awaiting_stock';
     v_stock_status := 'backorder';
-    UPDATE public.sales_order_items
        SET stock_status = 'backorder', updated_at = now()
-     WHERE sales_order_id = v_order_id AND org_id = v_quote.org_id AND product_id IS NOT NULL;
   END IF;
 
-  UPDATE public.sales_orders
      SET status = v_status,
          stock_status = v_stock_status,
          stock_reserved_at = CASE WHEN v_status = 'reserved' THEN now() ELSE NULL END,
@@ -1278,14 +1180,12 @@ AS $function$
   select exists (select 1 from org_members where org_id = o and user_id = auth.uid());
 $function$
 
-CREATE OR REPLACE FUNCTION public.manage_sales_order_action(p_org_id uuid, p_order_id uuid, p_action text, p_carrier text DEFAULT NULL::text, p_tracking_number text DEFAULT NULL::text, p_tracking_url text DEFAULT NULL::text)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'pg_temp'
 AS $function$
 DECLARE
-  v_order public.sales_orders%ROWTYPE;
   v_invoice_id uuid;
   v_invoice_number text;
   v_counter integer;
@@ -1299,7 +1199,6 @@ BEGIN
   END IF;
 
   SELECT * INTO v_order
-    FROM public.sales_orders
    WHERE id = p_order_id AND org_id = p_org_id
    FOR UPDATE;
   IF NOT FOUND THEN
@@ -1316,8 +1215,6 @@ BEGIN
       FROM public.products p
      WHERE p.org_id = p_org_id
        AND p.id IN (
-         SELECT DISTINCT soi.product_id FROM public.sales_order_items soi
-          WHERE soi.sales_order_id = v_order.id AND soi.org_id = p_org_id AND soi.product_id IS NOT NULL
        )
      ORDER BY p.id FOR UPDATE;
 
@@ -1325,19 +1222,13 @@ BEGIN
       SELECT 1
         FROM (
           SELECT soi.product_id, sum(soi.quantity) AS required_qty
-            FROM public.sales_order_items soi
-           WHERE soi.sales_order_id = v_order.id AND soi.org_id = p_org_id AND soi.product_id IS NOT NULL
            GROUP BY soi.product_id
         ) required
         JOIN public.products p ON p.id = required.product_id AND p.org_id = p_org_id
        WHERE COALESCE(p.stock_qty, 0) - COALESCE((
          SELECT sum(reserved.reserved_qty)
-           FROM public.sales_order_items reserved
-           JOIN public.sales_orders other_order
-             ON other_order.id = reserved.sales_order_id AND other_order.org_id = reserved.org_id
           WHERE reserved.org_id = p_org_id
             AND reserved.product_id = required.product_id
-            AND reserved.sales_order_id <> v_order.id
             AND reserved.reserved_qty > 0
             AND other_order.status IN ('reserved','packing','packed','dispatched')
             AND other_order.stock_deducted_at IS NULL
@@ -1347,18 +1238,13 @@ BEGIN
         USING ERRCODE = '23514';
     END IF;
 
-    UPDATE public.sales_order_items
        SET reserved_qty = quantity,
            stock_status = 'reserved',
            updated_at = now()
-     WHERE sales_order_id = v_order.id AND org_id = p_org_id AND product_id IS NOT NULL;
-    UPDATE public.sales_order_items
        SET reserved_qty = 0,
            stock_status = 'manual_confirmed',
            updated_at = now()
-     WHERE sales_order_id = v_order.id AND org_id = p_org_id AND product_id IS NULL;
 
-    UPDATE public.sales_orders
        SET status = 'reserved',
            stock_status = 'reserved',
            stock_reserved_at = now(),
@@ -1370,7 +1256,6 @@ BEGIN
       RAISE EXCEPTION 'Advance payment can only be confirmed for a stock-reserved advance order.'
         USING ERRCODE = '23514';
     END IF;
-    UPDATE public.sales_orders
        SET advance_paid = true, updated_at = now()
      WHERE id = v_order.id AND org_id = p_org_id;
 
@@ -1383,7 +1268,6 @@ BEGIN
       RAISE EXCEPTION 'This order requires advance payment. Send payment instructions and confirm the advance before packing.'
         USING ERRCODE = '23514';
     END IF;
-    UPDATE public.sales_orders
        SET status = 'packing', updated_at = now()
      WHERE id = v_order.id AND org_id = p_org_id;
 
@@ -1392,7 +1276,6 @@ BEGIN
       RAISE EXCEPTION 'Start packing before marking an order packed.'
         USING ERRCODE = '23514';
     END IF;
-    UPDATE public.sales_orders
        SET status = 'packed', packed_at = now(), updated_at = now()
      WHERE id = v_order.id AND org_id = p_org_id;
 
@@ -1410,7 +1293,6 @@ BEGIN
       RAISE EXCEPTION 'Tracking URL must be a valid HTTPS URL.'
         USING ERRCODE = '23514';
     END IF;
-    UPDATE public.sales_orders
        SET status = 'dispatched',
            carrier = left(btrim(p_carrier), 120),
            tracking_number = left(btrim(p_tracking_number), 180),
@@ -1424,17 +1306,13 @@ BEGIN
       RAISE EXCEPTION 'Only orders awaiting stock or reserved but not yet packed can be cancelled.'
         USING ERRCODE = '23514';
     END IF;
-    UPDATE public.sales_order_items
        SET reserved_qty = 0, stock_status = 'awaiting_stock', updated_at = now()
-     WHERE sales_order_id = v_order.id AND org_id = p_org_id;
-    UPDATE public.sales_orders
        SET status = 'cancelled', stock_status = 'released', updated_at = now()
      WHERE id = v_order.id AND org_id = p_org_id;
 
   ELSIF p_action = 'generate_invoice' THEN
     SELECT id, invoice_number INTO v_invoice_id, v_invoice_number
       FROM public.invoices
-     WHERE org_id = p_org_id AND sales_order_id = v_order.id
      LIMIT 1;
     IF v_invoice_id IS NOT NULL THEN
       RETURN jsonb_build_object(
@@ -1458,8 +1336,6 @@ BEGIN
       FROM public.products p
      WHERE p.org_id = p_org_id
        AND p.id IN (
-         SELECT DISTINCT soi.product_id FROM public.sales_order_items soi
-          WHERE soi.sales_order_id = v_order.id AND soi.org_id = p_org_id
             AND soi.product_id IS NOT NULL AND soi.reserved_qty > 0
        )
      ORDER BY p.id FOR UPDATE;
@@ -1468,8 +1344,6 @@ BEGIN
       SELECT 1
         FROM (
           SELECT soi.product_id, sum(soi.reserved_qty) AS required_qty
-            FROM public.sales_order_items soi
-           WHERE soi.sales_order_id = v_order.id AND soi.org_id = p_org_id
              AND soi.product_id IS NOT NULL AND soi.reserved_qty > 0
            GROUP BY soi.product_id
         ) required
@@ -1481,8 +1355,6 @@ BEGIN
     END IF;
 
     IF EXISTS (
-      SELECT 1 FROM public.sales_order_items soi
-       WHERE soi.sales_order_id = v_order.id AND soi.org_id = p_org_id
          AND soi.product_id IS NOT NULL AND soi.reserved_qty < soi.quantity
     ) THEN
       RAISE EXCEPTION 'Some tracked products are not reserved. Confirm stock before invoicing.'
@@ -1504,7 +1376,6 @@ BEGIN
     v_terms_days := GREATEST(0, LEAST(COALESCE(v_terms_days, 15), 3650));
 
     INSERT INTO public.invoices (
-      org_id, client_id, quotation_id, sales_order_id, issue_date, due_date, status, notes, terms
     ) VALUES (
       p_org_id, v_order.client_id, v_order.quotation_id, v_order.id,
       v_issue_date, v_issue_date + v_terms_days, 'draft',
@@ -1520,8 +1391,6 @@ BEGIN
     SELECT p_org_id, v_invoice_id, soi.position, soi.product_id, soi.description,
            soi.hsn_sac, COALESCE(NULLIF(soi.unit, ''), 'pcs'),
            soi.quantity, soi.unit_price, soi.discount_pct, soi.gst_rate
-      FROM public.sales_order_items soi
-     WHERE soi.sales_order_id = v_order.id AND soi.org_id = p_org_id
      ORDER BY soi.position;
 
     UPDATE public.products p
@@ -1529,20 +1398,15 @@ BEGIN
            updated_at = now()
       FROM (
         SELECT soi.product_id, sum(soi.reserved_qty) AS required_qty
-          FROM public.sales_order_items soi
-         WHERE soi.sales_order_id = v_order.id AND soi.org_id = p_org_id
            AND soi.product_id IS NOT NULL AND soi.reserved_qty > 0
          GROUP BY soi.product_id
       ) reserved
      WHERE p.id = reserved.product_id AND p.org_id = p_org_id;
 
-    UPDATE public.sales_order_items
        SET reserved_qty = 0,
            stock_status = CASE WHEN product_id IS NULL THEN 'manual_confirmed' ELSE 'deducted' END,
            updated_at = now()
-     WHERE sales_order_id = v_order.id AND org_id = p_org_id;
 
-    UPDATE public.sales_orders
        SET status = 'invoiced',
            stock_status = 'deducted',
            stock_deducted_at = now(),
@@ -2353,15 +2217,9 @@ GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public.quotation_items TO authenti
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.quotation_items TO service_role;
 GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public.quotations TO authenticated;
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.quotations TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.sales_order_counters TO service_role;
-GRANT SELECT ON TABLE public.sales_order_items TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.sales_order_items TO service_role;
-GRANT SELECT ON TABLE public.sales_orders TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.sales_orders TO service_role;
 
 -- Explicit function grants; defaults are revoked before grants are restored
 REVOKE ALL ON FUNCTION public.accept_invitation(uuid) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.accept_quotation_create_sales_order(uuid) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.add_owner_member() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.audit_trigger() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.cancel_invoice_if_unpaid(uuid, uuid) FROM PUBLIC, anon, authenticated, service_role;
@@ -2375,7 +2233,6 @@ REVOKE ALL ON FUNCTION public.initialize_org_reminder_settings() FROM PUBLIC, an
 REVOKE ALL ON FUNCTION public.invoice_before_save() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.invoice_refresh(uuid) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.is_member(uuid) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.manage_sales_order_action(uuid, uuid, text, text, text, text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.next_doc_number(uuid, text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.payment_after() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.payment_before() FROM PUBLIC, anon, authenticated, service_role;
@@ -2390,7 +2247,6 @@ REVOKE ALL ON FUNCTION public.set_updated_at() FROM PUBLIC, anon, authenticated,
 
 GRANT EXECUTE ON FUNCTION public.accept_invitation(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.accept_invitation(uuid) TO service_role;
-GRANT EXECUTE ON FUNCTION public.accept_quotation_create_sales_order(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.add_owner_member() TO service_role;
 GRANT EXECUTE ON FUNCTION public.audit_trigger() TO service_role;
 GRANT EXECUTE ON FUNCTION public.cancel_invoice_if_unpaid(uuid, uuid) TO authenticated;
@@ -2412,7 +2268,6 @@ GRANT EXECUTE ON FUNCTION public.invoice_before_save() TO service_role;
 GRANT EXECUTE ON FUNCTION public.invoice_refresh(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.is_member(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_member(uuid) TO service_role;
-GRANT EXECUTE ON FUNCTION public.manage_sales_order_action(uuid, uuid, text, text, text, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.next_doc_number(uuid, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.next_doc_number(uuid, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.payment_after() TO service_role;
@@ -2454,9 +2309,6 @@ ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quotation_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quotations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sales_order_counters ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sales_order_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sales_orders ENABLE ROW LEVEL SECURITY;
 
 -- RLS policies
 CREATE POLICY "finance roles read audit" ON public.audit_log AS PERMISSIVE FOR SELECT TO authenticated USING (has_role(org_id, ARRAY['owner'::member_role, 'admin'::member_role, 'accountant'::member_role]));
@@ -2483,8 +2335,6 @@ CREATE POLICY "read quotation items" ON public.quotation_items AS PERMISSIVE FOR
 CREATE POLICY "write quotation items" ON public.quotation_items AS PERMISSIVE FOR ALL TO authenticated USING (has_role(org_id, ARRAY['owner'::member_role, 'admin'::member_role, 'staff'::member_role])) WITH CHECK (has_role(org_id, ARRAY['owner'::member_role, 'admin'::member_role, 'staff'::member_role]));
 CREATE POLICY "read quotations" ON public.quotations AS PERMISSIVE FOR SELECT TO authenticated USING (is_member(org_id));
 CREATE POLICY "write quotations" ON public.quotations AS PERMISSIVE FOR ALL TO authenticated USING (has_role(org_id, ARRAY['owner'::member_role, 'admin'::member_role, 'staff'::member_role])) WITH CHECK (has_role(org_id, ARRAY['owner'::member_role, 'admin'::member_role, 'staff'::member_role]));
-CREATE POLICY sales_order_items_member_read ON public.sales_order_items AS PERMISSIVE FOR SELECT TO authenticated USING (is_member(org_id));
-CREATE POLICY sales_orders_member_read ON public.sales_orders AS PERMISSIVE FOR SELECT TO authenticated USING (is_member(org_id));
 
 -- Triggers
 CREATE TRIGGER audit_clients AFTER INSERT OR DELETE OR UPDATE ON clients FOR EACH ROW EXECUTE FUNCTION audit_trigger();
