@@ -1,57 +1,70 @@
-# Supabase schema prerequisites and verification
+# Supabase database setup and safety notes
 
-## Existing projects
+LedgerFlow uses Supabase for authentication, business data, database functions and Edge Functions. Review the target project and its migration history before running SQL.
 
-LedgerFlow's original core database schema was created outside this repository. The SQL files numbered `001` through `009` are **additive feature migrations**; they are not a replacement for the original schema. Do not run the application against a fresh Supabase database until the core tables, totals/numbering triggers, grants, and organization-scoped RLS policies have been installed and verified.
+## SQL files
 
-The app expects these core tables:
+### Baseline schema
 
-- `organizations`
-- `org_members`
-- `clients`
-- `products`
-- `invoices`
-- `invoice_items`
-- `payments`
-- `quotations`
-- `quotation_items`
+`000_core_schema.sql` is a schema-only snapshot generated from the connected LedgerFlow database on 25 October 2026. It contains no business row data and is intended as a starting point for a **new, empty database**.
 
-Feature tables include `document_share_tokens` and `document_signatures` (migration 003), `invoice_reminder_log` (migration 001), and `organization_reminder_settings` (migration 002).
+- Do not run this snapshot against an existing production database.
+- Review extensions, grants, policies, functions and environment-specific assumptions before using it.
+- Test the setup in a disposable Supabase project and verify the resulting schema and application workflows before relying on it.
 
-## Safe setup sequence
+### Incremental SQL
 
-For an existing project, check which migrations have already succeeded. Apply **004, then 005, then 006, then 008, then 009** where appropriate. Migration 007 is a read-only audit. Do not rerun migrations that have already succeeded.
+The remaining files contain feature changes, security hardening, fixes and verification scripts. Some filenames share numeric prefixes (including 010, 012, 013 and 014), so the filename alone is not a reliable unique migration sequence.
 
-1. Open Supabase Dashboard → SQL Editor.
-2. Run `VERIFY_CORE_SCHEMA.sql`. Its first result checks expected columns; the second shows whether RLS is enabled and how many policies exist.
-3. Review actual RLS policy definitions for every organization-scoped table. Verify select, insert, update, and delete policies restrict rows to organizations where the signed-in user is a member. A nonzero policy count does not prove the predicates are correct.
-4. Apply `004_quotation_conversion_and_account_holder.sql`. It adds the separate bank account-holder field and the server-side quotation-to-invoice conversion function. Conversion is restricted to accepted quotations and owner/admin members.
-5. Apply `005_payment_integrity.sql`. The database trigger rejects payments on draft/cancelled/paid invoices, cross-organization payment rows, and payment amounts exceeding the current invoice balance.
-6. Apply `006_due_date_reminders.sql` before deploying the current invoice-reminder Edge Function. It adds a separate `due_today` log type so a prior due-soon reminder does not suppress the due-date reminder.
-7. Apply `008_payment_update_integrity.sql` only after reviewing the live payment schema. It validates payment updates, recalculates both invoices when a payment is moved, and clamps stored invoice balance due at zero. Test payment insert, amount correction, move, and delete with disposable records before issuing real documents.
-8. Apply `009_document_save_tenant_integrity.sql`. It explicitly requires organization membership and same-organization client/product references in the invoice/quotation save functions and quotation conversion; allowlists invoice/quotation workflow statuses in the save RPCs; permits edits only for draft invoices and open quotations; adds a locked, payment-aware invoice cancellation RPC; and revokes direct browser execution of the internal `invoice_refresh(uuid)` helper. This assumes the named core tables and columns already exist.
-9. Test document saves, quotation conversion, and payment create/correct/move/delete with disposable records before issuing real documents.
+For an existing project:
 
-10. Apply `010_api_privilege_hardening.sql` to remove anonymous table/sequence access, reduce authenticated structural privileges, reserve internal tables for server-side workflows, revoke direct execution of trigger/event-trigger helpers, and restrict default function execution grants.
-11. Apply `011_authenticated_rls_and_maintain.sql` to change existing organization/billing policies from `PUBLIC` to `authenticated` and remove PostgreSQL `MAINTAIN` from authenticated users. Public document sharing and reminder workflows should go through their server-side Edge Functions.
+1. Confirm that you are connected to the intended Supabase project.
+2. Take or verify a restorable backup.
+3. Review the project's migration history and current schema.
+4. Inspect the SQL file and its prerequisites before applying it.
+5. Apply only changes that are not already present, one script at a time.
+6. Record what was applied and test the affected workflows with disposable data.
 
-After migrations 010 and 011, verify anonymous table access is absent, every exposed data table has RLS enabled, private business policies target authenticated users, internal helper functions cannot be called as RPCs, and the application's authenticated save/payment/quotation flows still work. Some remaining Supabase advisor findings (for example foreign-key indexes, `pg_trgm` placement, password-breach protection, and helper RPC warnings) require individual review rather than blanket suppression.
+Do not execute every SQL file in bulk or rerun a script just because it is present in the repository.
 
-## Database behavior that must exist
+## Verification
 
-The application depends on database behavior for:
-- calculating line taxable amounts after discounts and computing CGST/SGST/IGST, tax totals, grand totals, and outstanding balances;
-- allocating unique invoice and quotation numbers;
-- updating invoice balances and payment status when payments are inserted;
-- enforcing organization-scoped row-level security on all client-accessible tables and RPCs;
-- ensuring referenced clients, products, and document items belong to the same organization (migration 009 adds explicit checks to both document-save RPCs).
+- Use `VERIFY_CORE_SCHEMA.sql` to inspect expected tables and columns and the current RLS state.
+- Use `007_read_only_schema_audit.sql` for the read-only schema and policy diagnostic.
+- Inspect the actual policy predicates, grants, triggers and function definitions. A table having RLS enabled or a nonzero policy count does not prove that access is correctly restricted.
 
-Migration 003 makes the document header and item writes transactional, but the repository does **not** include the complete original core schema or every existing numbering/tax trigger. The verification script checks table/column presence and RLS state; it cannot prove trigger calculations or policy predicates are correct. Inspect actual triggers and policies in the Supabase Dashboard before treating those controls as verified.
+## Required database behavior
 
-## Security notes
+The application relies on database-side controls for:
 
-- Never expose the Supabase service-role key in Vite/frontend configuration.
-- Client document links use random expiring tokens; clients should not receive direct table access.
-- Owner actions in the `quotation-workflow` Edge Function must validate the signed-in session and organization membership.
-- RLS enabled with zero policies usually denies browser access. RLS disabled or overly broad policies may expose cross-organization data. Do not disable RLS to silence an error.
-- Migration 004 adds `organizations.bank_account_holder`. If the core `organizations` table is missing, stop and install/restore the real core schema instead of running feature migrations on an empty database.
+- Organization-scoped access to business records.
+- Invoice and quotation numbering.
+- Line-item discounts, GST calculations, totals and outstanding balances.
+- Payment validation and invoice status updates.
+- Atomic invoice and quotation saves.
+- Validation that referenced clients and products belong to the same organization.
+
+Confirm these behaviors against the actual database. Source files and SQL scripts in GitHub do not prove that a migration has been applied to the live project.
+
+## Edge Functions and integrations
+
+The repository contains Edge Functions for the client document workflow and invoice reminders. Their deployment and secret configuration are separate from the frontend deployment.
+
+Keep these values in Supabase's server-side secret store:
+
+- Apps Script Web App URL and shared secret.
+- Public frontend origin used to build client document links.
+- Invoice reminder cron secret.
+
+Never put a service-role key, Apps Script shared secret or cron secret in frontend variables or commit them to GitHub.
+
+## Before using real business data
+
+- Test organization isolation with separate test users/organizations.
+- Test invoice and quotation create, edit, conversion and reload flows.
+- Test valid and invalid payment amounts, partial payments and payment corrections.
+- Verify GST totals and document output with known test cases.
+- Test client links, expiry and email delivery using addresses you control.
+- Confirm that backups can be restored.
+
+These checks must be performed in the intended Supabase and Google accounts; a successful frontend build does not replace them.
