@@ -58,10 +58,10 @@ Replace both placeholder values locally. Do not share the secret. Supabase autom
 
 ### 5. Deploy the frontend later
 
-The website is not deployed yet, so **do not invent a public URL or set \`PUBLIC_APP_URL\` to localhost**. The email link must lead to a publicly accessible frontend for the client to view and accept/reject a quotation. After the frontend is deployed, set its actual base URL:
+The frontend is deployed at `https://ledgerflowhq.vercel.app`. Set `PUBLIC_APP_URL` in Supabase to the actual production origin before sending client documents. For preview testing, use the exact Vercel preview origin and restore the production origin afterward:
 
 \`\`\`powershell
-npx supabase secrets set PUBLIC_APP_URL="https://YOUR-REAL-DEPLOYED-SITE"
+npx supabase secrets set PUBLIC_APP_URL="https://ledgerflowhq.vercel.app"
 \`\`\`
 
 Use the real URL, with no trailing slash. Then the Send to Client workflow can generate links clients can open outside your computer. Until these secrets and the public frontend are configured, sending client documents is expected to fail with a configuration error.
