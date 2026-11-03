@@ -1,75 +1,95 @@
-# LedgerFlow — Invoice & Quotation Generation System
+# LedgerFlow
 
-LedgerFlow is a React/Vite billing application backed by Supabase. It supports client and product management, invoices, quotations, payment recording, GST breakdowns, document signatures, and secure client responses to quotations.
+LedgerFlow is an invoicing and quotation management application for small businesses. It brings client and product records, GST calculations, payment tracking and customer document workflows into one workspace.
 
-## Requirements
+**Production:** [ledgerflowhq.vercel.app](https://ledgerflowhq.vercel.app)
+
+## Features
+
+- Manage clients and product inventory.
+- Create and manage invoices and quotations.
+- Calculate GST with CGST, SGST and IGST breakdowns.
+- Record payments and track outstanding balances.
+- Generate customer-ready invoice and quotation documents.
+- Share secure document links for client quotation responses.
+- Support invoice reminders through the optional Google Apps Script workflow.
+
+## Technology
+
+- React and Vite
+- Supabase Database, Authentication and Edge Functions
+- Tailwind CSS
+- React PDF
+- Recharts
+
+## Run locally
+
+### Requirements
 
 - Node.js 22 or later
 - npm
-- A Supabase project with the LedgerFlow core tables and organization-scoped Row Level Security (RLS) policies
-- Supabase CLI for deploying Edge Functions
-- Google Apps Script for the optional invoice-reminder and document-email workflows
+- A configured Supabase project
 
-## Local development
+### Setup
 
-1. Clone or download this repository and open the project root in a terminal.
-2. Copy .env.example to .env.
-3. Fill in your Supabase project URL and publishable (or anon) key from Supabase. These are public client configuration values; **never put the Supabase service-role key in frontend configuration**.
-4. Install dependencies and start Vite by running: npm ci, then npm run dev.
-5. Run production checks before publishing: npm run lint, then npm run build.
+1. Clone the repository and open its folder.
+2. Copy `.env.example` to `.env`.
+3. Set the Supabase project URL and publishable key in `.env`.
+4. Install dependencies and start the development server:
 
-The site uses Vite's dist output. vercel.json contains the SPA rewrite needed for refreshes on routes such as /invoices and /client-document.
+```bash
+npm ci
+npm run dev
+```
+
+The app is available at the local URL printed by Vite.
 
 ## Environment variables
 
-Required for the frontend:
-- VITE_SUPABASE_URL: the project's HTTPS URL.
-- VITE_SUPABASE_PUBLISHABLE_KEY: the project's publishable key. VITE_SUPABASE_ANON_KEY is also supported for older projects.
+| Variable | Purpose |
+| --- | --- |
+| `VITE_SUPABASE_URL` | Supabase project URL |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable/anon key |
 
-For password recovery, add your local and deployed app URLs ending in `/reset-password` to Supabase Dashboard → Authentication → URL Configuration → Redirect URLs. Set the Site URL to the real deployed frontend origin. The recovery email uses the current origin, then returns to this route.
+The app also supports `VITE_SUPABASE_ANON_KEY` for older configurations.
 
-Do not put SUPABASE_SERVICE_ROLE_KEY, GOOGLE_APPS_SCRIPT_SECRET, the reminder cron secret, or other server secrets in frontend variables.
+Never put a Supabase service-role key, Apps Script secret or reminder cron secret in a `VITE_*` variable or commit it to this repository.
 
-## Database setup and migrations
+## Database and backend setup
 
-**This repository does not currently contain a full clean-install schema for all core LedgerFlow tables.** It assumes the project already has the core tables (organizations, org_members, clients, products, invoices, invoice_items, quotations, quotation_items, and payments), expected columns, calculation/numbering triggers, and correct RLS policies. Do not run the feature migrations against an empty or unrelated Supabase project expecting them to create the whole product schema.
+Database SQL is maintained under `supabase/sql/`. Read [the database setup and safety notes](supabase/sql/SCHEMA_REQUIREMENTS.md) before running any SQL.
 
-After reviewing the schema and backing up the project, apply the feature migrations in Supabase SQL Editor as appropriate:
+- `000_core_schema.sql` is a schema-only baseline snapshot intended for a new, empty database after review and testing. **Do not run it against an existing production database.**
+- The remaining SQL files are incremental changes. Check the target project's migration history and inspect each script before applying it; do not run every file blindly.
+- SQL changes, Supabase Edge Function deployments and Vercel frontend deployments are separate operations. A GitHub push does not apply database changes or deploy Edge Functions.
 
-- supabase/sql/001_invoice_reminder_log.sql — reminder send history.
-- supabase/sql/002_organization_reminder_settings.sql — reminder opt-in settings.
-- supabase/sql/003_client_document_workflow.sql — secure client links, signatures, and transactional save RPCs.
-- supabase/sql/004_quotation_conversion_and_account_holder.sql — accepted quotation conversion and persisted bank account-holder name.
-- supabase/sql/005_payment_integrity.sql — server-side validation that prevents payments against draft/cancelled/paid invoices and amounts above the outstanding balance.
-- supabase/sql/006_due_date_reminders.sql — lets due-today reminders be logged separately from earlier due-soon reminders.
-- supabase/sql/007_read_only_schema_audit.sql — read-only schema/policy diagnostic; it makes no changes.
-- supabase/sql/008_payment_update_integrity.sql — validates payment corrections/moves and recalculates both invoices when a payment changes invoice.
-- supabase/sql/009_document_save_tenant_integrity.sql — explicitly checks organization membership and same-organization client/product references during invoice/quotation saves and quotation conversion; allows editing only draft invoices; blocks cancellation when payments exist; and restricts client execution of the internal invoice-refresh helper.
+The client document workflow is described in [CLIENT_DOCUMENT_WORKFLOW_SETUP.md](supabase/CLIENT_DOCUMENT_WORKFLOW_SETUP.md). The optional reminder workflow is described in [GMAIL-REMINDERS-SETUP.md](GMAIL-REMINDERS-SETUP.md).
 
-For an existing, already-migrated project, review and apply migrations in dependency order: 004, 005, 006, 008, then 009 as appropriate. Migration 007 is read-only and can be run for diagnosis. The migrations are not proof that the live database has been updated; confirm the current schema first, back up important data, and test payment/document workflows with disposable records. The SQL feature migrations do not create the complete core schema.
+## Quality checks
 
-## Client document emails and quotation response
+Run the checks before publishing:
 
-The document workflow Edge Function is in supabase/functions/quotation-workflow/index.ts. It calls Google Apps Script MailApp through the bridge in supabase/GOOGLE_APPS_SCRIPT_EMAIL_BRIDGE.gs. Configure that bridge in your existing Apps Script project without deleting reminder functions or triggers.
+```bash
+npm test
+npm run lint
+npm run build
+```
 
-After deploying the Apps Script Web App and setting its shared secret, configure these Edge Function secrets in Supabase:
-- GOOGLE_APPS_SCRIPT_URL: deployed Apps Script Web App URL ending in /exec.
-- GOOGLE_APPS_SCRIPT_SECRET: same secret as the Apps Script LEDGERFLOW_WEBHOOK_SECRET Script Property.
-- PUBLIC_APP_URL: public frontend origin, added after the frontend is deployed.
+GitHub Actions runs these checks and type-checks the Supabase Edge Functions on pushes to `main` and pull requests.
 
-Deploy the Edge Function from the project folder with: npx supabase functions deploy quotation-workflow.
+## Security notes
 
-A client email contains a secure link to view a document and print/save a PDF. It does not attach a PDF file. A drawn signature image is not a cryptographic or legally verified electronic-signature service.
+- Keep Row Level Security enabled and verify organization-scoped policies for business data.
+- Keep service-role and integration secrets in Supabase/Vercel server-side settings.
+- Back up the database before applying SQL changes.
+- Test payment, invoice, quotation and email workflows with disposable records before using them with real customers.
+- GST classification and applicable rates depend on the goods/services and HSN/SAC details. Verify them before issuing a tax invoice.
 
-## Invoice reminder system
+## Repository layout
 
-The reminder Edge Function is in supabase/functions/gmail-invoice-reminders/index.ts. Its setup and the Google Apps Script reminder runner are documented in GMAIL-REMINDERS-SETUP.md. Configure server-side cron secrets and database settings only in their respective server environments. Reminder delivery needs live end-to-end tests in the intended Supabase and Google accounts.
-
-## Security and operational notes
-
-- The client browser uses only the Supabase publishable/anon key. Authorization must be enforced by Supabase RLS and Edge Function membership checks.
-- Verify every table has an organization-scoped policy before loading or writing business records.
-- Do not commit .env, API keys, service-role keys, Apps Script shared secrets, or cron secrets.
-- Database migrations and remote settings must be applied separately; updating GitHub main does not automatically update Supabase.
-- GST classification and rates depend on the supplied goods/services and HSN/SAC classification. Verify the applicable rate before issuing a tax invoice.
-- CI runs lint/build and Edge Function type-checks. Live database, email delivery, and browser workflows still require separate integration tests.
+- `src/` — React application and shared modules
+- `supabase/sql/` — database baseline, migrations and verification scripts
+- `supabase/functions/` — Supabase Edge Functions
+- `google-apps-script/` — Apps Script reminder integration
+- `tests/` — regression tests
+- `scripts/verify.ps1` — Windows PowerShell verification helper
