@@ -458,62 +458,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
   }
 
-  if (action === "manage_order") {
-    const authorization = req.headers.get("authorization") || "";
-    const publishableKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
-    if (!authorization || !publishableKey) return respondJson({ error: "Sign in to manage sales orders." }, 401);
-
-    const caller = createClient(supabaseUrl, publishableKey, {
-      global: { headers: { Authorization: authorization } },
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { data: userData, error: authError } = await caller.auth.getUser();
-    const user = userData?.user;
-    if (authError || !user) return respondJson({ error: "Your session is invalid. Sign in again." }, 401);
-
-    const orgId = String(body?.orgId || "");
-    const orderId = String(body?.orderId || "");
-    const orderAction = String(body?.orderAction || "");
-    const allowedActions = new Set([
-      "confirm_stock", "mark_advance_paid", "start_packing", "mark_packed",
-      "dispatch", "cancel_order", "generate_invoice",
-    ]);
-    if (!/^[0-9a-f-]{36}$/i.test(orgId) || !/^[0-9a-f-]{36}$/i.test(orderId) ||
-        !allowedActions.has(orderAction)) {
-      return respondJson({ error: "Invalid sales-order request." }, 400);
-    }
-
-    // Never trust a client-supplied role or org ID. Verify the current user's
-    // membership before using the server-only function that performs mutations.
-    const { data: membership, error: memberError } = await admin.from("org_members")
-      .select("role").eq("org_id", orgId).eq("user_id", user.id).maybeSingle();
-    if (memberError || !membership || !["owner", "admin"].includes(String(membership.role || "").toLowerCase())) {
-      return respondJson({ error: "Only business owners or admins can manage sales orders." }, 403);
-    }
-
-    const carrier = String(body?.carrier || "").trim().slice(0, 120);
-    const trackingNumber = String(body?.trackingNumber || "").trim().slice(0, 180);
-    const trackingUrl = String(body?.trackingUrl || "").trim().slice(0, 2000);
-    if (trackingUrl && !/^https:\/\/[^\s]+$/i.test(trackingUrl)) {
-      return respondJson({ error: "Tracking URL must be a valid HTTPS URL." }, 400);
-    }
-
-    const { data: result, error: actionError } = await admin.rpc("manage_sales_order_action", {
-      p_org_id: orgId,
-      p_order_id: orderId,
-      p_action: orderAction,
-      p_carrier: carrier || null,
-      p_tracking_number: trackingNumber || null,
-      p_tracking_url: trackingUrl || null,
-    });
-    if (actionError) {
-      console.error("Sales-order action failed:", actionError.message);
-      return respondJson({ error: actionError.message || "Sales-order action failed." }, 400);
-    }
-    if (!result?.success) return respondJson({ error: "The sales-order action was not confirmed." }, 500);
-    return respondJson(result);
-  }
-
   if (action === "get_signature") {
     const authorization = req.headers.get("authorization") || "";
     const publishableKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
@@ -723,13 +667,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .eq("id", orgId)
       .maybeSingle();
     const companyName = organization.data?.name || organization.data?.legal_name || "Your supplier";
-    let linkedSalesOrder: any = null;
-    if (documentType === "invoice" && record.sales_order_id) {
-      const { data: linkedOrder } = await admin.from("sales_orders")
-        .select("order_number,carrier,tracking_number,tracking_url")
-        .eq("id", record.sales_order_id).eq("org_id", orgId).maybeSingle();
-      linkedSalesOrder = linkedOrder;
-    }
     const paymentDetails = [
       organization.data?.bank_name ? "Bank: " + organization.data.bank_name : "",
       organization.data?.bank_account_holder ? "Account holder: " + organization.data.bank_account_holder : "",
@@ -739,21 +676,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
     ].filter(Boolean);
     const paymentHtml = documentType === "invoice"
       ? "<h3>Payment details</h3>" + (paymentDetails.length ? "<ul>" + paymentDetails.map((item) => "<li>" + escapeHtml(item) + "</li>").join("") + "</ul>" : "<p>Payment details are not configured. Please contact the business before paying.</p>")
-      : "";
-    const safeTrackingUrl = /^https:\/\//i.test(String(linkedSalesOrder?.tracking_url || ""))
-      ? String(linkedSalesOrder.tracking_url)
-      : "";
-    const trackingText = linkedSalesOrder
-      ? "Sales order: " + linkedSalesOrder.order_number +
-        (linkedSalesOrder.carrier ? "\nCarrier: " + linkedSalesOrder.carrier : "") +
-        (linkedSalesOrder.tracking_number ? "\nTracking number: " + linkedSalesOrder.tracking_number : "") +
-        (safeTrackingUrl ? "\nTrack shipment: " + safeTrackingUrl : "")
-      : "";
-    const trackingHtml = linkedSalesOrder
-      ? "<p><strong>Sales order:</strong> " + escapeHtml(linkedSalesOrder.order_number) +
-        (linkedSalesOrder.carrier ? "<br><strong>Carrier:</strong> " + escapeHtml(linkedSalesOrder.carrier) : "") +
-        (linkedSalesOrder.tracking_number ? "<br><strong>Tracking number:</strong> " + escapeHtml(linkedSalesOrder.tracking_number) : "") +
-        (safeTrackingUrl ? "<br><a href=\"" + escapeHtml(safeTrackingUrl) + "\">Track shipment</a>" : "") + "</p>"
       : "";
     const documentNumber = documentType === "invoice" ? (record.invoice_number || "invoice") : (record.quote_number || "quotation");
     const itemsKey = documentType === "invoice" ? "invoice_items" : "quotation_items";
@@ -778,13 +700,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
       "<div style=\"border:1px solid #E2E8F0;padding:24px;border-radius:0 0 10px 10px\"><p>Hello " + escapeHtml(titleCase(client.name || "there")) + ",</p><p>" +
       intro + "</p><table style=\"width:100%;border-collapse:collapse;font-size:13px\"><thead><tr><th style=\"text-align:left;padding:8px;background:#EFF6FF\">Item</th><th style=\"text-align:right;padding:8px;background:#EFF6FF\">Qty</th><th style=\"text-align:right;padding:8px;background:#EFF6FF\">Amount</th></tr></thead><tbody>" +
       itemRows + "</tbody></table><p style=\"text-align:right;font-size:18px;font-weight:700\">Total: " + amountText + "</p>" +
-      trackingHtml + paymentHtml +
+      paymentHtml +
       "<p style=\"margin:24px 0\"><a href=\"" + escapeHtml(link) + "\" style=\"display:inline-block;background:#2563EB;color:white;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:7px\">View " + escapeHtml(title) + (documentType === "quotation" ? " & Respond" : " & Download PDF") + "</a></p>" +
       "<p style=\"color:#64748B;font-size:12px\">This secure link may expire. If you need help, reply to this email.</p>" +
       "<p>Regards,<br>" + escapeHtml(companyName) + "</p>" +
       "<p style=\"color:#64748B;font-size:11px\">This message was sent using LedgerFlow on behalf of " + escapeHtml(companyName) + ".</p></div></div>";
     const textBody = "Hello " + (client.name || "there") + ",\n\n" + intro + "\n" + title + ": " + documentNumber + "\nTotal: " + amountText +
-      "\n" + trackingText + "\n" +
       (documentType === "invoice" ? "Payment details:\n" + (paymentDetails.join("\n") || "Not configured; contact the business before paying.") + "\n" : "") +
       "\nOpen: " + link + "\n\nThis message was sent using LedgerFlow on behalf of " + companyName + "."
 
@@ -868,116 +789,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
         return respondJson({ error: "The quotation has expired. Contact the sender for an updated quotation." }, 409);
       }
 
-      let responseTime = new Date().toISOString();
-      let salesOrderId: string | null = null;
-      let salesOrderNumber: string | null = null;
-      let orderStatus = "";
-      let stockStatus = "";
-      let paymentType = "";
+      const responseTime = new Date().toISOString();
+      const { data: claimedToken, error: claimError } = await admin.from("document_share_tokens")
+        .update({ response_status: decision, responded_at: responseTime })
+        .eq("id", tokenRow.id).is("responded_at", null).select("id").maybeSingle();
+      if (claimError || !claimedToken) return respondJson({ error: "A response has already been recorded." }, 409);
 
-      if (decision === "accepted") {
-        // Acceptance creates a sales order and reserves available stock. Tax invoicing
-        // is deferred until an owner dispatches the order.
-        const { data: orderResult, error: orderError } = await admin.rpc(
-          "accept_quotation_create_sales_order",
-          { p_token_id: tokenRow.id },
-        );
-        if (orderError || !orderResult?.success || !orderResult?.salesOrderId) {
-          console.error("Sales order creation failed:", orderError?.message || "No sales order was returned.");
-          return respondJson({
-            error: "Your acceptance could not be completed. No order was confirmed; ask the sender to retry.",
-            details: orderError?.message || "The sales-order workflow did not return an order.",
-          }, 500);
-        }
-        responseTime = new Date().toISOString();
-        salesOrderId = String(orderResult.salesOrderId);
-        salesOrderNumber = String(orderResult.salesOrderNumber || "");
-        orderStatus = String(orderResult.orderStatus || "awaiting_stock");
-        stockStatus = String(orderResult.stockStatus || "manual_check");
-        paymentType = String(orderResult.paymentType || "credit");
-      } else {
-        const { data: claimedToken, error: claimError } = await admin.from("document_share_tokens")
-          .update({ response_status: decision, responded_at: responseTime })
-          .eq("id", tokenRow.id).is("responded_at", null).select("id").maybeSingle();
-        if (claimError || !claimedToken) return respondJson({ error: "A response has already been recorded." }, 409);
-
-        const { data: updatedQuote, error: updateError } = await admin.from("quotations")
-          .update({ status: decision })
-          .eq("id", quote.id).eq("org_id", tokenRow.org_id).eq("status", "sent")
-          .select("id").maybeSingle();
-        if (updateError || !updatedQuote) {
-          await admin.from("document_share_tokens")
-            .update({ response_status: null, responded_at: null })
-            .eq("id", tokenRow.id).eq("response_status", decision);
-          return respondJson({ error: "This quotation was updated elsewhere. Refresh the page to see the latest status." }, 409);
-        }
-      }
-
-      // Send order confirmation after acceptance. No tax invoice or payment request
-      // is sent until fulfillment reaches the dispatch stage.
-      let orderConfirmationEmailSent = false;
-      let orderConfirmationEmailError = "";
-      let orderConfirmationRecipient = "";
-      if (decision === "accepted" && salesOrderId && salesOrderNumber) {
-        try {
-          const { data: company } = await admin.from("organizations")
-            .select("name,legal_name,email")
-            .eq("id", tokenRow.org_id)
-            .maybeSingle();
-          const companyName = company?.name || company?.legal_name || "Your supplier";
-          const recipient = String(tokenRow.recipient_email || quote.clients?.email || "").trim();
-          orderConfirmationRecipient = recipient;
-          if (!validEmail(recipient)) {
-            orderConfirmationEmailError = "The client record does not contain a valid email address.";
-          } else {
-            const quoteNumber = String(quote.quote_number || quote.id);
-            const items = (quote.quotation_items || []).map((item: any) =>
-              "• " + String(item.description || "Item") + " × " + String(item.quantity || 0)
-            ).join("\n");
-            const stockMessage = stockStatus === "reserved"
-              ? "Available stock has been reserved for your order."
-              : stockStatus === "backorder"
-                ? "The order is confirmed; the business is checking availability or restocking before dispatch."
-                : "The business will check stock availability before dispatch.";
-            const advanceMessage = paymentType === "advance"
-              ? "\nThe agreed terms require advance payment. The business will send payment instructions separately."
-              : "";
-            const subject = "Order confirmed " + salesOrderNumber + " — quotation " + quoteNumber;
-            const bodyText = "Hello " + String(quote.clients?.name || "there") + ",\n\n" +
-              "Thank you. We recorded your acceptance of quotation " + quoteNumber + ".\n" +
-              "Sales order: " + salesOrderNumber + "\nStatus: " + titleCase(orderStatus) + "\n\n" +
-              (items ? "Items:\n" + items + "\n\n" : "") +
-              stockMessage + advanceMessage + "\n\n" +
-              "No tax invoice has been issued at this stage. The business will generate and send the tax invoice once the order is packed and dispatched.\n\n" +
-              "Regards,\n" + companyName + "\n\nSent using LedgerFlow on behalf of " + companyName + ".";
-            const linkBase = (String(Deno.env.get("PUBLIC_APP_URL") || "https://ledgerflowhq.vercel.app").replace(/\/+$/, ""));
-            const link = linkBase + "/client-document?token=" + encodeURIComponent(rawToken);
-            const bodyHtml = "<div style=\"font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#0F172A\">" +
-              "<div style=\"background:#2563EB;color:#fff;padding:20px 24px;border-radius:10px 10px 0 0\"><strong style=\"font-size:20px\">" +
-              escapeHtml(companyName) + "</strong><div style=\"font-size:12px;margin-top:6px\">Order confirmation</div></div>" +
-              "<div style=\"border:1px solid #E2E8F0;padding:24px;border-radius:0 0 10px 10px\"><p>Hello " + escapeHtml(titleCase(quote.clients?.name || "there")) + ",</p>" +
-              "<p>Thank you. We recorded your acceptance of quotation <strong>" + escapeHtml(quoteNumber) + "</strong>.</p>" +
-              "<p style=\"font-size:18px\"><strong>Sales order " + escapeHtml(salesOrderNumber) + "</strong></p>" +
-              "<p>Status: " + escapeHtml(titleCase(orderStatus)) + " — " + escapeHtml(stockMessage) + "</p><ul>" +
-              (quote.quotation_items || []).map((item: any) => "<li>" + escapeHtml(titleCase(item.description || "Item")) + " × " + escapeHtml(item.quantity || 0) + "</li>").join("") +
-              "</ul>" +
-              (paymentType === "advance" ? "<p>The agreed terms require advance payment. The business will send payment instructions separately.</p>" : "") +
-              "<p>No tax invoice has been issued yet. The tax invoice will be generated and sent after packing and dispatch.</p>" +
-              "<p style=\"margin:24px 0\"><a href=\"" + escapeHtml(link) + "\" style=\"display:inline-block;background:#2563EB;color:#fff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:7px\">View accepted quotation</a></p>" +
-              "<p>Regards,<br>" + escapeHtml(companyName) + "</p><p style=\"font-size:11px;color:#64748B\">Sent using LedgerFlow on behalf of " + escapeHtml(companyName) + ".</p></div></div>";
-            const emailPayload: Record<string, unknown> = {
-              to: recipient, subject, body: bodyText, htmlBody: bodyHtml,
-              senderName: "LedgerFlow | " + companyName,
-            };
-            if (validEmail(company?.email)) emailPayload.replyTo = company.email;
-            const mailResult = await sendWithPreferredProvider(emailPayload);
-            orderConfirmationEmailSent = mailResult.ok;
-            if (!mailResult.ok) orderConfirmationEmailError = mailResult.details || "The email provider did not accept the order confirmation.";
-          }
-        } catch (orderEmailError) {
-          orderConfirmationEmailError = orderEmailError instanceof Error ? orderEmailError.message : "Order confirmation email failed.";
-          console.error("Order confirmation email failed:", orderConfirmationEmailError);
-        }
+      const { data: updatedQuote, error: updateError } = await admin.from("quotations")
+        .update({ status: decision })
+        .eq("id", quote.id).eq("org_id", tokenRow.org_id).eq("status", "sent")
+        .select("id").maybeSingle();
+      if (updateError || !updatedQuote) {
+        await admin.from("document_share_tokens")
+          .update({ response_status: null, responded_at: null })
+          .eq("id", tokenRow.id).eq("response_status", decision);
+        return respondJson({ error: "This quotation was updated elsewhere. Refresh the page to see the latest status." }, 409);
       }
 
       // Notify the business contact after the decision is committed. A failed notification
@@ -994,10 +820,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
           const quoteNumber = quote.quote_number || quote.id;
           const accepted = decision === "accepted";
           const subject = decision === "accepted"
-            ? `Quotation ${quoteNumber} accepted — sales order ${salesOrderNumber || ""}`
+            ? `Quotation ${quoteNumber} accepted`
             : `Quotation ${quoteNumber} was rejected`;
           const message = decision === "accepted"
-            ? "The client " + (quote.clients?.name || "customer") + " accepted quotation " + quoteNumber + ". Sales order " + (salesOrderNumber || "") + " is now " + titleCase(orderStatus) + "."
+            ? "The client " + (quote.clients?.name || "customer") + " accepted quotation " + quoteNumber + " from " + businessName + "."
             : "The client " + (quote.clients?.name || "customer") + " rejected quotation " + quoteNumber + " from " + businessName + ".";
           const mailResult = await sendWithPreferredProvider({
             to: ownerEmail,
@@ -1018,15 +844,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
         responseStatus: decision,
         respondedAt: responseTime,
         ownerNotified,
-        salesOrderCreated: decision === "accepted" && Boolean(salesOrderId),
-        salesOrderId,
-        salesOrderNumber,
-        orderStatus,
-        stockStatus,
-        paymentType,
-        orderConfirmationEmailSent,
-        orderConfirmationRecipient,
-        orderConfirmationEmailError: orderConfirmationEmailError || undefined,
       });
     }
 
@@ -1058,29 +875,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
       signatureData: signatureRow?.signature_data || "",
     };
 
-    let linkedInvoiceId: string | null = null;
-    let publicSalesOrder: any = null;
-    if (tokenRow.document_type === "quotation") {
-      const { data: linkedOrder } = await admin.from("sales_orders")
-        .select("id,order_number,status,stock_status,payment_type,payment_terms,advance_paid,carrier,tracking_number,tracking_url")
-        .eq("org_id", tokenRow.org_id)
-        .eq("quotation_id", record.id)
-        .maybeSingle();
-      if (linkedOrder) {
-        publicSalesOrder = linkedOrder;
-        const { data: linkedInvoice } = await admin.from("invoices")
-          .select("id,invoice_number,status")
-          .eq("org_id", tokenRow.org_id)
-          .eq("sales_order_id", linkedOrder.id)
-          .maybeSingle();
-        if (linkedInvoice) {
-          linkedInvoiceId = String(linkedInvoice.id);
-          publicSalesOrder.invoiceNumber = linkedInvoice.invoice_number;
-          publicSalesOrder.invoiceStatus = linkedInvoice.status;
-        }
-      }
-    }
-
     return respondJson({
       documentType: tokenRow.document_type,
       document: publicDocument,
@@ -1101,9 +895,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
         default_payment_terms_days: organization.default_payment_terms_days || 15,
       },
       responseStatus: tokenRow.response_status || "",
-      salesOrder: publicSalesOrder,
-      invoiceGenerated: Boolean(linkedInvoiceId),
-      invoiceId: linkedInvoiceId,
     });
   }
 
