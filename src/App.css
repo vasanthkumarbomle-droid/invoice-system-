@@ -1144,61 +1144,6 @@ a:hover {
 }
 
 /* ==========================================================================
-   BARCODE SCANNER VIEWPORT
-   ========================================================================== */
-
-.lf-scanner-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
-
-.lf-scanner-frame {
-  width: 100%;
-  max-width: 440px;
-  height: 280px;
-  background-color: #1A1F1C;
-  border-radius: var(--lf-radius-lg);
-  overflow: hidden;
-  position: relative;
-  border: 2px dashed var(--lf-brand-subtle);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-#ledgerflow-barcode-reader {
-  width: 100% !important;
-  height: 100% !important;
-}
-
-#ledgerflow-barcode-reader video {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: contain !important;
-  background: #111827;
-}
-
-.lf-scanner-laser {
-  position: absolute;
-  top: 15%;
-  left: 10%;
-  right: 10%;
-  height: 2px;
-  background-color: var(--lf-highlight);
-  box-shadow: 0 0 10px 2px rgba(214, 139, 69, 0.8);
-  animation: lf-laser-scan 2.2s infinite ease-in-out alternate;
-  pointer-events: none;
-  z-index: 10;
-}
-
-@keyframes lf-laser-scan {
-  0% { top: 15%; }
-  100% { top: 85%; }
-}
-
-/* ==========================================================================
    TOAST NOTIFICATIONS
    ========================================================================== */
 
