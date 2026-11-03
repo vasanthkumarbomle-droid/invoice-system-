@@ -347,13 +347,10 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
 
   const loadProducts = useCallback(async () => {
     try {
-      const [rows, reservedByProduct] = await Promise.all([
-        db.listProducts(org.id),
-        db.listReservedProductQuantities(org.id),
-      ])
+      const rows = await db.listProducts(org.id)
       setProducts(rows.map((r) => {
         const stock = Number(r.stock_qty) || 0
-        const reservedStock = Number(reservedByProduct[r.id]) || 0
+        const reservedStock = 0
         return {
           id: r.id,
           name: r.name,
@@ -372,7 +369,7 @@ const [companyProfile, setCompanyProfile] = useState(() => ({
         }
       }))
     } catch (e) {
-      console.error('Failed to load products and reservations:', e)
+      console.error('Failed to load products:', e)
     }
   }, [org.id, companyProfile.defaultGstRate])
 
