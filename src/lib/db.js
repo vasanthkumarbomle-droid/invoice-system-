@@ -102,40 +102,6 @@ export const convertQuotationToInvoice = (quoteId, dueDate = null) =>
     p_due_date: dueDate,
   }).then(must)
 
-// Reservations are operational stock, so every page must be included in this calculation.
-export const listReservedProductQuantities = async (orgId) => {
-  const rows = await fetchAllPages(() => supabase.from('sales_order_items')
-    .select('product_id,reserved_qty,sales_order_id')
-    .eq('org_id', orgId)
-    .gt('reserved_qty', 0)
-    .not('product_id', 'is', null)
-    .order('sales_order_id', { ascending: true })
-    .order('id', { ascending: true }))
-
-  if (!rows.length) return {}
-  const orderIds = [...new Set(rows.map((row) => row.sales_order_id).filter(Boolean))]
-  const activeOrders = []
-  // Keep each ID filter bounded for large organizations.
-  for (let offset = 0; offset < orderIds.length; offset += 250) {
-    const idChunk = orderIds.slice(offset, offset + 250)
-    const page = await supabase.from('sales_orders')
-      .select('id')
-      .eq('org_id', orgId)
-      .in('id', idChunk)
-      .in('status', ['reserved', 'packing', 'packed', 'dispatched'])
-      .is('stock_deducted_at', null)
-      .then(must)
-    activeOrders.push(...page)
-  }
-  const activeIds = new Set(activeOrders.map((row) => row.id))
-  const totals = {}
-  for (const row of rows) {
-    if (!activeIds.has(row.sales_order_id) || !row.product_id) continue
-    totals[row.product_id] = (totals[row.product_id] || 0) + (Number(row.reserved_qty) || 0)
-  }
-  return totals
-}
-
 export const saveDocumentSignature = async (orgId, documentType, documentId, signatureData) => {
   const { data, error } = await supabase.functions.invoke('quotation-workflow', {
     body: { action: 'save_signature', orgId, documentType, documentId, signatureData },
